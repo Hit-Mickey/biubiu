@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { ReactComponent as LogoIcon } from "@/assets/icons/logo.svg";
+import { appName } from "@shared/app";
 
 const isMac = window.electron?.getPlatform() === "macos";
 
@@ -34,7 +35,7 @@ const Logo = ({ isCollapsed }: LogoProps) => {
       >
         <div className="window-no-drag flex flex-1 items-center space-x-2">
           <LogoIcon className="h-10 w-10" />
-          {!isCollapsed && <span className="text-2xl leading-none font-bold">Biu</span>}
+          {!isCollapsed && <span className="text-2xl leading-none font-bold">{appName}</span>}
         </div>
       </div>
     </>

@@ -42,7 +42,9 @@ export function registerWindowHandlers({ getMainWindow }) {
       mainWindow?.show();
     } else {
       mainWindow?.hide();
-      createMiniPlayer();
+      createMiniPlayer(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel.window.miniClosed);
+      });
     }
   });
 

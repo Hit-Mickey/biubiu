@@ -5,6 +5,7 @@ import isDev from "electron-is-dev";
 import log from "electron-log";
 import path from "node:path";
 
+import { appName } from "@shared/app";
 import { ELECTRON_ICON_BASE_PATH } from "@shared/path";
 
 import { channel } from "../ipc/channel";
@@ -51,7 +52,7 @@ function createTray({ getMainWindow, onExit }: Props) {
   }
 
   tray = new Tray(icon);
-  tray.setToolTip("Biu");
+  tray.setToolTip(appName);
 
   const sendPlayerCommand = (channel: string, errorContext: string) => {
     return () => {

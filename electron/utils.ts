@@ -1,18 +1,35 @@
 import { app } from "electron";
 import isDev from "electron-is-dev";
-import log from "electron-log";
-import ffmpeg from "fluent-ffmpeg";
-import fs from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
+import { appName } from "@shared/app";
 import { ELECTRON_ICON_BASE_PATH } from "@shared/path";
-
-import { appSettingsStore } from "./store";
+import { StoreNameMap } from "@shared/store";
 
 export const IconBase = isDev ? process.cwd() : process.resourcesPath;
 
+let userDataPath: string | undefined;
+
 export const getUserDataPath = () => {
-  return isDev ? path.join(app.getPath("appData"), `biu-dev`) : app.getPath("userData");
+  if (userDataPath) return userDataPath;
+
+  const appData = app.getPath("appData");
+  const defaultPath = app.getPath("userData");
+  const preferredPath = isDev ? path.join(appData, `${appName}-dev`) : defaultPath;
+  const legacyNames = isDev ? ["biu-dev"] : ["Biu", "biu"];
+  const hasSettings = (dir: string) => existsSync(path.join(dir, `${StoreNameMap.AppSettings}.json`));
+
+  // Keep existing settings, browser storage and encrypted credentials together after renaming.
+  userDataPath = hasSettings(preferredPath)
+    ? preferredPath
+    : (legacyNames.map(name => path.join(appData, name)).find(hasSettings) ?? preferredPath);
+
+  if (userDataPath !== defaultPath) {
+    app.setPath("userData", userDataPath);
+    app.setPath("sessionData", userDataPath);
+  }
+  return userDataPath;
 };
 
 export const getWindowIcon = () =>
@@ -23,62 +40,6 @@ export const getWindowIcon = () =>
         ELECTRON_ICON_BASE_PATH,
         process.platform === "win32" ? (isDev ? "dev.ico" : "logo.ico") : "logo.png",
       );
-
-export const fixFfmpegPath = () => {
-  try {
-    const settings = appSettingsStore.get("appSettings");
-    if (settings?.ffmpegPath && fs.existsSync(settings.ffmpegPath)) {
-      log.info(`Found user configured ffmpeg at ${settings.ffmpegPath}`);
-      ffmpeg.setFfmpegPath(settings.ffmpegPath);
-      return;
-    }
-  } catch (err) {
-    log.error("Error reading ffmpeg path from settings:", err);
-  }
-
-  if (process.platform === "darwin" || process.platform === "linux") {
-    const paths = ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg", "/snap/bin/ffmpeg"];
-    for (const p of paths) {
-      if (fs.existsSync(p)) {
-        log.info(`Found ffmpeg at ${p}`);
-        ffmpeg.setFfmpegPath(p);
-        return;
-      }
-    }
-  }
-
-  const getFfmpegName = () => {
-    switch (process.platform) {
-      case "win32":
-        return "ffmpeg.exe";
-      case "darwin":
-        return process.arch === "arm64" ? "ffmpeg-mac-arm64" : "ffmpeg-mac-x64";
-      case "linux":
-        return "ffmpeg-linux";
-      default:
-        return "ffmpeg";
-    }
-  };
-
-  const localFfmpegPath = path.join(
-    isDev ? process.cwd() : process.resourcesPath,
-    "electron",
-    "ffmpeg",
-    getFfmpegName(),
-  );
-
-  if (fs.existsSync(localFfmpegPath)) {
-    if (process.platform !== "win32") {
-      try {
-        fs.chmodSync(localFfmpegPath, "755");
-      } catch (err) {
-        log.error(`Failed to chmod ffmpeg at ${localFfmpegPath}`, err);
-      }
-    }
-    ffmpeg.setFfmpegPath(localFfmpegPath);
-    return;
-  }
-};
 
 const entities = {
   amp: "&",

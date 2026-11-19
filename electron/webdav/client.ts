@@ -1,4 +1,4 @@
-import { DOMParser, type Element } from "@xmldom/xmldom";
+import type { Element } from "@xmldom/xmldom";
 
 const audioTypes = new Map([
   ["mp3", "audio/mpeg"],
@@ -92,7 +92,8 @@ export function resolveWebDavDirectory(base: URL, directory: string) {
   return pathname ? `${base.pathname}${pathname}/` : base.pathname;
 }
 
-function parseMultiStatus(xml: string) {
+async function parseMultiStatus(xml: string) {
+  const { DOMParser } = await import("@xmldom/xmldom");
   const invalid = "WebDAV 返回了无效的目录数据";
   if (/<!DOCTYPE\b/i.test(xml)) throw new Error(invalid);
   let root: Element | null;
@@ -134,13 +135,13 @@ function parseDate(value?: string) {
   return Number.isFinite(time) ? time : undefined;
 }
 
-function getDirectoryFiles(xml: string, base: URL, directory: string, responseUrl: string) {
+async function getDirectoryFiles(xml: string, base: URL, directory: string, responseUrl: string) {
   const found = new Map<string, DavFile>();
   const location = new URL(responseUrl || directory, base);
   const canonicalLocation = `/${encodePath(location.pathname)}`.replace(/\/?$/, "/");
   // A reverse proxy may strip the WebDAV mount path from absolute hrefs.
   const prefixes = [canonicalLocation, directory, `/${directory.slice(base.pathname.length)}`];
-  for (const { href, props, status } of parseMultiStatus(xml)) {
+  for (const { href, props, status } of await parseMultiStatus(xml)) {
     let pathname: string;
     let trailingSlash: boolean;
     try {

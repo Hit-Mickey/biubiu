@@ -3,14 +3,16 @@ import isDev from "electron-is-dev";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { appName } from "@shared/app";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let miniPlayer: BrowserWindow | null = null;
 
-const createMiniPlayer = () => {
+const createMiniPlayer = (onClosed: () => void) => {
   miniPlayer = new BrowserWindow({
-    title: "Biu Mini Player",
+    title: `${appName} Mini Player`,
     show: true,
     hasShadow: true,
     width: 320,
@@ -31,6 +33,11 @@ const createMiniPlayer = () => {
       nodeIntegration: false,
       devTools: isDev,
     },
+  });
+
+  miniPlayer.once("closed", () => {
+    miniPlayer = null;
+    onClosed();
   });
 
   miniPlayer.webContents.setWindowOpenHandler(() => {
@@ -58,8 +65,8 @@ const createMiniPlayer = () => {
     });
   }
 
-  const indexPath = path.resolve(__dirname, "../dist/web/index.html");
-  miniPlayer.loadFile(indexPath, { hash: "mini-player" });
+  const indexPath = path.resolve(__dirname, "../dist/web/mini.html");
+  void miniPlayer.loadFile(indexPath, { hash: "mini-player" });
 };
 
 const destroyMiniPlayer = () => {

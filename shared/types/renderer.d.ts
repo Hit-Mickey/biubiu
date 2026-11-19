@@ -82,6 +82,7 @@ declare global {
     quitAndInstall: () => Promise<void>;
     /** 切换 mini/主窗口 */
     toggleMiniPlayer: () => Promise<void>;
+    onMiniPlayerClosed: (listener: VoidFunction) => VoidFunction;
     /** 最小化窗口 */
     minimizeWindow: () => void;
     /** 最大化/还原窗口 */

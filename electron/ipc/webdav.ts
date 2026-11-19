@@ -14,7 +14,6 @@ import {
   removeWebDavTracks,
   saveWebDavList,
   setWebDavPreferences,
-  startWebDavSync,
   testWebDavList,
   webDavLibraryEvents,
 } from "../webdav/library";
@@ -38,5 +37,4 @@ export function registerWebDavHandlers({ getMainWindow }: IpcHandlerProps) {
     const window = getMainWindow();
     if (window && !window.isDestroyed()) window.webContents.send(dav.changed, removed);
   });
-  startWebDavSync();
 }

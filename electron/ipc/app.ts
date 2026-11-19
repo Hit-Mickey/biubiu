@@ -2,7 +2,7 @@ import { app, ipcMain, session } from "electron";
 import isDev from "electron-is-dev";
 import log from "electron-log";
 
-import { autoUpdater } from "../updater";
+import { checkForAppUpdates, getAutoUpdater } from "../updater";
 import { channel } from "./channel";
 
 export const applyProxySettings = async (proxySettings?: ProxySettings) => {
@@ -43,19 +43,7 @@ export function registerAppHandlers() {
 
   ipcMain.handle(channel.app.checkUpdate, async (): Promise<CheckAppUpdateResult> => {
     try {
-      const res = await autoUpdater.checkForUpdates();
-
-      if (res?.isUpdateAvailable) {
-        return {
-          isUpdateAvailable: res?.isUpdateAvailable,
-          latestVersion: res?.updateInfo?.version as string,
-          releaseNotes: res?.updateInfo?.releaseNotes as string,
-        };
-      }
-
-      return {
-        isUpdateAvailable: false,
-      };
+      return await checkForAppUpdates();
     } catch (error) {
       return {
         isUpdateAvailable: false,
@@ -65,11 +53,11 @@ export function registerAppHandlers() {
   });
 
   ipcMain.handle(channel.app.downloadUpdate, async () => {
-    await autoUpdater.downloadUpdate();
+    await (await getAutoUpdater()).downloadUpdate();
   });
 
   ipcMain.handle(channel.app.quitAndInstall, async () => {
-    return autoUpdater.quitAndInstall();
+    (await getAutoUpdater()).quitAndInstall();
   });
 
   ipcMain.handle(channel.app.isDev, async () => {

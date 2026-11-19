@@ -1,21 +1,23 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 
 import Layout from "./layout";
-import DownloadList from "./pages/download-list";
-import DynamicFeed from "./pages/dynamic-feed";
 import EmptyPage from "./pages/empty";
-import FollowList from "./pages/follow-list";
-import History from "./pages/history";
-import Later from "./pages/later";
-import LocalMusicPage from "./pages/local-music";
-import MiniPlayer from "./pages/mini-player";
 import MusicRecommend from "./pages/music-recommend";
 import NotFound from "./pages/not-found";
-import RemoteMusicPage from "./pages/remote-music";
-import Search from "./pages/search";
-import Settings from "./pages/settings";
-import UserProfile from "./pages/user-profile";
-import Folder from "./pages/video-collection";
+
+const DownloadList = lazy(() => import("./pages/download-list"));
+const DynamicFeed = lazy(() => import("./pages/dynamic-feed"));
+const FollowList = lazy(() => import("./pages/follow-list"));
+const History = lazy(() => import("./pages/history"));
+const Later = lazy(() => import("./pages/later"));
+const LocalMusicPage = lazy(() => import("./pages/local-music"));
+const MiniPlayer = lazy(() => import("./pages/mini-player"));
+const RemoteMusicPage = lazy(() => import("./pages/remote-music"));
+const Search = lazy(() => import("./pages/search"));
+const Settings = lazy(() => import("./pages/settings"));
+const UserProfile = lazy(() => import("./pages/user-profile"));
+const Folder = lazy(() => import("./pages/video-collection"));
 
 const routes: RouteObject[] = [
   {

@@ -24,6 +24,11 @@ const UpdateCheckButton = () => {
         description: res.error,
         color: "danger",
       });
+    } else if (res?.noPublishedReleases) {
+      addToast({
+        title: "GitHub 暂无已发布版本",
+        color: "default",
+      });
     } else if (res?.isUpdateAvailable) {
       onOpenReleaseNoteModal();
     } else {

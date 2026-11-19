@@ -1,22 +1,26 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 
 import { Button, useDisclosure } from "@heroui/react";
 import { RiArrowLeftDoubleLine, RiArrowRightDoubleLine } from "@remixicon/react";
 import clx from "classnames";
 
-import FavoritesEditModal from "@/components/favorites-edit-modal";
+import LoadOnOpen from "@/components/load-on-open";
 import ScrollContainer from "@/components/scroll-container";
 import { useSettings } from "@/store/settings";
+import { useUser } from "@/store/user";
 
-import Collection from "./collection";
 import DefaultMenus from "./default-menu";
 import Logo from "./logo";
+
+const Collection = lazy(() => import("./collection"));
+const FavoritesEditModal = lazy(() => import("@/components/favorites-edit-modal"));
 
 const COLLAPSED_WIDTH = 72;
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
 
 const SideNav = () => {
+  const isLoggedIn = useUser(state => Boolean(state.user?.isLogin));
   const sideMenuCollapsed = useSettings(state => state.sideMenuCollapsed);
   const sideMenuWidth = useSettings(state => state.sideMenuWidth);
   const updateSettings = useSettings(state => state.update);
@@ -156,11 +160,15 @@ const SideNav = () => {
           })}
         >
           <DefaultMenus isCollapsed={isCollapsedVisual} onOpenAddFavorite={handleOpenAddFavorite} />
-          <Collection
-            isCollapsed={isCollapsedVisual}
-            onOpenAddFavorite={handleOpenAddFavorite}
-            onOpenEditFavorite={handleOpenEditFavorite}
-          />
+          {isLoggedIn && (
+            <Suspense fallback={null}>
+              <Collection
+                isCollapsed={isCollapsedVisual}
+                onOpenAddFavorite={handleOpenAddFavorite}
+                onOpenEditFavorite={handleOpenEditFavorite}
+              />
+            </Suspense>
+          )}
         </ScrollContainer>
         <Button
           size="sm"
@@ -177,11 +185,13 @@ const SideNav = () => {
           onMouseDown={onStartResize}
         />
       </div>
-      <FavoritesEditModal
-        mid={editingFavoriteId}
-        isOpen={isFavoritesEditModalOpen}
-        onOpenChange={handleFavoritesEditModalChange}
-      />
+      <LoadOnOpen isOpen={isFavoritesEditModalOpen}>
+        <FavoritesEditModal
+          mid={editingFavoriteId}
+          isOpen={isFavoritesEditModalOpen}
+          onOpenChange={handleFavoritesEditModalChange}
+        />
+      </LoadOnOpen>
     </>
   );
 };

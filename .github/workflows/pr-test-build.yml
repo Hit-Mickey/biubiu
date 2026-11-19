@@ -1,9 +1,12 @@
 name: PR Test Build
 
 on:
+  push:
+    branches: [master]
   pull_request:
     branches: [master]
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,6 +20,7 @@ concurrency:
 jobs:
   changes:
     name: Detect Core Changes
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       core: ${{ steps.filter.outputs.core }}
@@ -45,7 +49,7 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     needs: changes
-    if: ${{ needs.changes.outputs.core == 'true' }}
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.core == 'true') }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -75,26 +79,38 @@ jobs:
         env:
           HUSKY: 0
 
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm
+
       - name: Build
         run: pnpm build
+        env:
+          BIUBIU_BUILD_ONLY: "1"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: biu-${{ matrix.os }}
+          name: biubiu-${{ matrix.os }}
           path: |
             dist/artifacts/*.exe
+            dist/artifacts/*.blockmap
             dist/artifacts/*.yml
             dist/artifacts/*.dmg
+            dist/artifacts/*.zip
             dist/artifacts/*.AppImage
-          if-no-files-found: warn
+            dist/artifacts/*.deb
+            dist/artifacts/*.rpm
+          if-no-files-found: error
           retention-days: 5
 
   no-build:
     name: No Build (docs or non-core)
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ needs.changes.outputs.core != 'true' }}
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.core != 'true' }}
     steps:
       - run: echo "No core code changes detected; skipping build."
   build-gate:

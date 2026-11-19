@@ -1,4 +1,6 @@
-import React from "react";
+import type React from "react";
+
+import { useShortcutSettings } from "@/store/shortcuts";
 
 const isModifier = (key: string) => ["Control", "Shift", "Alt", "Meta"].includes(key);
 
@@ -21,6 +23,14 @@ export const mapKeyToElectronAccelerator = (e: KeyboardEvent | React.KeyboardEve
 
   return [...modifiers, k].join("+");
 };
+
+export function getShortcutCommand(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null;
+  if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
+  const accelerator = mapKeyToElectronAccelerator(event);
+  if (!accelerator) return;
+  return useShortcutSettings.getState().shortcuts.find(item => item.shortcut === accelerator)?.id;
+}
 
 export type ShortcutDisplayPlatform = "macos" | "windows" | "linux";
 

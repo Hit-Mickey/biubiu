@@ -1,12 +1,13 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 
 import { Card } from "@heroui/react";
 
 import { usePlayList } from "@/store/play-list";
 
 import Center from "./center";
-import Left from "./left";
 import Right from "./right";
+
+const Left = lazy(() => import("./left"));
 
 /**
  * 播放任务栏
@@ -25,7 +26,13 @@ function PlayBar() {
       shadow="sm"
       className="bg-background grid h-full grid-cols-[minmax(0,1fr)_minmax(0,3fr)_minmax(0,1fr)] px-4"
     >
-      <div className="h-full">{Boolean(playId) && <Left />}</div>
+      <div className="h-full">
+        {Boolean(playId) && (
+          <Suspense fallback={null}>
+            <Left />
+          </Suspense>
+        )}
+      </div>
       <Center />
       <Right />
     </Card>

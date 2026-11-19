@@ -12,7 +12,13 @@ import clx from "classnames";
 import { useShallow } from "zustand/react/shallow";
 
 import { getPlayModeList } from "@/common/constants/audio";
-import { createBroadcastChannel, toggleMiniMode } from "@/common/utils/mini-player";
+import {
+  createBroadcastChannel,
+  toggleMiniWindow,
+  type MiniPlayerCommand,
+  type MiniPlayerMessageFromMain,
+} from "@/common/utils/mini-player-channel";
+import { getShortcutCommand } from "@/common/utils/shortcut";
 import Image from "@/components/image";
 import { usePlayProgress } from "@/store/play-progress";
 
@@ -57,7 +63,7 @@ const MiniPlayer = () => {
   const updatePlayState = usePlayState(state => state.update);
   const bcRef = useRef<BroadcastChannel>(null);
 
-  const postMessage = (type: string, state?: any) => {
+  const postMessage = (type: MiniPlayerCommand, state?: { currentTime: number }) => {
     if (!bcRef.current) return;
     bcRef.current.postMessage({
       from: "mini",
@@ -77,10 +83,8 @@ const MiniPlayer = () => {
 
   useEffect(() => {
     bcRef.current = createBroadcastChannel();
-    postMessage("init");
-
     bcRef.current.onmessage = ev => {
-      const { from, state } = ev.data || {};
+      const { from, state } = (ev.data as MiniPlayerMessageFromMain | undefined) ?? {};
       if (from !== "main" || !state) return;
 
       updatePlayState(state);
@@ -88,10 +92,21 @@ const MiniPlayer = () => {
         setCurrentTime(state.currentTime);
       }
     };
+    postMessage("init");
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const command = getShortcutCommand(event);
+      if (!command) return;
+      event.preventDefault();
+      if (command === "toggleMiniMode") void toggleMiniWindow();
+      else if (command !== "toggleLyrics") postMessage(command);
+    };
+    window.addEventListener("keydown", onKeyDown);
 
     return () => {
-      if (!bcRef.current) return;
-      bcRef.current.close();
+      window.removeEventListener("keydown", onKeyDown);
+      bcRef.current?.close();
+      bcRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -205,7 +220,7 @@ const MiniPlayer = () => {
               size="sm"
               variant="light"
               disableAnimation
-              onPress={toggleMiniMode}
+              onPress={() => void toggleMiniWindow()}
               className="hover:text-primary window-no-drag"
             >
               <RiExpandDiagonalLine size={16} />

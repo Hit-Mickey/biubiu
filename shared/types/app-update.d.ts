@@ -7,6 +7,7 @@ interface AppUpdateReleaseInfo {
 
 interface CheckAppUpdateResult extends AppUpdateReleaseInfo {
   isUpdateAvailable?: boolean;
+  noPublishedReleases?: true;
   error?: string;
 }
 

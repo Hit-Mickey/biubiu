@@ -4,6 +4,8 @@ import log from "electron-log";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { appId, appName } from "@shared/app";
+
 import { applyProxySettings } from "./ipc/app";
 import { channel } from "./ipc/channel";
 import { quitAndSaveTasks } from "./ipc/download";
@@ -13,8 +15,9 @@ import { injectAuthCookie } from "./network/cookie";
 import { installWebRequestInterceptors } from "./network/interceptor";
 import { registerAllShortcuts, unregisterAllShortcuts } from "./shortcut";
 import { appSettingsStore } from "./store";
-import { autoUpdater, setupAutoUpdater, stopCheckForUpdates } from "./updater";
+import { setupAutoUpdater, stopCheckForUpdates } from "./updater";
 import { getWindowIcon } from "./utils";
+import { startWebDavSync } from "./webdav/library";
 import { registerWebDavProtocol, registerWebDavScheme } from "./webdav/protocol";
 import { setupWindowsThumbar } from "./windows/thumbar";
 import { createTray, destroyTray } from "./windows/tray"; // 托盘功能
@@ -24,19 +27,18 @@ const __dirname = path.dirname(__filename);
 
 log.initialize();
 registerWebDavScheme();
+if (process.platform === "win32") app.setAppUserModelId(appId);
 
 if (isDev) {
   // 为 chrome-devtools-mcp 开启远程调试端口
   app.commandLine.appendSwitch("remote-debugging-port", "");
-  // 开发环境数据隔离
-  app.setPath("userData", path.join(app.getPath("appData"), `biu-dev`));
 }
 
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    title: isDev ? "Biu-dev" : "Biu",
+    title: isDev ? `${appName}-dev` : appName,
     icon: getWindowIcon(),
     show: true,
     hasShadow: true,
@@ -78,7 +80,7 @@ function createWindow() {
   });
 
   const indexPath = path.resolve(__dirname, "../dist/web/index.html");
-  mainWindow.loadFile(indexPath);
+  void mainWindow.loadFile(indexPath);
 
   // 初始化 Windows 任务栏缩略按钮，并监听播放状态更新
   if (process.platform === "win32") {
@@ -127,6 +129,8 @@ function createWindow() {
       }
     }
   });
+
+  return mainWindow;
 }
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -145,17 +149,15 @@ if (!gotTheLock) {
     }
 
     registerWebDavProtocol();
-    createWindow();
-    injectAuthCookie();
-
     installWebRequestInterceptors();
-
     registerIpcHandlers({
       getMainWindow: () => mainWindow,
     });
-
-    setupAutoUpdater({
-      getMainWindow: () => mainWindow,
+    const window = createWindow();
+    void injectAuthCookie();
+    window.webContents.once("did-finish-load", () => {
+      startWebDavSync();
+      setupAutoUpdater(() => mainWindow);
     });
 
     registerAllShortcuts(() => mainWindow);
@@ -193,7 +195,6 @@ if (!gotTheLock) {
     destroyMiniPlayer();
 
     stopCheckForUpdates();
-    autoUpdater.removeAllListeners();
 
     unregisterAllShortcuts();
 

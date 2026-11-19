@@ -1,53 +1,22 @@
-import { addToast } from "@heroui/react";
 import { shallow } from "zustand/shallow";
-
-import type { PlayMode } from "@/common/constants/audio";
 
 import { usePlayList } from "@/store/play-list";
 import { usePlayProgress } from "@/store/play-progress";
 
-export type MiniPlayerCommandFromMini = "init" | "seek" | "togglePlayMode" | "next" | "prev" | "togglePlay";
-
-export interface MiniPlayerMainStateSnapshot {
-  isSingle: boolean;
-  isPlaying: boolean;
-  title?: string;
-  cover?: string;
-  currentTime: number;
-  duration: number;
-  playMode?: PlayMode;
-  playId?: string;
-}
-
-export interface MiniPlayerMessageFromMini {
-  from: "mini";
-  data?: {
-    type: MiniPlayerCommandFromMini;
-    state?: any;
-  };
-  ts?: number;
-}
-
-export interface MiniPlayerMessageFromMain {
-  from: "main";
-  state: MiniPlayerMainStateSnapshot;
-  ts: number;
-}
-
-export interface MiniPlayerMainSyncState {
-  isBroadcasting: boolean;
-}
+import {
+  createBroadcastChannel,
+  toggleMiniWindow,
+  type MiniPlayerMessageFromMain,
+  type MiniPlayerMessageFromMini,
+  type MiniPlayerState,
+} from "./mini-player-channel";
 
 let bc: BroadcastChannel | null = null;
 let unsubscribePlayList: VoidFunction | null = null;
 let unsubscribePlayProgress: VoidFunction | null = null;
 let isBroadcasting = false;
 
-export function createBroadcastChannel() {
-  return new BroadcastChannel("play-list-store-sync-channel");
-}
-
-function getMainStateSnapshot(): MiniPlayerMainStateSnapshot {
+function getMainStateSnapshot(): MiniPlayerState {
   const { list, isPlaying, playMode, duration, playId, getPlayItem } = usePlayList.getState();
   const currentTime = usePlayProgress.getState().currentTime;
   const playItem = getPlayItem();
@@ -104,6 +73,12 @@ function handleMessageFromMini(message: MiniPlayerMessageFromMini, channel: Broa
     }
     case "togglePlay": {
       usePlayList.getState().togglePlay();
+      break;
+    }
+    case "volumeUp":
+    case "volumeDown": {
+      const { setVolume, volume } = usePlayList.getState();
+      setVolume(type === "volumeUp" ? Math.min(1, volume + 0.05) : Math.max(0, volume - 0.05));
       break;
     }
     default: {
@@ -165,7 +140,7 @@ function startMiniPlayerMainSync() {
 /**
  * 停止主窗口 -> mini 播放器的状态同步通道。
  */
-function stopMiniPlayerMainSync() {
+export function stopMiniPlayerMainSync() {
   if (!isBroadcasting) return;
 
   unsubscribePlayList?.();
@@ -181,20 +156,6 @@ function stopMiniPlayerMainSync() {
  * 切换mini/完整播放模式
  */
 export async function toggleMiniMode() {
-  try {
-    const isMiniWindow = window.location.hash.includes("mini-player");
-
-    if (isMiniWindow) {
-      stopMiniPlayerMainSync();
-    } else {
-      startMiniPlayerMainSync();
-    }
-
-    await window.electron.toggleMiniPlayer();
-  } catch {
-    addToast({
-      title: "切换出错",
-      color: "danger",
-    });
-  }
+  startMiniPlayerMainSync();
+  if (!(await toggleMiniWindow())) stopMiniPlayerMainSync();
 }

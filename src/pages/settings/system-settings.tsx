@@ -28,6 +28,7 @@ import {
 
 import FontSelect from "@/components/font-select";
 import UpdateCheckButton from "@/components/update-check-button";
+import { formatAppVersion } from "@shared/app";
 
 import ColorSettings from "./color-settings";
 import ImportExport from "./export-import";
@@ -389,11 +390,11 @@ export const SystemSettingsTab = ({
       <h2>关于应用</h2>
       <div className="flex w-full items-center justify-between">
         <div className="mr-6 flex items-center space-x-1">
-          <span>当前版本 {appVersion}</span>
+          <span>当前版本 {formatAppVersion(appVersion)}</span>
           {isUpdateAvailable && Boolean(latestVersion) && (
             <>
               <RiArrowRightLongLine size={16} />
-              <span className="text-primary">{latestVersion}</span>
+              <span className="text-primary">{formatAppVersion(latestVersion ?? "")}</span>
             </>
           )}
         </div>

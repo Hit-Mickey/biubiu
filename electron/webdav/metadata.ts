@@ -1,4 +1,5 @@
-import { parseBuffer, parseFromTokenizer, selectCover, TimestampFormat, type IAudioMetadata } from "music-metadata";
+import type { IAudioMetadata, TimestampFormat } from "music-metadata";
+
 import { AbstractTokenizer, EndOfStreamError, type IRandomAccessFileInfo, type IReadChunkOptions } from "strtok3";
 
 import type { WebDavTrack } from "@shared/webdav";
@@ -114,9 +115,9 @@ class WebDavTokenizer extends AbstractTokenizer {
   }
 }
 
-function embeddedLyrics(metadata: IAudioMetadata) {
+function embeddedLyrics(metadata: IAudioMetadata, milliseconds: TimestampFormat) {
   for (const lyric of metadata.common.lyrics ?? []) {
-    if (lyric.timeStampFormat === TimestampFormat.milliseconds && lyric.syncText?.length) {
+    if (lyric.timeStampFormat === milliseconds && lyric.syncText?.length) {
       const lines = lyric.syncText.flatMap(({ text, timestamp }) => {
         if (timestamp === undefined || timestamp < 0) return [];
         const minutes = String(Math.floor(timestamp / 60_000)).padStart(2, "0");
@@ -138,6 +139,7 @@ function embeddedLyrics(metadata: IAudioMetadata) {
 }
 
 export async function readAudioTags(client: WebDavClient, track: StoredTrack): Promise<AudioTags> {
+  const { parseBuffer, parseFromTokenizer, selectCover, TimestampFormat } = await import("music-metadata");
   let metadata: IAudioMetadata | undefined;
   let isComplete = Boolean(track.size);
   if (track.size) {
@@ -174,7 +176,7 @@ export async function readAudioTags(client: WebDavClient, track: StoredTrack): P
       lossless: format.lossless,
     },
     cover: picture && validCover ? { bytes: picture.data, mime } : undefined,
-    lyrics: embeddedLyrics(metadata),
+    lyrics: embeddedLyrics(metadata, TimestampFormat.milliseconds),
   };
 }
 

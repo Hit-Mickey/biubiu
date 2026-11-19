@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { addToast, Spinner, Tab, Tabs } from "@heroui/react";
 import { RiPlayFill } from "@remixicon/react";
+import log from "electron-log/renderer";
 
 import AsyncButton from "@/components/async-button";
 import ScrollContainer, { type ScrollRefObject } from "@/components/scroll-container";
@@ -125,8 +126,12 @@ const MusicRecommend = () => {
     if (initialLoading || loadingMore || !hasMore) return;
     try {
       setLoadingMore(true);
-      pageRef.current += 1;
-      await fetchPage(pageRef.current);
+      const nextPage = pageRef.current + 1;
+      await fetchPage(nextPage);
+      pageRef.current = nextPage;
+    } catch (error) {
+      setHasMore(false);
+      log.warn("[recommend] 加载更多推荐失败", error instanceof Error ? error.message : String(error));
     } finally {
       setLoadingMore(false);
     }
@@ -135,9 +140,13 @@ const MusicRecommend = () => {
   const init = useCallback(async () => {
     try {
       pageRef.current = 1;
-      setHasMore(true);
+      setHasMore(false);
       setLoadingMore(false);
       await fetchPage(1);
+    } catch (error) {
+      setList([]);
+      setHasMore(false);
+      log.warn("[recommend] 加载推荐失败", error instanceof Error ? error.message : String(error));
     } finally {
       setInitialLoading(false);
     }

@@ -193,6 +193,11 @@ const api: ElectronAPI = {
   quitAndInstall: () => ipcRenderer.invoke(channel.app.quitAndInstall),
   // 切换 mini/主窗口
   toggleMiniPlayer: () => ipcRenderer.invoke(channel.window.toggleMini),
+  onMiniPlayerClosed: listener => {
+    const handler = () => listener();
+    ipcRenderer.on(channel.window.miniClosed, handler);
+    return () => ipcRenderer.removeListener(channel.window.miniClosed, handler);
+  },
   // 最小化窗口
   minimizeWindow: () => ipcRenderer.send(channel.window.minimize),
   // 最大化/还原窗口

@@ -1,23 +1,18 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useHref, useNavigate, useRoutes } from "react-router";
 
-import { HeroUIProvider, ToastProvider } from "@heroui/react";
 import moment from "moment";
 
+import AppShell from "./app-shell";
 import { getCookitFromBSite } from "./common/utils/cookie";
-import { toggleMiniMode } from "./common/utils/mini-player";
-import { mapKeyToElectronAccelerator } from "./common/utils/shortcut";
-import Theme from "./components/theme";
+import { stopMiniPlayerMainSync, toggleMiniMode } from "./common/utils/mini-player";
+import { getShortcutCommand } from "./common/utils/shortcut";
 import routes from "./routes";
 import { useAppUpdateStore } from "./store/app-update";
 import { usePlayList } from "./store/play-list";
 import { usePlayProgress } from "./store/play-progress";
-import { useShortcutSettings } from "./store/shortcuts";
 
 import "moment/locale/zh-cn";
-
-import "overlayscrollbars/overlayscrollbars.css";
-import "./app.css";
 
 moment.locale("zh-cn");
 
@@ -29,6 +24,8 @@ export function App() {
   useEffect(() => {
     getCookitFromBSite();
   }, []);
+
+  useEffect(() => window.electron.onMiniPlayerClosed(stopMiniPlayerMainSync), []);
 
   useEffect(
     () =>
@@ -97,22 +94,11 @@ export function App() {
   // 监听应用内快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 忽略在输入框中的按键
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
-        return;
-      }
-
-      const shortcut = mapKeyToElectronAccelerator(e);
-      if (!shortcut) return;
-
-      const { shortcuts } = useShortcutSettings.getState();
-      const matched = shortcuts.find(s => s.shortcut === shortcut);
-
-      if (matched) {
+      const command = getShortcutCommand(e);
+      if (command) {
         e.preventDefault();
         const { prev, next, togglePlay, setVolume, volume } = usePlayList.getState();
-        switch (matched.id) {
+        switch (command) {
           case "togglePlay":
             togglePlay();
             break;
@@ -153,7 +139,7 @@ export function App() {
     return () => {
       removeListener();
     };
-  }, []);
+  }, [setUpdate]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -171,19 +157,8 @@ export function App() {
   }, []);
 
   return (
-    <HeroUIProvider navigate={navigate} useHref={useHref} locale="zh-CN">
-      <ToastProvider
-        placement="bottom-right"
-        toastOffset={90}
-        maxVisibleToasts={3}
-        toastProps={{ timeout: 2000, color: "primary" }}
-        regionProps={{
-          classNames: {
-            base: "z-[99999]",
-          },
-        }}
-      />
-      <Theme>{routeElement}</Theme>
-    </HeroUIProvider>
+    <AppShell navigate={navigate} useHref={useHref}>
+      <Suspense fallback={null}>{routeElement}</Suspense>
+    </AppShell>
   );
 }

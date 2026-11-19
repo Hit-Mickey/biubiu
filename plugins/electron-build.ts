@@ -2,14 +2,15 @@ import { logger } from "@rsbuild/core";
 import { build as electronBuild } from "electron-builder";
 
 import pkg from "../package.json";
+import { appId, appName, updateRepository } from "../shared/app";
 import { ELECTRON_OUT_DIRNAME, ELECTRON_ICON_BASE_PATH } from "../shared/path";
 
 export async function buildElectron() {
-  await electronBuild({
-    publish: "onTag",
+  const artifacts = await electronBuild({
+    publish: process.env.BIUBIU_BUILD_ONLY === "1" ? "never" : "onTag",
     config: {
-      appId: "com.biu.wood3n",
-      productName: "Biu",
+      appId,
+      productName: appName,
       copyright: `Copyright © ${new Date().getFullYear()}`,
       nodeVersion: "current",
       buildVersion: pkg.version,
@@ -26,7 +27,12 @@ export async function buildElectron() {
         output: "dist/artifacts",
       },
       extraResources: [{ from: ELECTRON_ICON_BASE_PATH, to: ELECTRON_ICON_BASE_PATH }],
-      files: [`${ELECTRON_OUT_DIRNAME}/**`, "dist/web/**"],
+      files: [
+        `${ELECTRON_OUT_DIRNAME}/main.mjs`,
+        `${ELECTRON_OUT_DIRNAME}/preload.cjs`,
+        `${ELECTRON_OUT_DIRNAME}/chunks/**`,
+        "dist/web/**",
+      ],
       win: {
         target: [
           { target: "nsis", arch: ["x64", "arm64"] },
@@ -71,25 +77,19 @@ export async function buildElectron() {
         ],
         icon: `${ELECTRON_ICON_BASE_PATH}/logo.png`,
         category: "AudioVideo",
-        synopsis: "Biu - bilibili music desktop application",
-        maintainer: "wood3n",
-        vendor: "wood3n",
-        executableName: "Biu",
+        synopsis: pkg.description,
+        maintainer: updateRepository.owner,
+        vendor: updateRepository.owner,
+        executableName: appName,
         artifactName: "${productName}-${version}-linux-${arch}.${ext}",
         extraResources: [{ from: "electron/ffmpeg/ffmpeg-linux", to: "electron/ffmpeg/ffmpeg-linux" }],
       },
       publish: {
         provider: "github",
-        owner: "wood3n",
-        repo: "biu",
+        ...updateRepository,
         releaseType: null,
       },
     },
-  })
-    .then(result => {
-      logger.success(result);
-    })
-    .catch(error => {
-      logger.error(error);
-    });
+  });
+  logger.success(artifacts);
 }

@@ -1,6 +1,5 @@
 import { ipcMain } from "electron";
 import log from "electron-log";
-import { parseFile } from "music-metadata";
 import crypto from "node:crypto";
 import fsp from "node:fs/promises";
 import path from "node:path";
@@ -39,6 +38,7 @@ export function registerLocalMusicHandlers() {
     const result: LocalMusicItem[] = [];
     if (!Array.isArray(dirs) || !dirs.length) return result;
     try {
+      const { parseFile } = await import("music-metadata");
       for (const dir of dirs) {
         const files: string[] = [];
         await walk(dir, files);

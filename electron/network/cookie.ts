@@ -14,8 +14,6 @@ const setCookie = async (details: Partial<CookiesSetDetails>) => {
     sameSite: "no_restriction",
     httpOnly: false,
   });
-
-  await session.defaultSession.cookies.flushStore();
 };
 
 /**
@@ -37,6 +35,7 @@ async function injectBiliTicketCookie() {
     value: String(expirationDate),
     expirationDate,
   });
+  await session.defaultSession.cookies.flushStore();
 }
 
 /**
@@ -50,6 +49,19 @@ async function injectBuvidCookie() {
     value: buvid.b_4,
     expirationDate: Math.floor(Date.now() / 1000 + 30 * 24 * 3600),
   });
+  await session.defaultSession.cookies.flushStore();
+}
+
+const refreshes = new Map<"ticket" | "buvid", Promise<void>>();
+
+function refreshCookie(kind: "ticket" | "buvid") {
+  const pending = refreshes.get(kind);
+  if (pending) return pending;
+  const task = (kind === "ticket" ? injectBiliTicketCookie() : injectBuvidCookie()).finally(() =>
+    refreshes.delete(kind),
+  );
+  refreshes.set(kind, task);
+  return task;
 }
 
 function setupCookieAutoRefresh() {
@@ -60,7 +72,7 @@ function setupCookieAutoRefresh() {
     if (!expired) return;
     if (name === "buvid4") {
       try {
-        await injectBuvidCookie();
+        await refreshCookie("buvid");
       } catch (err) {
         log.warn("[cookies] auto refresh buvid4 failed", err);
       }
@@ -69,7 +81,7 @@ function setupCookieAutoRefresh() {
 
     if (name === "bili_ticket" || name === "bili_ticket_expires") {
       try {
-        await injectBiliTicketCookie();
+        await refreshCookie("ticket");
       } catch (err) {
         log.warn("[cookies] auto refresh bili_ticket failed", err);
       }
@@ -79,7 +91,14 @@ function setupCookieAutoRefresh() {
 
 export async function injectAuthCookie() {
   setupCookieAutoRefresh();
-  const results = await Promise.allSettled([injectBiliTicketCookie(), injectBuvidCookie()]);
+  const cookies = await session.defaultSession.cookies.get({ url: "https://bilibili.com/" }).catch(() => []);
+  const now = Date.now() / 1000;
+  const valid = (name: string) =>
+    cookies.some(cookie => cookie.name === name && cookie.value && (cookie.expirationDate ?? 0) > now);
+  const tasks: Promise<void>[] = [];
+  if (!valid("bili_ticket") || !valid("bili_ticket_expires")) tasks.push(refreshCookie("ticket"));
+  if (!valid("buvid4")) tasks.push(refreshCookie("buvid"));
+  const results = await Promise.allSettled(tasks);
   const failures = results.filter(r => r.status === "rejected");
   if (failures.length) {
     failures.forEach(f => log.warn("[cookies] inject failed:", f.reason));

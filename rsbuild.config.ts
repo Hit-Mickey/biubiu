@@ -5,6 +5,9 @@ import { pluginSvgr } from "@rsbuild/plugin-svgr";
 import { pluginElectron } from "./plugins/rsbuild-plugin-electron";
 
 export default defineConfig({
+  source: {
+    entry: { index: "./src/index.tsx", mini: "./src/mini.tsx" },
+  },
   output: {
     distPath: {
       root: "./dist/web",

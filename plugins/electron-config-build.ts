@@ -45,6 +45,7 @@ function createOutput(format: "es" | "cjs", entryName: "main" | "preload"): Outp
     sourcemap: false,
     // 保持独立产物：主进程输出 main.js，预加载输出 preload.cjs
     entryFileNames: entryName === "main" ? "main.mjs" : "preload.cjs",
+    chunkFileNames: entryName === "main" ? "chunks/[name]-[hash].mjs" : "chunks/[name]-[hash].cjs",
   };
 }
 

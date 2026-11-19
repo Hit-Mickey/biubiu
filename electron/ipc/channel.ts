@@ -92,6 +92,7 @@ export const channel = {
   },
   window: {
     toggleMini: "window:toggle-mini",
+    miniClosed: "window:mini-closed",
     minimize: "window:minimize",
     toggleMaximize: "window:toggle-maximize",
     close: "window:close",

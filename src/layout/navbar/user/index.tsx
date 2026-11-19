@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import { useNavigate } from "react-router";
 
 import {
@@ -21,6 +22,7 @@ import {
 } from "@remixicon/react";
 import { twMerge } from "tailwind-merge";
 
+import LoadOnOpen from "@/components/load-on-open";
 import { postPassportLoginExit } from "@/service/passport-login-exit";
 import { useFavoritesStore } from "@/store/favorite";
 import { useModalStore } from "@/store/modal";
@@ -29,8 +31,9 @@ import { usePlayProgress } from "@/store/play-progress";
 import { useSettings } from "@/store/settings";
 import { useToken } from "@/store/token";
 import { useUser } from "@/store/user";
+import { repositoryIssuesUrl } from "@shared/app";
 
-import Login from "../login";
+const Login = lazy(() => import("../login"));
 
 interface UserCardProps {
   onDropdownOpenChange?: (open: boolean) => void;
@@ -135,7 +138,7 @@ const UserCard = ({ onDropdownOpenChange }: UserCardProps) => {
       label: "问题反馈",
       startContent: <RiFeedbackLine size={18} />,
       endContent: <RiExternalLinkLine size={18} />,
-      onPress: () => window.electron.openExternal("https://github.com/wood3n/biu/issues"),
+      onPress: () => window.electron.openExternal(repositoryIssuesUrl),
     },
     {
       key: "logout",
@@ -187,7 +190,9 @@ const UserCard = ({ onDropdownOpenChange }: UserCardProps) => {
           )}
         </DropdownMenu>
       </Dropdown>
-      <Login isOpen={isLoginModalOpen} onOpenChange={onLoginModalOpenChange} />
+      <LoadOnOpen isOpen={isLoginModalOpen}>
+        <Login isOpen={isLoginModalOpen} onOpenChange={onLoginModalOpenChange} />
+      </LoadOnOpen>
     </>
   );
 };

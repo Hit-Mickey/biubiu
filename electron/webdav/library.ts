@@ -4,7 +4,6 @@ import Store from "electron-store";
 import { createHash, randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import PQueue from "p-queue";
-import { z } from "zod";
 
 import type {
   WebDavLibrary,
@@ -45,22 +44,17 @@ const syncing = new Set<string>();
 const tagBatches = new Map<string, symbol>();
 const tagQueue = new PQueue({ concurrency: 4 });
 type AudioTags = Awaited<ReturnType<typeof readAudioTags>>;
+interface TrackTagUpdate {
+  version: string;
+  fields: AudioTags["fields"];
+  hasCover: boolean;
+}
 const tagRequests = new Map<string, Promise<AudioTags>>();
-const tagCache = new Map<string, AudioTags>();
+const tagCache = new Map<string, { tags: AudioTags; bytes: number }>();
+const maxTagCacheBytes = 8 * 1024 * 1024;
+let tagCacheBytes = 0;
 
 export const webDavLibraryEvents = new EventEmitter();
-
-const listInputSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().trim().min(1).max(30),
-  url: z.string(),
-  username: z.string().trim(),
-  password: z.string().optional(),
-  directory: z.string().trim(),
-  includeSubdirectories: z.boolean(),
-  lazyMetadata: z.boolean(),
-  removeRemoteFiles: z.boolean(),
-});
 
 function digest(...parts: unknown[]) {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
@@ -246,7 +240,7 @@ async function scanList(client: WebDavClient, list: WebDavListConfig & { id: str
 function loadTags(client: WebDavClient, track: StoredTrack, priority = 0) {
   const version = trackVersion(track);
   const cached = tagCache.get(version);
-  if (cached) return Promise.resolve(cached);
+  if (cached) return Promise.resolve(cached.tags);
   const pending = tagRequests.get(version);
   if (pending) {
     if (priority > 0) {
@@ -261,8 +255,16 @@ function loadTags(client: WebDavClient, track: StoredTrack, priority = 0) {
   const request = tagQueue
     .add(() => readAudioTags(client, track), { priority, id: version })
     .then(tags => {
-      tagCache.set(version, tags);
-      if (tagCache.size > 16) tagCache.delete(tagCache.keys().next().value!);
+      const bytes = (tags.cover?.bytes.byteLength ?? 0) + Buffer.byteLength(tags.lyrics ?? "");
+      if (bytes <= maxTagCacheBytes) {
+        tagCache.set(version, { tags, bytes });
+        tagCacheBytes += bytes;
+        for (const [key, entry] of tagCache) {
+          if (tagCache.size <= 16 && tagCacheBytes <= maxTagCacheBytes) break;
+          tagCache.delete(key);
+          tagCacheBytes -= entry.bytes;
+        }
+      }
       return tags;
     })
     .finally(() => tagRequests.delete(version));
@@ -270,7 +272,7 @@ function loadTags(client: WebDavClient, track: StoredTrack, priority = 0) {
   return request;
 }
 
-function applyTagsToList(id: string, updates: Map<string, { version: string; tags: AudioTags }>) {
+function applyTagsToList(id: string, updates: Map<string, TrackTagUpdate>) {
   const list = data.lists.find(list => list.id === id);
   if (!list || !updates.size) return;
   let changed = false;
@@ -280,10 +282,10 @@ function applyTagsToList(id: string, updates: Map<string, { version: string; tag
     changed = true;
     return {
       ...track,
-      ...update.tags.fields,
-      lossless: update.tags.fields.lossless ?? track.lossless,
+      ...update.fields,
+      lossless: update.fields.lossless ?? track.lossless,
       metadataParsed: true,
-      hasCover: Boolean(track.coverPath || track.folderCoverPath || update.tags.cover),
+      hasCover: Boolean(track.coverPath || track.folderCoverPath || update.hasCover),
     };
   });
   if (changed) saveList({ ...list, tracks });
@@ -298,12 +300,12 @@ function readListTags(list: StoredList, client: WebDavClient) {
   const read = async () => {
     for (let offset = 0; offset < tracks.length; offset += 32) {
       if (tagBatches.get(list.id) !== batch) return;
-      const updates = new Map<string, { version: string; tags: AudioTags }>();
+      const updates = new Map<string, TrackTagUpdate>();
       await Promise.all(
         tracks.slice(offset, offset + 32).map(async track => {
           try {
             const tags = await loadTags(client, track);
-            updates.set(track.id, { version: trackVersion(track), tags });
+            updates.set(track.id, { version: trackVersion(track), fields: tags.fields, hasCover: Boolean(tags.cover) });
           } catch (error) {
             if (data.preferences.debugLog)
               log.debug("[WebDAV] 读取歌曲标签失败", error instanceof Error && error.message);
@@ -321,8 +323,21 @@ function readListTags(list: StoredList, client: WebDavClient) {
     });
 }
 
-function readListInput(value: unknown) {
-  const input = listInputSchema.safeParse(value);
+async function readListInput(value: unknown) {
+  const { z } = await import("zod");
+  const input = z
+    .object({
+      id: z.string().optional(),
+      name: z.string().trim().min(1).max(30),
+      url: z.string(),
+      username: z.string().trim(),
+      password: z.string().optional(),
+      directory: z.string().trim(),
+      includeSubdirectories: z.boolean(),
+      lazyMetadata: z.boolean(),
+      removeRemoteFiles: z.boolean(),
+    })
+    .safeParse(value);
   if (!input.success) throw new Error("请填写远程列表配置，列表名称为 1 至 30 个字符");
   const { id, password, ...fields } = input.data;
   const config = { ...fields, url: normalizeWebDavUrl(fields.url) };
@@ -332,13 +347,13 @@ function readListInput(value: unknown) {
 }
 
 export async function testWebDavList(value: unknown) {
-  const { config, password } = readListInput(value);
+  const { config, password } = await readListInput(value);
   const client = createClient(config, password);
   await client.list(resolveWebDavDirectory(client.base, config.directory));
 }
 
-export function saveWebDavList(value: unknown) {
-  const { id, password, config } = readListInput(value);
+export async function saveWebDavList(value: unknown) {
+  const { id, password, config } = await readListInput(value);
   const listId = id ?? randomUUID();
   return runListOperation(listId, async () => {
     const previous = id ? getList(id) : undefined;
@@ -472,7 +487,10 @@ export async function getWebDavTrackMetadata(listId: string, trackId: string) {
   const { track, client } = openWebDavTrack(listId, trackId);
   if (!track.metadataParsed) {
     const tags = await loadTags(client, track, 1);
-    applyTagsToList(listId, new Map([[track.id, { version: trackVersion(track), tags }]]));
+    applyTagsToList(
+      listId,
+      new Map([[track.id, { version: trackVersion(track), fields: tags.fields, hasCover: Boolean(tags.cover) }]]),
+    );
   }
   return publicTrack(findWebDavTrack(listId, trackId) ?? track);
 }
