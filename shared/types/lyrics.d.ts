@@ -150,13 +150,25 @@ interface DesktopLyricLine {
   romanization?: string;
 }
 
+interface DesktopLyricsAppearance {
+  color: string;
+  fontSize: number;
+}
+
 interface DesktopLyricsWindowState {
   open: boolean;
   locked: boolean;
+  inlineUnlock: boolean;
+  appearance: DesktopLyricsAppearance;
 }
 
 interface DesktopLyricsRendererAPI {
   onLine: (listener: (line: DesktopLyricLine) => void) => VoidFunction;
+  onHover: (listener: (hovered: boolean) => void) => VoidFunction;
+  onState: (listener: (state: DesktopLyricsWindowState) => void) => VoidFunction;
+  setLocked: (locked: boolean) => Promise<void>;
+  setUnlockHovered: (hovered: boolean) => void;
+  setAppearance: (appearance: Partial<DesktopLyricsAppearance>) => Promise<void>;
   close: VoidFunction;
 }
 

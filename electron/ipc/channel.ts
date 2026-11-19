@@ -49,7 +49,10 @@ export const channel = {
   desktopLyrics: {
     visible: "desktop-lyrics:visible",
     locked: "desktop-lyrics:locked",
+    unlockHovered: "desktop-lyrics:unlock-hovered",
+    appearance: "desktop-lyrics:appearance",
     line: "desktop-lyrics:line",
+    hover: "desktop-lyrics:hover",
     state: "desktop-lyrics:state",
   },
   router: {

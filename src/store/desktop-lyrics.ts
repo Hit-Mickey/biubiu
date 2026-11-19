@@ -1,3 +1,10 @@
 import { create } from "zustand";
 
-export const useDesktopLyrics = create<DesktopLyricsWindowState>(() => ({ open: false, locked: false }));
+import { defaultDesktopLyricsAppearance } from "@shared/settings/desktop-lyrics";
+
+export const useDesktopLyrics = create<DesktopLyricsWindowState>(() => ({
+  open: false,
+  locked: false,
+  inlineUnlock: false,
+  appearance: defaultDesktopLyricsAppearance,
+}));

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PlayData } from "@/store/play-list";
 
+import DesktopLyricsButton from "@/components/desktop-lyrics-button";
 import LyricsView from "@/components/lyrics";
 import LyricsSearchModal from "@/components/lyrics-search-modal";
 import DesktopLyricsOutput from "@/components/lyrics/desktop-output";
@@ -12,6 +13,7 @@ import { getNativeLyrics } from "@/components/lyrics/get-lyrics";
 import { useTrackLyrics } from "@/components/lyrics/use-track-lyrics";
 import { getLyric } from "@/service/ai-lyrics";
 import { getWebPlayerInfo } from "@/service/web-player";
+import { useDesktopLyrics } from "@/store/desktop-lyrics";
 import { usePlayProgress } from "@/store/play-progress";
 import { useSettings } from "@/store/settings";
 
@@ -61,6 +63,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(async () => root.unmount());
+  host.remove();
   vi.unstubAllGlobals();
   Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
 });
@@ -208,6 +211,30 @@ describe("current-track lyric view", () => {
     expect(showDesktopLyricLine).toHaveBeenLastCalledWith(expect.objectContaining({ text: "second" }));
     await act(async () => usePlayProgress.getState().setCurrentTime(0.6));
     expect(showDesktopLyricLine).toHaveBeenLastCalledWith(expect.objectContaining({ text: "first" }));
+  });
+  it("opens desktop lyrics on the first click and shows settings only when the window is open", async () => {
+    const setDesktopLyricsVisible = vi.fn().mockResolvedValue(undefined);
+    const menuChanged = vi.fn();
+    setBridge({ setDesktopLyricsVisible });
+    document.body.append(host);
+    await act(async () => root.render(<DesktopLyricsButton onOpenChange={menuChanged} />));
+    const trigger = host.querySelector<HTMLButtonElement>('button[aria-label="桌面歌词"]')!;
+    const findMenu = () => document.querySelector('[aria-label="桌面歌词设置"]');
+    await act(async () => trigger.click());
+    expect(setDesktopLyricsVisible).toHaveBeenCalledWith(true);
+    expect(findMenu()).toBeNull();
+
+    await act(async () => useDesktopLyrics.setState({ open: true }));
+    await act(async () => trigger.click());
+    expect(setDesktopLyricsVisible).toHaveBeenCalledTimes(1);
+    expect(findMenu()?.textContent).toContain("锁定歌词");
+    expect(findMenu()?.querySelector('input[type="color"]')).toHaveValue("#ffffff");
+    expect(findMenu()?.querySelector("select")).toHaveValue("26");
+    expect(findMenu()?.textContent).toContain("关闭桌面歌词");
+
+    await act(async () => useDesktopLyrics.setState({ open: false }));
+    expect(findMenu()).toBeNull();
+    expect(menuChanged).toHaveBeenLastCalledWith(false);
   });
   it("offers search and lyric preferences without a text editor", async () => {
     setBridge({ getTrackLyrics: vi.fn().mockResolvedValue({ lyrics: "original" }) });

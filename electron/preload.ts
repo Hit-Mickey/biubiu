@@ -208,6 +208,7 @@ const api: ElectronAPI = {
   toggleMiniPlayer: () => ipcRenderer.invoke(channel.window.toggleMini),
   setDesktopLyricsVisible: open => ipcRenderer.invoke(channel.desktopLyrics.visible, open),
   setDesktopLyricsLocked: locked => ipcRenderer.invoke(channel.desktopLyrics.locked, locked),
+  setDesktopLyricsAppearance: appearance => ipcRenderer.invoke(channel.desktopLyrics.appearance, appearance),
   showDesktopLyricLine: line => ipcRenderer.send(channel.desktopLyrics.line, line),
   onDesktopLyricsState: listener => {
     const handle = (_event: Electron.IpcRendererEvent, state: DesktopLyricsWindowState) => listener(state);
@@ -282,6 +283,15 @@ const api: ElectronAPI = {
 if (process.argv.includes("--biubiu-desktop-lyrics")) {
   const desktopLyrics: DesktopLyricsRendererAPI = {
     close: () => ipcRenderer.send(channel.window.close),
+    setLocked: locked => ipcRenderer.invoke(channel.desktopLyrics.locked, locked),
+    setUnlockHovered: hovered => ipcRenderer.send(channel.desktopLyrics.unlockHovered, hovered),
+    setAppearance: appearance => ipcRenderer.invoke(channel.desktopLyrics.appearance, appearance),
+    onState: api.onDesktopLyricsState,
+    onHover: listener => {
+      const handle = (_event: Electron.IpcRendererEvent, hovered: boolean) => listener(hovered);
+      ipcRenderer.on(channel.desktopLyrics.hover, handle);
+      return () => ipcRenderer.removeListener(channel.desktopLyrics.hover, handle);
+    },
     onLine: listener => {
       const handle = (_event: Electron.IpcRendererEvent, line: DesktopLyricLine) => listener(line);
       ipcRenderer.on(channel.desktopLyrics.line, handle);
