@@ -1,12 +1,15 @@
 import { memo, useEffect, useMemo, useRef } from "react";
 
-import { Button, Slider } from "@heroui/react";
+import { Button, Popover, PopoverContent, PopoverTrigger, Slider } from "@heroui/react";
 import {
   RiExpandDiagonalLine,
   RiPauseCircleFill,
   RiPlayCircleFill,
   RiSkipBackFill,
   RiSkipForwardFill,
+  RiVolumeDownLine,
+  RiVolumeMuteLine,
+  RiVolumeUpLine,
 } from "@remixicon/react";
 import clx from "classnames";
 import { useShallow } from "zustand/react/shallow";
@@ -17,6 +20,7 @@ import {
   toggleMiniWindow,
   type MiniPlayerCommand,
   type MiniPlayerMessageFromMain,
+  type MiniPlayerMessageFromMini,
 } from "@/common/utils/mini-player-channel";
 import { getShortcutCommand } from "@/common/utils/shortcut";
 import Image from "@/components/image";
@@ -48,6 +52,43 @@ const CoverView = memo(() => {
   );
 });
 
+const MiniVolume = ({ onChange }: { onChange: (volume: number) => void }) => {
+  const volume = usePlayState(s => s.volume);
+  const VolumeIcon = volume === 0 ? RiVolumeMuteLine : volume > 0.5 ? RiVolumeUpLine : RiVolumeDownLine;
+
+  return (
+    <Popover placement="top-end" offset={4} containerPadding={4} disableAnimation>
+      <PopoverTrigger>
+        <Button
+          isIconOnly
+          size="sm"
+          variant="light"
+          disableAnimation
+          className="hover:text-primary window-no-drag"
+          aria-label="音量控制"
+        >
+          <VolumeIcon size={16} />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="window-no-drag w-36 p-2">
+        <Slider
+          aria-label="音量"
+          size="sm"
+          minValue={0}
+          maxValue={1}
+          step={0.01}
+          value={volume}
+          onChange={value => onChange(value as number)}
+          endContent={
+            <span className="text-foreground/60 w-8 text-right text-xs tabular-nums">{Math.round(volume * 100)}%</span>
+          }
+          disableAnimation
+        />
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const MiniPlayer = () => {
   const { isSingle, isPlaying, title, duration, playMode } = usePlayState(
     useShallow(state => ({
@@ -63,7 +104,7 @@ const MiniPlayer = () => {
   const updatePlayState = usePlayState(state => state.update);
   const bcRef = useRef<BroadcastChannel>(null);
 
-  const postMessage = (type: MiniPlayerCommand, state?: { currentTime: number }) => {
+  const postMessage = (type: MiniPlayerCommand, state?: MiniPlayerMessageFromMini["data"]["state"]) => {
     if (!bcRef.current) return;
     bcRef.current.postMessage({
       from: "mini",
@@ -164,7 +205,7 @@ const MiniPlayer = () => {
               }}
             />
           </div>
-          <div className="flex items-center justify-between space-x-1">
+          <div className="flex items-center justify-between">
             <Button
               isIconOnly
               size="sm"
@@ -215,16 +256,20 @@ const MiniPlayer = () => {
                 <RiSkipForwardFill size={18} />
               </Button>
             </div>
-            <Button
-              isIconOnly
-              size="sm"
-              variant="light"
-              disableAnimation
-              onPress={() => void toggleMiniWindow()}
-              className="hover:text-primary window-no-drag"
-            >
-              <RiExpandDiagonalLine size={16} />
-            </Button>
+            <div className="flex items-center">
+              <MiniVolume onChange={volume => postMessage("setVolume", { volume })} />
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                disableAnimation
+                onPress={() => void toggleMiniWindow()}
+                className="hover:text-primary window-no-drag"
+                aria-label="切换到完整播放器"
+              >
+                <RiExpandDiagonalLine size={16} />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

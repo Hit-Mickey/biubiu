@@ -260,7 +260,7 @@ chcp 65001 > $null
 
 运行 `pnpm test --run` 执行测试。运行 `pnpm build` 构建当前系统的 x64 和 ARM64 安装包。Electron 主进程和预加载脚本生成在 `.electron/`，界面生成在 `dist/web/`，打包产物生成在 `dist/artifacts/`。Linux 打包需要 `rpm` 工具。
 
-推送到 `master` 后，GitHub Actions 的 **PR Test Build** 会构建 Windows、macOS 和 Linux 包。也可以在 **Actions** 页手动运行该工作流。构建成功后，在运行详情的 **Artifacts** 区域下载各平台产物。[PR Test Build](https://github.com/Hit-Mickey/biubiu/actions/workflows/pr-test-build.yml)
+推送 `v*` 标签时，GitHub Actions 的 **Release** 工作流会构建 Windows、macOS 和 Linux 安装包。各平台构建成功后，安装包会发布到 GitHub Releases。也可以在工作流页面选择已有的版本标签手动运行。 [Release 工作流](https://github.com/Hit-Mickey/biubiu/actions/workflows/release.yml)
 
 设置页显示版本 `v1.0.0`。打包和更新使用 SemVer `1.0.0`，对应的发布标签为 `v1.0.0`。
 
@@ -288,7 +288,7 @@ chcp 65001 > $null
 1. Fork 本仓库并创建分支：`feature/your-feature` / `fix/your-fix`
 2. 开发并通过本地构建与基本自测（如：`pnpm dev`、`pnpm build`）
 3. 提交 PR，详述改动点与影响范围
-4. 通过 CI 的构建与审查后合入主分支
+4. 审查通过后合入主分支
 
 建议：
 

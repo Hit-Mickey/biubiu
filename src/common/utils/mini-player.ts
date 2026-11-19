@@ -17,7 +17,7 @@ let unsubscribePlayProgress: VoidFunction | null = null;
 let isBroadcasting = false;
 
 function getMainStateSnapshot(): MiniPlayerState {
-  const { list, isPlaying, playMode, duration, playId, getPlayItem } = usePlayList.getState();
+  const { list, isPlaying, playMode, duration, playId, volume, isMuted, getPlayItem } = usePlayList.getState();
   const currentTime = usePlayProgress.getState().currentTime;
   const playItem = getPlayItem();
 
@@ -30,6 +30,7 @@ function getMainStateSnapshot(): MiniPlayerState {
     currentTime: Number(currentTime ?? 0),
     playMode,
     duration: Number(duration ?? 0),
+    volume: isMuted ? 0 : volume,
   };
 }
 
@@ -75,6 +76,16 @@ function handleMessageFromMini(message: MiniPlayerMessageFromMini, channel: Broa
       usePlayList.getState().togglePlay();
       break;
     }
+    case "setVolume": {
+      const value = data.state?.volume;
+      if (typeof value === "number" && Number.isFinite(value)) {
+        const volume = Math.max(0, Math.min(1, value));
+        const { isMuted, setVolume, toggleMute } = usePlayList.getState();
+        setVolume(volume);
+        if (isMuted !== (volume === 0)) toggleMute();
+      }
+      break;
+    }
     case "volumeUp":
     case "volumeDown": {
       const { setVolume, volume } = usePlayList.getState();
@@ -91,7 +102,7 @@ function handleMessageFromMini(message: MiniPlayerMessageFromMini, channel: Broa
  * 启动主窗口 -> mini 播放器的状态同步通道。
  *
  * - 只会启动一次；重复调用会直接返回。
- * - 收到 mini 端的 `init/seek/next/prev/togglePlay/togglePlayMode` 会转发到主播放状态。
+ * - 收到 mini 端的播放控制命令后，会转发到主播放状态。
  * - 主播放状态发生变化会推送给 mini 端更新 UI。
  */
 function startMiniPlayerMainSync() {
@@ -115,6 +126,7 @@ function startMiniPlayerMainSync() {
           isPlaying: state.isPlaying,
           playMode: state.playMode,
           duration: state.duration,
+          volume: state.isMuted ? 0 : state.volume,
           item: state.getPlayItem(),
         },
         {
@@ -122,6 +134,7 @@ function startMiniPlayerMainSync() {
           isPlaying: prevState.isPlaying,
           playMode: prevState.playMode,
           duration: prevState.duration,
+          volume: prevState.isMuted ? 0 : prevState.volume,
           item: prevState.list.find(item => item.id === prevState.playId),
         },
       )
