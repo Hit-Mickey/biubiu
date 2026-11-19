@@ -246,4 +246,55 @@ describe("play-list store", () => {
     await s.addToNext({ type: "mv", bvid: "BV_fail", title: "fail" });
     expect(usePlayList.getState().list.length).toBe(1);
   });
+
+  test("does not rewrite the saved queue when only playback state changes", () => {
+    const write = vi.spyOn(Storage.prototype, "setItem");
+    try {
+      // The setup has already saved the current queue and settings.
+      usePlayList.setState({ isPlaying: true });
+      usePlayList.setState({ isPlaying: false });
+      expect(write).not.toHaveBeenCalled();
+
+      usePlayList.getState().setVolume(0.25);
+      expect(write).toHaveBeenCalledOnce();
+      expect(JSON.parse(localStorage.getItem("play-list-store")!)).toMatchObject({ state: { volume: 0.25 } });
+    } finally {
+      write.mockRestore();
+    }
+  });
+
+  test("restores a saved queue and seek position before loading the media", async () => {
+    const audioUrl = "file:///music/track.wav";
+    localStorage.setItem(
+      "play-list-store",
+      JSON.stringify({
+        version: 0,
+        state: {
+          list: [{ id: "saved-song", type: "audio", source: "local", title: "Saved song", duration: 123, audioUrl }],
+          playId: "saved-song",
+        },
+      }),
+    );
+    localStorage.setItem("play-current-time", "17");
+
+    vi.resetModules();
+    const { usePlayList: restored } = await import("@/store/play-list");
+    const { usePlayProgress } = await import("@/store/play-progress");
+    const player = restored.getState();
+    try {
+      await player.init();
+      expect(restored.getState().duration).toBe(123);
+      expect(usePlayProgress.getState().currentTime).toBe(17);
+      expect(player.getAudio().src).toBe("");
+
+      player.seek(29);
+      await player.togglePlay();
+      expect(player.getAudio().src).toBe(audioUrl);
+      expect(player.getAudio().currentTime).toBe(29);
+      expect(restored.getState().isPlaying).toBe(true);
+    } finally {
+      player.clear();
+      localStorage.removeItem("play-current-time");
+    }
+  });
 });

@@ -1,13 +1,13 @@
-<h1 align="center">biubiu 音乐播放器</h1>
+<h1 align="center">BiuBiu 音乐播放器</h1>
 <p align="center">
-  <img src="./screenshots/logo.svg" alt="biubiu logo" width="120" />
+  <img src="./screenshots/logo.svg" alt="BiuBiu logo" width="120" />
 </p>
 <p align="center">
   支持哔哩哔哩（B 站）、本地音乐和 WebDAV 的跨平台桌面音乐播放器 🎧🎶
 </p>
 <p align="center">
   <a href="https://github.com/Hit-Mickey/biubiu/releases">
-    <img src="https://img.shields.io/badge/version-v1.0-blueviolet" alt="v1.0" />
+    <img src="https://img.shields.io/badge/version-v1.0.0-blueviolet" alt="v1.0.0" />
   </a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange.svg" alt="License" /></a>
 </p>
@@ -58,7 +58,7 @@
 
 本地打包产物位于 `dist/artifacts/`。Windows 提供 x64、ARM64 两种架构的安装版和便携版，macOS 提供 DMG 和 ZIP，Linux 提供 AppImage、DEB 和 RPM。请按系统和架构选择。
 
-- 版本发布与更新 [biubiu GitHub Releases](https://github.com/Hit-Mickey/biubiu/releases)
+- 版本发布与更新 [BiuBiu GitHub Releases](https://github.com/Hit-Mickey/biubiu/releases)
 - 快速选择：
   - 优先选安装包 `win-setup`；需要免安装/无管理员权限选 `win-portable`
   - 优先选 `dmg`；需要脚本/自动化分发可选 `zip`
@@ -97,8 +97,8 @@
         可能触发系统权限/安全提示
       </td>
       <td>
-        <code>biubiu-<version>-win-setup-x64.exe</code><br />
-        <code>biubiu-<version>-win-setup-arm64.exe</code>
+        <code>BiuBiu-&lt;version&gt;-win-setup-x64.exe</code><br />
+        <code>BiuBiu-&lt;version&gt;-win-setup-arm64.exe</code>
       </td>
     </tr>
     <tr>
@@ -120,8 +120,8 @@
         应用内自动更新受限，通常需要手动下载替换
       </td>
       <td>
-        <code>biubiu-<version>-win-portable-x64.exe</code><br />
-        <code>biubiu-<version>-win-portable-arm64.exe</code>
+        <code>BiuBiu-&lt;version&gt;-win-portable-x64.exe</code><br />
+        <code>BiuBiu-&lt;version&gt;-win-portable-arm64.exe</code>
       </td>
     </tr>
     <tr>
@@ -144,8 +144,8 @@
         不同系统安全策略提示不同
       </td>
       <td>
-        <code>biubiu-<version>-mac-x64.dmg</code><br />
-        <code>biubiu-<version>-mac-arm64.dmg</code>
+        <code>BiuBiu-&lt;version&gt;-mac-x64.dmg</code><br />
+        <code>BiuBiu-&lt;version&gt;-mac-arm64.dmg</code>
       </td>
     </tr>
     <tr>
@@ -167,8 +167,8 @@
         安装体验不如 DMG 直观（需要手动放入应用目录）
       </td>
       <td>
-        <code>biubiu-<version>-mac-x64.zip</code><br />
-        <code>biubiu-<version>-mac-arm64.zip</code>
+        <code>BiuBiu-&lt;version&gt;-mac-x64.zip</code><br />
+        <code>BiuBiu-&lt;version&gt;-mac-arm64.zip</code>
       </td>
     </tr>
     <tr>
@@ -189,8 +189,8 @@
         桌面集成需要额外操作
       </td>
       <td>
-        <code>biubiu-<version>-linux-x64.AppImage</code><br />
-        <code>biubiu-<version>-linux-arm64.AppImage</code>
+        <code>BiuBiu-&lt;version&gt;-linux-x64.AppImage</code><br />
+        <code>BiuBiu-&lt;version&gt;-linux-arm64.AppImage</code>
       </td>
     </tr>
     <tr>
@@ -210,8 +210,8 @@
         与发行版/依赖关系更强（Debian/Ubuntu 用 <code>.deb</code>，Fedora/RHEL 用 <code>.rpm</code>）
       </td>
       <td>
-        <code>biubiu-<version>-linux-x64.deb</code> / <code>.rpm</code><br />
-        <code>biubiu-<version>-linux-arm64.deb</code> / <code>.rpm</code>
+        <code>BiuBiu-&lt;version&gt;-linux-x64.deb</code> / <code>.rpm</code><br />
+        <code>BiuBiu-&lt;version&gt;-linux-arm64.deb</code> / <code>.rpm</code>
       </td>
     </tr>
   </tbody>
@@ -262,7 +262,7 @@ chcp 65001 > $null
 
 推送到 `master` 后，GitHub Actions 的 **PR Test Build** 会构建 Windows、macOS 和 Linux 包。也可以在 **Actions** 页手动运行该工作流。构建成功后，在运行详情的 **Artifacts** 区域下载各平台产物。[PR Test Build](https://github.com/Hit-Mickey/biubiu/actions/workflows/pr-test-build.yml)
 
-设置页显示版本 `v1.0`。打包和更新使用 SemVer `1.0.0`，对应的发布标签为 `v1.0.0`。
+设置页显示版本 `v1.0.0`。打包和更新使用 SemVer `1.0.0`，对应的发布标签为 `v1.0.0`。
 
 ## 📄 许可证
 

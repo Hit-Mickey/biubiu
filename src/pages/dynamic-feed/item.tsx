@@ -16,6 +16,8 @@ import { usePlayList } from "@/store/play-list";
 
 import MoreMenu from "./more-menu";
 
+import "moment/locale/zh-cn";
+
 interface DynamicItemProps {
   item: WebDynamicItem;
   className?: string;
@@ -32,7 +34,11 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
   const [isLike, setIsLike] = useState(() => stat?.like?.status === true);
   const [likeCount, setLikeCount] = useState(() => stat?.like?.count || 0);
 
-  const timeDisplay = author.pub_time || moment(author.pub_ts * 1000).fromNow();
+  const timeDisplay =
+    author.pub_time ||
+    moment(author.pub_ts * 1000)
+      .locale("zh-cn")
+      .fromNow();
 
   const textContent = dynamic.desc?.text || dynamic.major?.opus?.summary?.text || "";
 

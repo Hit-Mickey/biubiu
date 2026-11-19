@@ -3,7 +3,6 @@
     "target": "esnext",
     "jsx": "preserve",
     "lib": ["ESNext", "dom"],
-    "baseUrl": ".",
     "module": "preserve",
     "moduleResolution": "bundler",
     "paths": {

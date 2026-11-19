@@ -1,10 +1,11 @@
 import log from "electron-log/renderer";
-import moment from "moment";
 
 import { postClickInterfaceClickWebH5 } from "@/service/click-interface-click-web-h5";
 import { postClickInterfaceWebHeartbeat } from "@/service/click-interface-web-heartbeat";
 import { useSettings } from "@/store/settings";
 import { useUser } from "@/store/user";
+
+import { unixTime } from "./time";
 
 const HEARTBEAT_INTERVAL_SECONDS = 30;
 
@@ -81,7 +82,7 @@ export async function beginPlayReport(item?: ReportablePlayItem) {
   }
 
   const session = generateSessionId();
-  const startTs = moment().unix();
+  const startTs = unixTime();
 
   currentSession = {
     session,
@@ -149,7 +150,7 @@ export async function reportHeartbeat(
   currentSession.maxPlayedTime = Math.max(currentSession.maxPlayedTime, played);
   const normalizedDuration = Number.isFinite(duration) ? Math.floor(duration as number) : undefined;
 
-  const now = moment().unix();
+  const now = unixTime();
   const shouldForceSend = playType !== 0;
   if (!shouldForceSend && now - currentSession.lastReportAt < HEARTBEAT_INTERVAL_SECONDS) {
     return;

@@ -1,10 +1,10 @@
 import { Suspense, useEffect } from "react";
 import { useHref, useNavigate, useRoutes } from "react-router";
 
-import moment from "moment";
+import log from "electron-log/renderer";
 
 import AppShell from "./app-shell";
-import { getCookitFromBSite } from "./common/utils/cookie";
+import { loadBilibiliCookies } from "./common/utils/cookie";
 import { stopMiniPlayerMainSync, toggleMiniMode } from "./common/utils/mini-player";
 import { getShortcutCommand } from "./common/utils/shortcut";
 import routes from "./routes";
@@ -12,9 +12,30 @@ import { useAppUpdateStore } from "./store/app-update";
 import { usePlayList } from "./store/play-list";
 import { usePlayProgress } from "./store/play-progress";
 
-import "moment/locale/zh-cn";
+function handleShortcut(command: ShortcutCommand) {
+  const { prev, next, togglePlay, setVolume, volume } = usePlayList.getState();
 
-moment.locale("zh-cn");
+  switch (command) {
+    case "togglePlay":
+      void togglePlay();
+      break;
+    case "prev":
+      void prev();
+      break;
+    case "next":
+      void next();
+      break;
+    case "volumeUp":
+      setVolume(Math.min(1, volume + 0.05));
+      break;
+    case "volumeDown":
+      setVolume(Math.max(0, volume - 0.05));
+      break;
+    case "toggleMiniMode":
+      void toggleMiniMode();
+      break;
+  }
+}
 
 export function App() {
   const routeElement = useRoutes(routes);
@@ -22,7 +43,9 @@ export function App() {
   const setUpdate = useAppUpdateStore(s => s.setUpdate);
 
   useEffect(() => {
-    getCookitFromBSite();
+    void loadBilibiliCookies().catch(error => {
+      log.warn("[user] 加载 B 站会话失败", error instanceof Error ? error.message : String(error));
+    });
   }, []);
 
   useEffect(() => window.electron.onMiniPlayerClosed(stopMiniPlayerMainSync), []);
@@ -43,53 +66,10 @@ export function App() {
   }, [navigate]);
 
   // 订阅来自主进程的任务栏缩略按钮命令
-  useEffect(() => {
-    if (window.electron && window.electron.onPlayerCommand) {
-      const removeListener = window.electron.onPlayerCommand(cmd => {
-        const { prev, next, togglePlay } = usePlayList.getState();
-        if (cmd === "prev") {
-          prev();
-        } else if (cmd === "next") {
-          next();
-        } else if (cmd === "toggle") {
-          togglePlay();
-        }
-      });
-      return removeListener;
-    }
-  }, []);
+  useEffect(() => window.electron.onPlayerCommand(cmd => handleShortcut(cmd === "toggle" ? "togglePlay" : cmd)), []);
 
   // 订阅来自主进程的全局快捷键命令
-  useEffect(() => {
-    if (window.electron && window.electron.onShortcutCommand) {
-      return window.electron.onShortcutCommand(cmd => {
-        const { prev, next, togglePlay, setVolume, volume } = usePlayList.getState();
-
-        switch (cmd) {
-          case "togglePlay":
-            togglePlay();
-            break;
-          case "prev":
-            prev();
-            break;
-          case "next":
-            next();
-            break;
-          case "volumeUp":
-            setVolume(Math.min(1, volume + 0.05));
-            break;
-          case "volumeDown":
-            setVolume(Math.max(0, volume - 0.05));
-            break;
-          case "toggleMiniMode":
-            toggleMiniMode();
-            break;
-          default:
-            break;
-        }
-      });
-    }
-  }, []);
+  useEffect(() => window.electron.onShortcutCommand(handleShortcut), []);
 
   // 监听应用内快捷键
   useEffect(() => {
@@ -97,29 +77,7 @@ export function App() {
       const command = getShortcutCommand(e);
       if (command) {
         e.preventDefault();
-        const { prev, next, togglePlay, setVolume, volume } = usePlayList.getState();
-        switch (command) {
-          case "togglePlay":
-            togglePlay();
-            break;
-          case "prev":
-            prev();
-            break;
-          case "next":
-            next();
-            break;
-          case "volumeUp":
-            setVolume(Math.min(1, volume + 0.05));
-            break;
-          case "volumeDown":
-            setVolume(Math.max(0, volume - 0.05));
-            break;
-          case "toggleMiniMode":
-            toggleMiniMode();
-            break;
-          default:
-            break;
-        }
+        handleShortcut(command);
       }
     };
 

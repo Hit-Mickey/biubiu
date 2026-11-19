@@ -80,7 +80,7 @@ export async function buildElectron() {
         synopsis: pkg.description,
         maintainer: updateRepository.owner,
         vendor: updateRepository.owner,
-        executableName: appName,
+        executableName: pkg.name,
         artifactName: "${productName}-${version}-linux-${arch}.${ext}",
         extraResources: [{ from: "electron/ffmpeg/ffmpeg-linux", to: "electron/ffmpeg/ffmpeg-linux" }],
       },

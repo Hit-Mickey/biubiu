@@ -1,8 +1,8 @@
 import React, { useCallback } from "react";
 
 import { Divider, Modal, ModalBody, ModalContent, Tab, Tabs, addToast } from "@heroui/react";
-import moment from "moment";
 
+import { nextCookieRefreshTime } from "@/common/utils/cookie";
 import { useFavoritesStore } from "@/store/favorite";
 import { useToken } from "@/store/token";
 import { useUser } from "@/store/user";
@@ -30,7 +30,7 @@ const Login = ({ isOpen, onOpenChange }: Props) => {
         if (refreshToken) {
           updateToken({
             tokenData: { refresh_token: refreshToken },
-            nextCheckRefreshTime: moment().add(2, "days").unix(),
+            nextCheckRefreshTime: nextCookieRefreshTime(),
           });
         }
 

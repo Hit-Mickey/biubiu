@@ -12,7 +12,6 @@ const FollowList = lazy(() => import("./pages/follow-list"));
 const History = lazy(() => import("./pages/history"));
 const Later = lazy(() => import("./pages/later"));
 const LocalMusicPage = lazy(() => import("./pages/local-music"));
-const MiniPlayer = lazy(() => import("./pages/mini-player"));
 const RemoteMusicPage = lazy(() => import("./pages/remote-music"));
 const Search = lazy(() => import("./pages/search"));
 const Settings = lazy(() => import("./pages/settings"));
@@ -77,10 +76,6 @@ const routes: RouteObject[] = [
         element: <EmptyPage />,
       },
     ],
-  },
-  {
-    path: "mini-player",
-    element: <MiniPlayer />,
   },
   {
     path: "*",

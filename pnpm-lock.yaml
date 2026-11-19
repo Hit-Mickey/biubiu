@@ -114,9 +114,6 @@ importers:
       '@types/fluent-ffmpeg':
         specifier: ^2.1.28
         version: 2.1.28
-      '@types/moment-duration-format':
-        specifier: ^2.2.7
-        version: 2.2.7
       '@types/node':
         specifier: ^24.10.6
         version: 24.10.6
@@ -216,9 +213,6 @@ importers:
       moment:
         specifier: ^2.30.1
         version: 2.30.1
-      moment-duration-format:
-        specifier: ^2.3.2
-        version: 2.3.2
       overlayscrollbars:
         specifier: ^2.13.0
         version: 2.13.0
@@ -2803,9 +2797,6 @@ packages:
   '@types/keyv@3.1.4':
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
 
-  '@types/moment-duration-format@2.2.7':
-    resolution: {integrity: sha512-BSxkbKI8ucqqxi4ZCfmFPilUDPoL85YVrOvn/AhCQoeqNfnRsRLGkk68TpoC7L6GwU27RltYiQV5dtfPTv/RHw==}
-
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
@@ -5308,9 +5299,6 @@ packages:
     resolution: {integrity: sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==}
     engines: {node: '>=10'}
     hasBin: true
-
-  moment-duration-format@2.3.2:
-    resolution: {integrity: sha512-cBMXjSW+fjOb4tyaVHuaVE/A5TqkukDWiOfxxAjY+PEqmmBQlLwn+8OzwPiG3brouXKY5Un4pBjAeB6UToXHaQ==}
 
   moment@2.30.1:
     resolution: {integrity: sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==}
@@ -10128,10 +10116,6 @@ snapshots:
     dependencies:
       '@types/node': 24.10.6
 
-  '@types/moment-duration-format@2.2.7':
-    dependencies:
-      moment: 2.30.1
-
   '@types/ms@2.1.0': {}
 
   '@types/node@22.19.1':
@@ -13084,8 +13068,6 @@ snapshots:
       minimist: 1.2.8
 
   mkdirp@1.0.4: {}
-
-  moment-duration-format@2.3.2: {}
 
   moment@2.30.1: {}
 

@@ -1,25 +1,26 @@
 import { type InternalAxiosRequestConfig } from "axios";
-import moment from "moment";
 
-import { refreshCookie } from "@/common/utils/cookie";
+import { nextCookieRefreshTime, refreshCookie } from "@/common/utils/cookie";
+import { unixTime } from "@/common/utils/time";
 import { useToken } from "@/store/token";
 
 import { encodeParamsWbi } from "./wbi-sign";
 
-let refreshCookiePromise: Promise<any> | null = null;
+let refreshCookiePromise: Promise<boolean> | undefined;
 
 export const requestInterceptors = async (config: InternalAxiosRequestConfig) => {
-  if (!config.skipRefreshCheck && (useToken.getState().nextCheckRefreshTime || 0) < moment().unix()) {
+  const now = unixTime();
+  if (!config.skipRefreshCheck && (useToken.getState().nextCheckRefreshTime || 0) < now) {
     if (!refreshCookiePromise) {
-      useToken.setState({ nextCheckRefreshTime: moment().add(30, "seconds").unix() });
+      useToken.setState({ nextCheckRefreshTime: now + 30 });
       refreshCookiePromise = refreshCookie().finally(() => {
-        refreshCookiePromise = null;
+        refreshCookiePromise = undefined;
       });
     }
     try {
       await refreshCookiePromise;
     } finally {
-      useToken.setState({ nextCheckRefreshTime: moment().add(2, "days").unix() });
+      useToken.setState({ nextCheckRefreshTime: nextCookieRefreshTime() });
     }
   }
 

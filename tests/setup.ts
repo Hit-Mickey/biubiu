@@ -33,8 +33,15 @@ class FakeAudio {
   onpause?: () => void;
   onended?: () => void;
   onerror?: (err: any) => void;
+  removeAttribute(name: string) {
+    if (name === "src") this.src = "";
+  }
   load() {
-    this.duration = 123;
+    this.duration = this.src ? 123 : Number.NaN;
+    if (!this.src) {
+      this.currentTime = 0;
+      this.paused = true;
+    }
     if (typeof this.ondurationchange === "function") this.ondurationchange();
   }
   async play() {

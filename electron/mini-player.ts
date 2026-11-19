@@ -66,7 +66,7 @@ const createMiniPlayer = (onClosed: () => void) => {
   }
 
   const indexPath = path.resolve(__dirname, "../dist/web/mini.html");
-  void miniPlayer.loadFile(indexPath, { hash: "mini-player" });
+  void miniPlayer.loadFile(indexPath);
 };
 
 const destroyMiniPlayer = () => {

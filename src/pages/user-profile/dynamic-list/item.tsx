@@ -24,6 +24,8 @@ import { postDynamicFeedThumb } from "@/service/web-dynamic-feed-thumb";
 import { useMusicFavStore } from "@/store/music-fav";
 import { usePlayList } from "@/store/play-list";
 
+import "moment/locale/zh-cn";
+
 interface DynamicItemProps {
   item: WebDynamicItem;
 }
@@ -40,7 +42,11 @@ const DynamicItem = ({ item }: DynamicItemProps) => {
   const play = usePlayList(s => s.play);
 
   // Format time
-  const timeDisplay = author?.pub_time || moment(author?.pub_ts * 1000).fromNow();
+  const timeDisplay =
+    author?.pub_time ||
+    moment(author?.pub_ts * 1000)
+      .locale("zh-cn")
+      .fromNow();
 
   // Get text content
   const textContent = dynamic?.desc?.text || opus?.summary?.text || "";

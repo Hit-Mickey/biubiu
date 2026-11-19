@@ -5,6 +5,7 @@ import { RiExportFill, RiImportFill } from "@remixicon/react";
 import { merge } from "es-toolkit/object";
 
 import { useSettings } from "@/store/settings";
+import { appName } from "@shared/app";
 import { defaultAppSettings } from "@shared/settings/app-settings";
 import { StoreNameMap } from "@shared/store";
 
@@ -22,7 +23,7 @@ const ImportExport = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `biu-settings-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
+      a.download = `${appName}-settings-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
       document.body.appendChild(a);
       a.click();
       a.remove();

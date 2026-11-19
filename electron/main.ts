@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, session } from "electron";
 import isDev from "electron-is-dev";
 import log from "electron-log";
 import path from "node:path";
@@ -139,6 +139,8 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.whenReady().then(() => {
+    session.defaultSession.setSpellCheckerEnabled(false);
+
     try {
       const settings = appSettingsStore.get("appSettings");
       applyProxySettings(settings?.proxySettings).catch(error => {

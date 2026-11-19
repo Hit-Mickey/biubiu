@@ -93,7 +93,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: biubiu-${{ matrix.os }}
+          name: BiuBiu-${{ matrix.os }}
           path: |
             dist/artifacts/*.exe
             dist/artifacts/*.blockmap

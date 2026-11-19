@@ -164,6 +164,9 @@ export async function readAudioTags(client: WebDavClient, track: StoredTrack): P
   const picture = common.picture?.length ? selectCover(common.picture) : null;
   const mime = picture?.format.toLowerCase().replace(/^image\/jpg$/, "image/jpeg");
   const validCover = mime && (mime === "image/gif" || [...imageTypes.values()].includes(mime));
+  const image = picture?.data;
+  // Keep only the cover bytes when the parser returns a view into a larger audio buffer.
+  const coverBytes = image && image.byteLength !== image.buffer.byteLength ? new Uint8Array(image) : image;
   return {
     fields: {
       title: common.title?.trim() || track.title,
@@ -175,7 +178,7 @@ export async function readAudioTags(client: WebDavClient, track: StoredTrack): P
       track: common.track.no ?? undefined,
       lossless: format.lossless,
     },
-    cover: picture && validCover ? { bytes: picture.data, mime } : undefined,
+    cover: coverBytes && validCover ? { bytes: coverBytes, mime } : undefined,
     lyrics: embeddedLyrics(metadata, TimestampFormat.milliseconds),
   };
 }

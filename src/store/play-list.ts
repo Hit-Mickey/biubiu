@@ -1,11 +1,11 @@
 import { addToast } from "@heroui/react";
 import log from "electron-log/renderer";
-import { shuffle } from "es-toolkit/array";
-import { remove } from "es-toolkit/array";
+import { remove, shuffle } from "es-toolkit/array";
 import { uniqueId } from "es-toolkit/compat";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist, type StorageValue } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
+import { shallow } from "zustand/shallow";
 
 import { getPlayModeList, PlayMode } from "@/common/constants/audio";
 import { getAudioUrl, getDashUrl, isUrlValid } from "@/common/utils/audio";
@@ -89,6 +89,28 @@ interface State {
   nextId?: string;
   /** 是否在随机播放模式下保持视频分集顺序 */
   shouldKeepPagesOrderInRandomPlayMode: boolean;
+}
+
+type PersistedPlayList = Omit<State, "isPlaying">;
+
+function createPlayListStorage() {
+  const storage = createJSONStorage<PersistedPlayList>(() => localStorage);
+  if (!storage) return;
+  let previous: StorageValue<PersistedPlayList> | undefined;
+
+  return {
+    ...storage,
+    setItem(name: string, value: StorageValue<PersistedPlayList>) {
+      if (previous && previous.version === value.version && shallow(previous.state, value.state)) return;
+      const result = storage.setItem(name, value);
+      previous = value;
+      return result;
+    },
+    removeItem(name: string) {
+      previous = undefined;
+      return storage.removeItem(name);
+    },
+  };
 }
 
 export interface PlayItem {
@@ -254,17 +276,18 @@ const playAudioSafely = async () => {
   }
 };
 
+const getPlaybackPosition = () => (audio.src ? audio.currentTime : usePlayProgress.getState().currentTime);
+
 const updatePositionState = () => {
-  if ("mediaSession" in navigator) {
-    const dur = audio.duration;
-    if (!Number.isNaN(dur) && dur !== Infinity) {
-      navigator.mediaSession.setPositionState({
-        duration: dur,
-        playbackRate: audio.playbackRate,
-        position: audio.currentTime,
-      });
-    }
-  }
+  if (!("mediaSession" in navigator)) return;
+  const duration = audio.src && Number.isFinite(audio.duration) ? audio.duration : usePlayList.getState().duration;
+  if (!duration || !Number.isFinite(duration) || duration <= 0) return;
+  const position = getPlaybackPosition();
+  navigator.mediaSession.setPositionState({
+    duration,
+    playbackRate: audio.playbackRate,
+    position: Number.isFinite(position) ? Math.max(0, Math.min(duration, position)) : 0,
+  });
 };
 
 type PlayIdentity = Pick<PlayItem, "type" | "sid" | "bvid" | "source" | "id">;
@@ -297,21 +320,14 @@ export const usePlayList = create<State & Action>()(
       const ensureAudioSrcValid = async () => {
         const { playId, list } = get();
         const currentPlayItem = list.find(item => item.id === playId);
-        if (!isBilibiliSource(currentPlayItem?.source) && currentPlayItem?.audioUrl) {
+        if (
+          currentPlayItem?.audioUrl &&
+          (!isBilibiliSource(currentPlayItem.source) || isUrlValid(currentPlayItem.audioUrl))
+        ) {
           if (audio.src !== currentPlayItem.audioUrl) {
             audio.src = currentPlayItem.audioUrl;
           } else if (currentPlayItem.source === "webdav" && audio.error) {
             audio.load();
-          }
-          const currentTime = usePlayProgress.getState().currentTime;
-          if (typeof currentTime === "number" && currentTime > 0) {
-            audio.currentTime = currentTime;
-          }
-          return;
-        }
-        if (isUrlValid(currentPlayItem?.audioUrl)) {
-          if (audio.src !== currentPlayItem.audioUrl) {
-            audio.src = currentPlayItem.audioUrl;
           }
           const currentTime = usePlayProgress.getState().currentTime;
           if (typeof currentTime === "number" && currentTime > 0) {
@@ -395,6 +411,7 @@ export const usePlayList = create<State & Action>()(
           if (audio) {
             audio.volume = get().volume;
             audio.muted = get().isMuted;
+            audio.defaultPlaybackRate = get().rate;
             audio.playbackRate = get().rate;
             audio.loop = get().playMode === PlayMode.Single;
 
@@ -490,22 +507,25 @@ export const usePlayList = create<State & Action>()(
               });
               navigator.mediaSession.setActionHandler("seekbackward", details => {
                 const offset = details?.seekOffset || 10;
-                get().seek(Math.round((audio.currentTime - offset) * 100) / 100);
+                get().seek(Math.round((getPlaybackPosition() - offset) * 100) / 100);
               });
               navigator.mediaSession.setActionHandler("seekforward", details => {
                 const offset = details?.seekOffset || 10;
-                get().seek(Math.round((audio.currentTime + offset) * 100) / 100);
+                get().seek(Math.round((getPlaybackPosition() + offset) * 100) / 100);
               });
             }
 
             if (get().playId) {
               const playItem = get().list.find(item => item.id === get().playId);
               if (playItem) {
-                await ensureAudioSrcValid();
-
-                const localCurrentTime = usePlayProgress.getState().initCurrentTime();
-                if (localCurrentTime) {
-                  audio.currentTime = localCurrentTime;
+                usePlayProgress.getState().initCurrentTime();
+                const duration = get().duration || playItem.duration;
+                // Restore the controls from saved metadata without opening a media stream.
+                if (duration && Number.isFinite(duration) && duration > 0) {
+                  if (get().duration !== duration) set({ duration });
+                } else {
+                  await ensureAudioSrcValid();
+                  if (get().playId !== playItem.id) return;
                 }
 
                 updateMediaSession({
@@ -513,6 +533,7 @@ export const usePlayList = create<State & Action>()(
                   artist: playItem.ownerName,
                   cover: playItem.pageCover || playItem.cover,
                 });
+                updatePositionState();
                 if (playItem.source === "webdav") void updateWebDavPlaybackInfo(playItem);
               }
             }
@@ -547,6 +568,7 @@ export const usePlayList = create<State & Action>()(
         },
         setRate: rate => {
           if (audio) {
+            audio.defaultPlaybackRate = rate;
             audio.playbackRate = rate;
           }
           set(state => {
@@ -555,8 +577,10 @@ export const usePlayList = create<State & Action>()(
         },
         seek: s => {
           usePlayProgress.getState().setCurrentTime(s);
-          if (audio) {
+          if (audio.src) {
             audio.currentTime = s;
+          } else {
+            updatePositionState();
           }
         },
         togglePlay: async () => {
@@ -986,11 +1010,13 @@ export const usePlayList = create<State & Action>()(
           if (shouldReportPlayRecord(currentPlayItem)) {
             endPlayReport();
           }
-          if (audio) {
-            audio.src = "";
-            if (!audio.paused) {
-              audio.pause();
-            }
+          if (audio.src) {
+            audio.removeAttribute("src");
+            audio.load();
+          }
+          if ("mediaSession" in navigator) {
+            navigator.mediaSession.metadata = null;
+            navigator.mediaSession.setPositionState();
           }
           set(state => {
             state.isPlaying = false;
@@ -1011,6 +1037,7 @@ export const usePlayList = create<State & Action>()(
     }),
     {
       name: "play-list-store",
+      storage: createPlayListStorage(),
       partialize: state => ({
         isMuted: state.isMuted,
         volume: state.volume,

@@ -1,5 +1,4 @@
 import log from "electron-log/renderer";
-import moment from "moment";
 
 import { getAudioWebStreamUrl } from "@/service/audio-web-url";
 import { getPlayerPlayurl, type DashAudio } from "@/service/player-playurl";
@@ -122,5 +121,7 @@ export const getAudioUrl = async (sid: number | string) => {
 
 /** URL是否有效 */
 export const isUrlValid = (url?: string): url is string => {
-  return Boolean(url) && moment().isBefore(moment.unix(Number(getUrlParams(url as string).deadline)));
+  if (!url) return false;
+  const expires = Number(getUrlParams(url).deadline) * 1000;
+  return Number.isFinite(expires) && Date.now() < expires;
 };

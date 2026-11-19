@@ -5,8 +5,6 @@ import { defaultAppSettings } from "@shared/settings/app-settings";
 import { defaultShortcutSettings } from "@shared/settings/shortcut-settings";
 import { StoreNameMap } from "@shared/store";
 
-import type { FullMediaDownloadTask } from "./ipc/download/types";
-
 import { getUserDataPath } from "./utils";
 
 export const appSettingsStore = new Store<{ appSettings: AppSettings }>({
@@ -26,11 +24,6 @@ export const userStore = new Store<UserInfo>({
   encryptionKey: StoreNameMap.UserLoginInfo,
 });
 
-export const mediaDownloadsStore = new Store<Record<string, FullMediaDownloadTask>>({
-  name: StoreNameMap.MediaDownloads,
-  cwd: getUserDataPath(),
-});
-
 export const shortcutKeyStore = new Store<ShortcutSettings>({
   name: StoreNameMap.ShortcutSettings,
   cwd: getUserDataPath(),
@@ -39,8 +32,12 @@ export const shortcutKeyStore = new Store<ShortcutSettings>({
   },
 });
 
-export const lyricsCacheStore = new Store<Record<string, MusicLyrics>>({
-  name: StoreNameMap.LyricsCache,
-  cwd: getUserDataPath(),
-  defaults: {},
-});
+let lyricsCacheStore: Store<Record<string, MusicLyrics>> | undefined;
+
+export function getLyricsCacheStore() {
+  lyricsCacheStore ??= new Store<Record<string, MusicLyrics>>({
+    name: StoreNameMap.LyricsCache,
+    cwd: getUserDataPath(),
+  });
+  return lyricsCacheStore;
+}

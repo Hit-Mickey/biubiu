@@ -17,7 +17,7 @@ export const getUserDataPath = () => {
   const appData = app.getPath("appData");
   const defaultPath = app.getPath("userData");
   const preferredPath = isDev ? path.join(appData, `${appName}-dev`) : defaultPath;
-  const legacyNames = isDev ? ["biu-dev"] : ["Biu", "biu"];
+  const legacyNames = isDev ? ["biubiu-dev", "biu-dev"] : ["biubiu", "Biu", "biu"];
   const hasSettings = (dir: string) => existsSync(path.join(dir, `${StoreNameMap.AppSettings}.json`));
 
   // Keep existing settings, browser storage and encrypted credentials together after renaming.

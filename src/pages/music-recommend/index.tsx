@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
-import { addToast, Spinner, Tab, Tabs } from "@heroui/react";
+import { addToast, Button, Link, Spinner, Tab, Tabs } from "@heroui/react";
 import { RiPlayFill } from "@remixicon/react";
+import { isAxiosError } from "axios";
 import log from "electron-log/renderer";
 
 import AsyncButton from "@/components/async-button";
+import Empty from "@/components/empty";
 import ScrollContainer, { type ScrollRefObject } from "@/components/scroll-container";
 import { getMusicComprehensiveWebRank, type Data as MusicItem } from "@/service/music-comprehensive-web-rank";
 import { getRegionFeedRcmd, type Archive } from "@/service/web-interface-region-feed-rcmd";
@@ -16,7 +18,8 @@ import type { RecommendItem } from "./types";
 
 import MusicRecommendGridList from "./grid-list";
 import MusicRecommendList from "./list";
-import NewMusicTop from "./new-music-top";
+
+const NewMusicTop = lazy(() => import("./new-music-top"));
 
 const PAGE_SIZE = 20;
 const REGION_PAGE_SIZE = 15;
@@ -58,15 +61,51 @@ const normalizeRegionItem = (item: Archive, fallbackId: string | number): Recomm
   };
 };
 
+async function fetchPage(tab: RecommendTabKey, page: number) {
+  if (tab === "pop") {
+    const result = await getMusicComprehensiveWebRank({ pn: page, ps: PAGE_SIZE, web_location: "333.1351" });
+    if (result.code !== 0) throw new Error(result.message || "获取流行音乐推荐失败");
+    const items = result.data?.list ?? [];
+    return { items: items.map(normalizeRankItem), hasMore: items.length === PAGE_SIZE };
+  }
+
+  const result = await getRegionFeedRcmd({
+    display_id: page,
+    request_cnt: REGION_PAGE_SIZE,
+    from_region: REGION_MAP[tab],
+    device: "web",
+    plat: 30,
+    web_location: REGION_WEB_LOCATION,
+  });
+  if (result.code !== 0) throw new Error(result.message || "获取音乐推荐失败");
+  const items = result.data?.archives ?? [];
+  return {
+    items: items.map((item, index) => normalizeRegionItem(item, `${page}-${index}`)),
+    hasMore: items.length === REGION_PAGE_SIZE,
+  };
+}
+
+function getLoadErrorMessage(error: unknown) {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === 412) return "B 站暂未接受这次推荐请求（HTTP 412）。";
+    return status ? `B 站推荐请求失败（HTTP ${status}）。` : "暂时无法连接 B 站推荐服务。";
+  }
+  return error instanceof Error ? error.message : "无法获取推荐内容。";
+}
+
 const MusicRecommend = () => {
   const scrollerRef = useRef<ScrollRefObject>(null);
 
   const [list, setList] = useState<RecommendItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [initialError, setInitialError] = useState<string>();
   const [loadingMore, setLoadingMore] = useState(false);
   const pageRef = useRef(1);
+  const requestId = useRef(0);
   const [activeTab, setActiveTab] = useState<RecommendTabKey>("music");
+  const [listSource, setListSource] = useState<RecommendTabKey>("music");
   const scrollRestoreRef = useRef<{ tab: RecommendTabKey; top: number } | null>(null);
   const [popLayoutVersion, setPopLayoutVersion] = useState(0);
 
@@ -81,81 +120,65 @@ const MusicRecommend = () => {
     setPopLayoutVersion(prev => prev + 1);
   }, []);
 
-  const fetchPage = useCallback(
-    async (pn: number = 1) => {
-      if (activeTab === "pop") {
-        const res = await getMusicComprehensiveWebRank({ pn, ps: PAGE_SIZE, web_location: "333.1351" });
-        const items = res?.data?.list ?? [];
-        if (res.code === 0) {
-          const normalized = items.map(normalizeRankItem);
-          setList(prev => (pn === 1 ? normalized : [...prev, ...normalized]));
-          setHasMore(items.length === PAGE_SIZE);
-        } else {
-          if (pn === 1) {
-            setList([]);
-          }
-          setHasMore(false);
-        }
-        return;
-      }
-
-      const res = await getRegionFeedRcmd({
-        display_id: pn,
-        request_cnt: REGION_PAGE_SIZE,
-        from_region: REGION_MAP[activeTab],
-        device: "web",
-        plat: 30,
-        web_location: REGION_WEB_LOCATION,
-      });
-      const items = res?.data?.archives ?? [];
-      if (res.code === 0) {
-        const normalized = items.map((item, index) => normalizeRegionItem(item, `${pn}-${index}`));
-        setList(prev => (pn === 1 ? normalized : [...prev, ...normalized]));
-        setHasMore(items.length === REGION_PAGE_SIZE);
-      } else {
-        if (pn === 1) {
-          setList([]);
-        }
-        setHasMore(false);
-      }
-    },
-    [activeTab],
-  );
-
   const loadMore = async () => {
     if (initialLoading || loadingMore || !hasMore) return;
+    const current = ++requestId.current;
     try {
       setLoadingMore(true);
       const nextPage = pageRef.current + 1;
-      await fetchPage(nextPage);
+      const result = await fetchPage(listSource, nextPage);
+      if (current !== requestId.current) return;
+      setList(previous => [...previous, ...result.items]);
+      setHasMore(result.hasMore);
       pageRef.current = nextPage;
     } catch (error) {
+      if (current !== requestId.current) return;
       setHasMore(false);
       log.warn("[recommend] 加载更多推荐失败", error instanceof Error ? error.message : String(error));
     } finally {
-      setLoadingMore(false);
+      if (current === requestId.current) setLoadingMore(false);
     }
   };
 
   const init = useCallback(async () => {
+    const current = ++requestId.current;
+    pageRef.current = 1;
+    setInitialLoading(true);
+    setList([]);
+    setInitialError(undefined);
+    setHasMore(false);
+    setLoadingMore(false);
     try {
-      pageRef.current = 1;
-      setHasMore(false);
-      setLoadingMore(false);
-      await fetchPage(1);
+      let source = activeTab;
+      let result = await fetchPage(source, 1).catch(error => {
+        if (activeTab !== "music") throw error;
+        log.warn("[recommend] 加载音乐分区失败", error instanceof Error ? error.message : String(error));
+        return undefined;
+      });
+      if (current !== requestId.current) return;
+      if (!result || (activeTab === "music" && result.items.length === 0)) {
+        source = "pop";
+        result = await fetchPage(source, 1);
+      }
+      if (current !== requestId.current) return;
+      setListSource(source);
+      setList(result.items);
+      setHasMore(result.hasMore);
     } catch (error) {
-      setList([]);
-      setHasMore(false);
+      if (current !== requestId.current) return;
+      setInitialError(getLoadErrorMessage(error));
       log.warn("[recommend] 加载推荐失败", error instanceof Error ? error.message : String(error));
     } finally {
-      setInitialLoading(false);
+      if (current === requestId.current) setInitialLoading(false);
     }
-  }, [fetchPage]);
+  }, [activeTab]);
 
   useEffect(() => {
-    setInitialLoading(true);
-    init();
-  }, [activeTab, init]);
+    void init();
+    return () => {
+      requestId.current += 1;
+    };
+  }, [init]);
 
   useEffect(() => {
     if (initialLoading) return;
@@ -301,9 +324,40 @@ const MusicRecommend = () => {
           全部播放
         </AsyncButton>
       </div>
-      {activeTab === "pop" && <NewMusicTop onLayoutChange={handlePopLayoutChange} />}
+      {activeTab === "pop" && (
+        <Suspense fallback={null}>
+          <NewMusicTop onLayoutChange={handlePopLayoutChange} />
+        </Suspense>
+      )}
       <div className="relative">
-        {displayMode === "card" ? (
+        {!initialLoading && activeTab === "music" && listSource === "pop" && list.length > 0 && (
+          <p className="text-default-500 mb-2 text-sm" role="status">
+            当前展示 B 站流行音乐榜
+          </p>
+        )}
+        {initialLoading ? (
+          <div className="flex h-[40vh] items-center justify-center">
+            <Spinner size="lg" label="正在加载推荐" />
+          </div>
+        ) : list.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-20">
+            <div role="status" className="text-center">
+              <Empty title={initialError ? "推荐加载失败" : "暂无推荐内容"} className="py-0" />
+              {initialError && <p className="text-default-500 mt-2 text-sm">{initialError}</p>}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <Button size="sm" color="primary" variant="flat" onPress={() => void init()}>
+                重新加载
+              </Button>
+              <Link size="sm" href="/local-music">
+                本地音乐
+              </Link>
+              <Link size="sm" href="/remote-music">
+                远程列表
+              </Link>
+            </div>
+          </div>
+        ) : displayMode === "card" ? (
           <MusicRecommendGridList
             key={listKey}
             items={list}
@@ -323,11 +377,6 @@ const MusicRecommend = () => {
             getScrollElement={getScrollElement}
             onMenuAction={handleMenuAction}
           />
-        )}
-        {initialLoading && list.length === 0 && (
-          <div className="flex h-[40vh] items-center justify-center">
-            <Spinner size="lg" />
-          </div>
         )}
       </div>
     </ScrollContainer>

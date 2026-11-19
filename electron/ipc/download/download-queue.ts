@@ -1,15 +1,23 @@
 import type { BrowserWindow } from "electron";
 
+import Store from "electron-store";
 import { throttle } from "es-toolkit/compat";
 import { randomUUID } from "node:crypto";
 import PQueue from "p-queue";
 
+import { StoreNameMap } from "@shared/store";
+
 import type { FullMediaDownloadTask } from "./types";
 
+import { getUserDataPath } from "../../utils";
 import { channel } from "../channel";
-import { mediaDownloadsStore } from "./../../store";
 import { DownloadCore } from "./download-core";
 import { getVideoPages } from "./utils";
+
+const mediaDownloadsStore = new Store<Record<string, FullMediaDownloadTask>>({
+  name: StoreNameMap.MediaDownloads,
+  cwd: getUserDataPath(),
+});
 
 export class DownloadQueue {
   private queue: PQueue;

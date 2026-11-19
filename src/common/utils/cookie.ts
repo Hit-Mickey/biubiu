@@ -1,7 +1,7 @@
 import { postPassportLoginWebConfirmRefresh } from "@/service/passport-login-web-confirm-refresh";
 import { getPassportLoginWebCookieInfo } from "@/service/passport-login-web-cookie-info";
 import { postPassportLoginWebCookieRefresh } from "@/service/passport-login-web-cookie-refresh";
-import { axiosInstance, biliRequest } from "@/service/request";
+import { biliRequest } from "@/service/request";
 import { useToken } from "@/store/token";
 
 async function getCorrespondPath(timestamp: number, publicKey: CryptoKey) {
@@ -75,11 +75,20 @@ export const refreshCookie = async () => {
   return false;
 };
 
-export const getCookitFromBSite = () => {
-  axiosInstance.get("https://www.bilibili.com/", {
+export function nextCookieRefreshTime() {
+  const next = new Date();
+  next.setDate(next.getDate() + 2);
+  return Math.floor(next.getTime() / 1000);
+}
+
+export async function loadBilibiliCookies() {
+  const response = await fetch("https://www.bilibili.com/", {
+    credentials: "include",
+    signal: AbortSignal.timeout(10_000),
     headers: {
       Accept:
         "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
     },
   });
-};
+  await response.body?.cancel();
+}
