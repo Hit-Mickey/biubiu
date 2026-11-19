@@ -7,7 +7,7 @@
 </p>
 <p align="center">
   <a href="https://github.com/Hit-Mickey/biubiu/releases">
-    <img src="https://img.shields.io/badge/version-v1.0.0-blueviolet" alt="v1.0.0" />
+    <img src="https://img.shields.io/badge/version-v1.0.1-blueviolet" alt="v1.0.1" />
   </a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange.svg" alt="License" /></a>
 </p>
@@ -273,7 +273,7 @@ chcp 65001 > $null
 
 推送 `v*` 标签时，GitHub Actions 的 **Release** 工作流会构建 Windows、macOS 和 Linux 安装包。各平台构建成功后，安装包会发布到 GitHub Releases。也可以在工作流页面选择已有的版本标签手动运行。 [Release 工作流](https://github.com/Hit-Mickey/biubiu/actions/workflows/release.yml)
 
-设置页显示版本 `v1.0.0`。打包和更新使用 SemVer `1.0.0`，对应的发布标签为 `v1.0.0`。
+设置页显示版本 `v1.0.1`。打包和更新使用 SemVer `1.0.1`，对应的发布标签为 `v1.0.1`。
 
 ## 📄 许可证
 
