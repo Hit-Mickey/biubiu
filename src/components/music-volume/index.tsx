@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Tooltip, Slider } from "@heroui/react";
 import { RiVolumeDownLine, RiVolumeMuteLine, RiVolumeUpLine } from "@remixicon/react";
@@ -7,27 +7,18 @@ import { usePlayList } from "@/store/play-list";
 
 import IconButton from "../icon-button";
 
-const Volume = () => {
+let previousVolume = usePlayList.getState().volume;
+
+const Volume = ({ portalContainer }: { portalContainer?: HTMLElement }) => {
   const volume = usePlayList(s => s.volume);
   const isMuted = usePlayList(s => s.isMuted);
   const toggleMute = usePlayList(s => s.toggleMute);
   const setVolume = usePlayList(s => s.setVolume);
 
-  const previousVolume = useRef(volume);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   const tooltipTimerRef = useRef<NodeJS.Timeout | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const sliderRef = useRef<HTMLDivElement | null>(null);
-
-  const setSliderRef = useCallback((node: HTMLDivElement | null) => {
-    if (sliderRef.current) {
-      sliderRef.current.removeEventListener("wheel", onWheel);
-    }
-    sliderRef.current = node;
-    if (node) {
-      node.addEventListener("wheel", onWheel, { passive: false });
-    }
-  }, []);
 
   const onVolumeChange = (val: number) => {
     if (isMuted) {
@@ -41,12 +32,12 @@ const Volume = () => {
 
   const onToggleMute = () => {
     if (!isMuted) {
-      previousVolume.current = volume;
+      previousVolume = volume;
       setVolume(0);
       // 静音时关闭音量条
       setIsTooltipOpen(false);
     } else {
-      setVolume(previousVolume.current);
+      setVolume(previousVolume);
     }
     toggleMute();
   };
@@ -92,6 +83,19 @@ const Volume = () => {
     }
   }, []);
 
+  const setSliderRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (sliderRef.current) {
+        sliderRef.current.removeEventListener("wheel", onWheel);
+      }
+      sliderRef.current = node;
+      if (node) {
+        node.addEventListener("wheel", onWheel, { passive: false });
+      }
+    },
+    [onWheel],
+  );
+
   // 清理定时器
   useEffect(() => {
     const button = buttonRef.current;
@@ -109,12 +113,10 @@ const Volume = () => {
     };
   }, [onWheel]);
 
-  const tooltipId = "volume-tooltip";
-
   return (
     <Tooltip
       disableAnimation
-      id={tooltipId}
+      portalContainer={portalContainer}
       placement="top"
       delay={300}
       showArrow={false}
@@ -150,12 +152,7 @@ const Volume = () => {
         </div>
       }
     >
-      <IconButton
-        ref={buttonRef}
-        onPress={onToggleMute}
-        aria-label={isMuted ? "取消静音" : "静音"}
-        aria-describedby={tooltipId}
-      >
+      <IconButton ref={buttonRef} onPress={onToggleMute} aria-label={isMuted ? "取消静音" : "静音"}>
         {isMuted ? (
           <RiVolumeMuteLine size={18} />
         ) : volume > 0.5 ? (

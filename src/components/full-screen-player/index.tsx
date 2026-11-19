@@ -21,6 +21,7 @@ import IconButton from "../icon-button";
 import MusicPlayControl from "../music-play-control";
 import MusicPlayMode from "../music-play-mode";
 import MusicPlayProgress from "../music-play-progress";
+import MusicVolume from "../music-volume";
 import OpenPlaylistDrawerButton from "../open-playlist-drawer-button";
 import WindowAction from "../window-action";
 import { useGlassmorphism } from "./glassmorphism";
@@ -60,6 +61,7 @@ const FullScreenPlayer = () => {
   const [isPageListOpen, setIsPageListOpen] = useState(false);
   const [isUiVisible, setIsUiVisible] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [playerContent, setPlayerContent] = useState<HTMLDivElement | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const [controlsHeight, setControlsHeight] = useState(80);
 
@@ -324,7 +326,7 @@ const FullScreenPlayer = () => {
                 </div>
               </div>
 
-              <div className="flex h-full w-full items-center justify-center">
+              <div ref={setPlayerContent} className="flex h-full w-full items-center justify-center">
                 {!isLocal && showCover && (
                   <div
                     className={clsx(
@@ -396,7 +398,14 @@ const FullScreenPlayer = () => {
                   <div className="flex w-full items-center justify-center space-x-4">
                     <MusicPlayMode />
                     <MusicPlayControl />
-                    <OpenPlaylistDrawerButton />
+                    <div className="relative flex">
+                      <OpenPlaylistDrawerButton />
+                      {isUiVisible && playerContent && (
+                        <div className="absolute inset-y-0 left-full ml-4 flex items-center">
+                          <MusicVolume portalContainer={playerContent} />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
