@@ -32,10 +32,19 @@ export const channel = {
     sync: "download:sync",
     clear: "download:clear",
   },
+  externalPlaylist: {
+    read: "external-playlist:read",
+    cancel: "external-playlist:cancel",
+  },
   lyrics: {
     searchNeteaseSongs: "lyrics:netease-search",
     getNeteaseLyrics: "lyrics:netease-lyrics",
     searchLrclib: "lyrics:lrclib-search",
+    searchQQ: "lyrics:qq-search",
+    getQQ: "lyrics:qq-get",
+    getTrack: "lyrics:track-get",
+    updateTrack: "lyrics:track-update",
+    readLocal: "lyrics:local-read",
   },
   router: {
     navigate: "router:navigate",
@@ -66,7 +75,6 @@ export const channel = {
     quitAndInstall: "app:quit-and-install",
     openInstallerDirectory: "app:open-installer-directory",
     onBeforeQuit: "app:on-before-quit",
-    isDev: "app:is-dev",
     setProxySettings: "app:set-proxy-settings",
   },
   cookie: {
@@ -75,6 +83,7 @@ export const channel = {
   },
   localMusic: {
     scan: "local-music:scan",
+    resolve: "local-music:resolve",
     deleteFile: "local-music:delete-file",
   },
   webdav: {
@@ -89,6 +98,10 @@ export const channel = {
     lyrics: "webdav:lyrics",
     preferences: "webdav:preferences",
     clearCache: "webdav:clear-cache",
+    backupTargets: "webdav:backup-targets",
+    backups: "webdav:backups",
+    uploadBackup: "webdav:upload-backup",
+    downloadBackup: "webdav:download-backup",
   },
   window: {
     toggleMini: "window:toggle-mini",
@@ -102,6 +115,5 @@ export const channel = {
     enterFullScreen: "window:enter-full-screen",
     leaveFullScreen: "window:leave-full-screen",
     isFullScreen: "window:is-full-screen",
-    toggleDevTools: "window:toggle-dev-tools",
   },
 };

@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, vi } from "vitest";
 
 import { PlayMode } from "@/common/constants/audio";
-import { usePlayList } from "@/store/play-list";
+import { pauseForSleep, usePlayList } from "@/store/play-list";
 
 vi.mock("@/common/utils/audio", () => ({
   getAudioUrl: vi.fn(async () => ({ audioUrl: "https://audio.test/a.mp3", isLossless: false })),
@@ -133,6 +133,21 @@ describe("play-list store", () => {
     expect(usePlayList.getState().playId).toBe(first.id);
   });
 
+  test("playlist enqueue can distinguish expanded video parts without changing legacy whole-video matching", async () => {
+    const { compactPlayData, trackKey } = await import("@/store/desktop-playlists/tracks");
+    const player = usePlayList.getState();
+    const first = { type: "mv", bvid: "BV17x411w7KC", cid: "11", title: "P1", totalPage: 2 } as const;
+    const second = { ...first, cid: "12", title: "P2" };
+    await player.playList([first]);
+    player.addList([second]);
+    expect(usePlayList.getState().list).toHaveLength(1);
+    player.addList([first, second, second], row => {
+      const track = compactPlayData(row);
+      return track && trackKey(track);
+    });
+    expect(usePlayList.getState().list.map(row => row.cid)).toEqual(["11", "12"]);
+  });
+
   test("playList sets list and next/prev in sequence", async () => {
     const s = usePlayList.getState();
     await s.init();
@@ -146,6 +161,32 @@ describe("play-list store", () => {
     expect(secondId).not.toBe(firstId);
     await s.prev();
     expect(usePlayList.getState().playId).toBe(firstId);
+  });
+
+  test("sleep pause also stops a stream that finishes resolving after the deadline, until an explicit play", async () => {
+    const player = usePlayList.getState();
+    await player.init();
+    const { getAudioUrl } = await import("@/common/utils/audio");
+    const stream = Promise.withResolvers<Awaited<ReturnType<typeof getAudioUrl>>>();
+    vi.mocked(getAudioUrl).mockReturnValueOnce(stream.promise);
+    await player.playList([{ type: "audio", sid: 102, title: "slow" }]);
+    pauseForSleep();
+    stream.resolve({ audioUrl: "https://audio.test/slow", audioCodecs: "", isLossless: false, mirrors: [] });
+    await vi.waitFor(() => expect(player.getAudio().src).toBe("https://audio.test/slow"));
+    expect(player.getAudio().paused).toBe(true);
+    await player.togglePlay();
+    expect(player.getAudio().paused).toBe(false);
+  });
+
+  test("explicitly enqueueing a named playlist into an empty queue does not start it", async () => {
+    const player = usePlayList.getState();
+    await player.init();
+    player.addList([{ type: "audio", sid: 5, title: "queued" }], item => String(item.sid));
+    expect(usePlayList.getState().list).toHaveLength(1);
+    expect(usePlayList.getState().playId).toBeUndefined();
+    expect(player.getAudio().paused).toBe(true);
+    await player.togglePlay();
+    expect(usePlayList.getState().playId).toBe(usePlayList.getState().list[0].id);
   });
 
   test("random mode keeps pages order", async () => {

@@ -1,4 +1,4 @@
-import { apiRequest } from "./request";
+import { apiRequest, type BiliLookupOptions } from "./request";
 
 /**
  * 公共：通用分页响应头
@@ -151,8 +151,10 @@ export interface SearchPhotoItem {
  */
 export async function getWebInterfaceWbiSearchType<T = any>(
   params: WebSearchTypeParams,
+  options?: BiliLookupOptions,
 ): Promise<WebSearchTypeResponse<T>> {
   return apiRequest.get<WebSearchTypeResponse<T>>("/x/web-interface/wbi/search/type", {
+    ...options,
     params,
     useWbi: true,
   });

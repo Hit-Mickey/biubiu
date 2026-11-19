@@ -4,6 +4,7 @@ import { addToast, Button, Select, SelectItem } from "@heroui/react";
 import { RiDeleteBinLine, RiFolderAddLine, RiRefreshLine, RiPlayFill, RiPlayListAddLine } from "@remixicon/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import { localMediaUrl } from "@/common/utils/local-media-url";
 import Empty from "@/components/empty";
 import IconButton from "@/components/icon-button";
 import ScrollContainer, { type ScrollRefObject } from "@/components/scroll-container";
@@ -47,8 +48,6 @@ const LocalMusicPage = () => {
       .filter(item => (keyword ? item.title.toLowerCase().includes(keyword.toLowerCase()) : true));
   }, [list, selectedDir, keyword]);
 
-  const toFileUrl = (p: string) => `file://${p.replace(/\\/g, "/")}`;
-
   const getDirName = (p: string) => {
     const trimmed = p.replace(/[\\/]+$/, "");
     const parts = trimmed.split(/[/\\]/);
@@ -69,7 +68,7 @@ const LocalMusicPage = () => {
         source: "local" as const,
         id: i.id,
         title: i.title,
-        audioUrl: toFileUrl(i.path),
+        audioUrl: localMediaUrl(i.path),
       })),
     );
   };
@@ -81,7 +80,7 @@ const LocalMusicPage = () => {
       source: "local" as const,
       id: i.id,
       title: i.title,
-      audioUrl: toFileUrl(i.path),
+      audioUrl: localMediaUrl(i.path),
     }));
     usePlayList.getState().addList?.(items);
     addToast({
@@ -133,7 +132,7 @@ const LocalMusicPage = () => {
       source: "local" as const,
       type: "audio" as const,
       title: song.title,
-      audioUrl: toFileUrl(song.path),
+      audioUrl: localMediaUrl(song.path),
     });
   };
 
@@ -143,7 +142,7 @@ const LocalMusicPage = () => {
       source: "local" as const,
       type: "audio" as const,
       title: song.title,
-      audioUrl: toFileUrl(song.path),
+      audioUrl: localMediaUrl(song.path),
     });
   };
 
@@ -154,7 +153,7 @@ const LocalMusicPage = () => {
         source: "local" as const,
         type: "audio" as const,
         title: song.title,
-        audioUrl: toFileUrl(song.path),
+        audioUrl: localMediaUrl(song.path),
       },
     ]);
 

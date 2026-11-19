@@ -2,10 +2,12 @@ import log from "electron-log/renderer";
 
 import { getAudioWebStreamUrl } from "@/service/audio-web-url";
 import { getPlayerPlayurl, type DashAudio } from "@/service/player-playurl";
+import { useSettings } from "@/store/settings";
 import { useUser } from "@/store/user";
 
 import { audioQualitySort } from "../constants/audio";
 import { VideoFnval } from "../constants/video";
+import { selectMirror, streamCandidates } from "./audio-cdn";
 import { getUrlParams } from "./url";
 
 function sortAudio(audio: DashAudio[]) {
@@ -55,38 +57,18 @@ export async function getDashUrl(bvid: string, cid: string | number, audioQualit
     const flacAudio = getUrlInfoRes?.data?.dash?.flac?.audio;
     const dolbyAudio = getUrlInfoRes?.data?.dash?.dolby?.audio?.[0];
 
-    if (audioQuality === "auto" || audioQuality === "lossless") {
-      if (flacAudio) {
-        return {
-          isLossless: true,
-          audioCodecs: flacAudio.codecs.toLowerCase(),
-          audioBandwidth: flacAudio.bandwidth,
-          audioUrl: flacAudio.baseUrl || flacAudio.backupUrl[0],
-          videoUrl,
-          videoResolution,
-        };
-      }
-
-      if (dolbyAudio) {
-        return {
-          isLossless: false,
-          isDolby: true,
-          audioCodecs: dolbyAudio.codecs.toLowerCase(),
-          audioBandwidth: dolbyAudio.bandwidth,
-          audioUrl: dolbyAudio.baseUrl || dolbyAudio.backupUrl?.[0] || "",
-          videoUrl,
-          videoResolution: `${bestVideoInfo?.width}x${bestVideoInfo?.height}`,
-        };
-      }
-    }
-
-    const audioList = getUrlInfoRes?.data?.dash?.audio || [];
-    const selectedAudio = selectAudioByQuality(audioList, audioQuality);
+    const premium = audioQuality === "auto" || audioQuality === "lossless";
+    const selectedAudio =
+      (premium && (flacAudio || dolbyAudio)) ||
+      selectAudioByQuality(getUrlInfoRes?.data?.dash?.audio ?? [], audioQuality);
+    const mirrors = streamCandidates(selectedAudio);
     return {
-      isLossless: false,
+      isLossless: Boolean(selectedAudio && selectedAudio === flacAudio),
+      isDolby: Boolean(selectedAudio && selectedAudio === dolbyAudio),
       audioCodecs: selectedAudio?.codecs?.toLowerCase() || "",
       audioBandwidth: selectedAudio?.bandwidth,
-      audioUrl: selectedAudio?.baseUrl || selectedAudio?.backupUrl?.[0] || "",
+      mirrors,
+      audioUrl: selectMirror(mirrors, useSettings.getState().preferredAudioHost),
       videoUrl,
       videoResolution,
     };
@@ -113,7 +95,8 @@ export const getAudioUrl = async (sid: number | string) => {
   const isFlac = res?.data?.type === 3;
 
   return {
-    audioUrl: res?.data?.cdns?.[0],
+    audioUrl: selectMirror(res?.data?.cdns ?? [], useSettings.getState().preferredAudioHost),
+    mirrors: res?.data?.cdns ?? [],
     audioCodecs: isFlac ? "flac" : "",
     isLossless: isFlac,
   };

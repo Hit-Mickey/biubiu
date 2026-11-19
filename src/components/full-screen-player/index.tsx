@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, startTransition, Suspense, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 
 import { Drawer, DrawerBody, DrawerContent, Image, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import { RiArrowDownSLine, RiArrowLeftSLine, RiSettings3Line } from "@remixicon/react";
 import { useClickAway } from "ahooks";
 import clsx from "classnames";
 import { readableColor } from "color2k";
+import { useReducedMotion } from "framer-motion";
 import { useShallow } from "zustand/shallow";
 
 import { Themes } from "@/common/constants/theme";
@@ -18,27 +19,36 @@ import { useSettings } from "@/store/settings";
 
 import Empty from "../empty";
 import IconButton from "../icon-button";
+import LoadOnOpen from "../load-on-open";
 import MusicPlayControl from "../music-play-control";
 import MusicPlayMode from "../music-play-mode";
 import MusicPlayProgress from "../music-play-progress";
 import MusicVolume from "../music-volume";
 import OpenPlaylistDrawerButton from "../open-playlist-drawer-button";
 import WindowAction from "../window-action";
+import GlassBackground from "./background";
 import { useGlassmorphism } from "./glassmorphism";
-import PageList from "./page-list";
-import FullScreenPlayerSettingsPanel from "./settings-panel";
 
+const PageList = lazy(() => import("./page-list"));
+const FullScreenPlayerSettingsPanel = lazy(() => import("./settings-panel"));
 const platform = window.electron.getPlatform();
+
+// A single transform can run in the compositor without updating y in JavaScript each frame.
+const drawerVariants: NonNullable<ComponentProps<typeof Drawer>["motionProps"]>["variants"] = {
+  enter: {
+    transform: "translateY(0%)",
+    transition: { duration: 0.2, ease: [0, 0, 0.2, 1] },
+  },
+  exit: {
+    transform: "translateY(100%)",
+    transition: { duration: 0.1, ease: [0.4, 0, 1, 1] },
+  },
+};
 
 const FullScreenPlayer = () => {
   const isOpen = useModalStore(s => s.isFullScreenPlayerOpen);
   const close = useModalStore(s => s.closeFullScreenPlayer);
-  const { playId, list } = usePlayList(
-    useShallow(state => ({
-      playId: state.playId,
-      list: state.list,
-    })),
-  );
+  const playItem = usePlayList(state => state.getPlayItem());
   const primaryColor = useSettings(s => s.primaryColor);
   const themeMode = useSettings(s => s.themeMode);
   const { showLyrics, showSpectrum, showCover, showBlurredBackground, backgroundColor, spectrumColor, lyricsColor } =
@@ -53,14 +63,14 @@ const FullScreenPlayer = () => {
         lyricsColor: s.lyricsColor,
       })),
     );
-  const playItem = list.find(item => item.id === playId);
   const isLocal = playItem?.source === "local";
 
   const [windowWidth, setWindowWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1000);
   const [windowHeight, setWindowHeight] = useState(typeof window !== "undefined" ? window.innerHeight : 800);
   const [isPageListOpen, setIsPageListOpen] = useState(false);
-  const [isUiVisible, setIsUiVisible] = useState(false);
+  const [isUiVisible, setIsUiVisible] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [firstOpenFinished, setFirstOpenFinished] = useState(false);
   const [playerContent, setPlayerContent] = useState<HTMLDivElement | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const [controlsHeight, setControlsHeight] = useState(80);
@@ -90,18 +100,14 @@ const FullScreenPlayer = () => {
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    setIsUiVisible(true);
     return () => {
-      if (hideUiTimeoutRef.current) {
+      if (hideUiTimeoutRef.current !== null) {
         window.clearTimeout(hideUiTimeoutRef.current);
         hideUiTimeoutRef.current = null;
       }
     };
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) {
-      setIsUiVisible(true);
-    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -134,31 +140,22 @@ const FullScreenPlayer = () => {
     scheduleHideUi(3000);
   };
 
+  const reduceMotion = !!useReducedMotion();
+  const showMedia = firstOpenFinished || reduceMotion;
   const coverSrc = playItem?.pageCover || playItem?.cover;
-  const { effectsProfile, bgLayerA, bgLayerB, activeBgLayer, cssVars } = useGlassmorphism(
+  const { covers, fallback, transitionMs, glow } = useGlassmorphism(
     coverSrc,
     primaryColor,
-    isOpen,
+    isOpen && showMedia && showBlurredBackground,
   );
 
   useEffect(() => {
-    const updateHeight = () => {
-      const el = controlsRef.current;
-      if (el) {
-        setControlsHeight(el.offsetHeight || 80);
-      }
-    };
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
-
-  useEffect(() => {
-    const el = controlsRef.current;
-    if (el) {
-      setControlsHeight(el.offsetHeight || 80);
-    }
-  }, [isUiVisible]);
+    const controls = controlsRef.current;
+    if (!isOpen || !showMedia || !showSpectrum || !controls) return;
+    const observer = new ResizeObserver(() => setControlsHeight(controls.offsetHeight || 80));
+    observer.observe(controls);
+    return () => observer.disconnect();
+  }, [isOpen, showMedia, showSpectrum]);
 
   const computedForegroundHex = useMemo(() => {
     if (showBlurredBackground) return undefined;
@@ -173,14 +170,14 @@ const FullScreenPlayer = () => {
 
   const themeVars = useMemo(() => {
     const vars: React.CSSProperties = {
-      ...cssVars,
+      ["--glow-rgb" as any]: `${glow.r} ${glow.g} ${glow.b}`,
       ["--heroui-primary" as any]: hexToHsl(primaryColor),
     };
     if (computedForegroundHex) {
       vars["--heroui-foreground" as any] = hexToHsl(computedForegroundHex);
     }
     return vars;
-  }, [cssVars, primaryColor, computedForegroundHex]);
+  }, [glow, primaryColor, computedForegroundHex]);
 
   const appTheme = useMemo(() => resolveTheme(themeMode), [themeMode]);
 
@@ -200,6 +197,16 @@ const FullScreenPlayer = () => {
       radius="none"
       isDismissable={false}
       hideCloseButton
+      disableAnimation={reduceMotion}
+      motionProps={{
+        variants: drawerVariants,
+        onAnimationComplete: animation => {
+          // The first slide only moves the shell. Keep media drawing out of that animation.
+          if (!showMedia && animation === "enter" && useModalStore.getState().isFullScreenPlayerOpen) {
+            startTransition(() => setFirstOpenFinished(true));
+          }
+        },
+      }}
     >
       <DrawerContent
         className={clsx("bg-background text-foreground relative h-full overflow-hidden", {
@@ -229,66 +236,7 @@ const FullScreenPlayer = () => {
               {!showBlurredBackground && (
                 <div aria-hidden className="absolute inset-0 -z-10" style={{ backgroundColor: backgroundColor }} />
               )}
-              {showBlurredBackground && (
-                <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      opacity: activeBgLayer === "a" ? 1 : 0,
-                      transition: `opacity ${effectsProfile.transitionMs}ms ease`,
-                      willChange: "opacity",
-                    }}
-                  >
-                    {bgLayerA.coverSrc && (
-                      <div
-                        className="absolute inset-0 scale-[1.15] bg-cover bg-center"
-                        style={{
-                          backgroundImage: `url(${bgLayerA.coverSrc})`,
-                          filter: `blur(${effectsProfile.blurPx}px)`,
-                          opacity: 0.92,
-                          willChange: "transform, filter, opacity",
-                          transition: `filter ${effectsProfile.transitionMs}ms ease, opacity ${effectsProfile.transitionMs}ms ease`,
-                        }}
-                      />
-                    )}
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background: bgLayerA.gradientBackground,
-                        willChange: "opacity",
-                      }}
-                    />
-                  </div>
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      opacity: activeBgLayer === "b" ? 1 : 0,
-                      transition: `opacity ${effectsProfile.transitionMs}ms ease`,
-                      willChange: "opacity",
-                    }}
-                  >
-                    {bgLayerB.coverSrc && (
-                      <div
-                        className="absolute inset-0 scale-[1.15] bg-cover bg-center"
-                        style={{
-                          backgroundImage: `url(${bgLayerB.coverSrc})`,
-                          filter: `blur(${effectsProfile.blurPx}px)`,
-                          opacity: 0.92,
-                          willChange: "transform, filter, opacity",
-                          transition: `filter ${effectsProfile.transitionMs}ms ease, opacity ${effectsProfile.transitionMs}ms ease`,
-                        }}
-                      />
-                    )}
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        background: bgLayerB.gradientBackground,
-                        willChange: "opacity",
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
+              {showBlurredBackground && <GlassBackground {...covers} fallback={fallback} transitionMs={transitionMs} />}
               <div
                 className={`absolute top-0 right-0 z-20 flex w-full justify-between px-6 py-4 transition-opacity duration-200 ${isUiVisible ? "opacity-100" : "pointer-events-none opacity-0"}`}
               >
@@ -317,7 +265,9 @@ const FullScreenPlayer = () => {
                       </IconButton>
                     </PopoverTrigger>
                     <PopoverContent className="p-4">
-                      <FullScreenPlayerSettingsPanel isUiVisible={isUiVisible} />
+                      <Suspense fallback={<span role="status">加载中…</span>}>
+                        <FullScreenPlayerSettingsPanel isUiVisible={isUiVisible} />
+                      </Suspense>
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -327,7 +277,7 @@ const FullScreenPlayer = () => {
               </div>
 
               <div ref={setPlayerContent} className="flex h-full w-full items-center justify-center">
-                {!isLocal && showCover && (
+                {showMedia && !isLocal && showCover && (
                   <div
                     className={clsx(
                       "flex h-full w-full items-center px-12",
@@ -346,26 +296,33 @@ const FullScreenPlayer = () => {
                         width: coverWidth,
                         height: coverHeight,
                         boxShadow: `0 28px 90px -35px rgb(var(--glow-rgb) / 0.55), 0 10px 32px -18px rgb(0 0 0 / 0.55)`,
-                        transition: `box-shadow ${effectsProfile.transitionMs}ms ease`,
+                        transition: `box-shadow ${transitionMs}ms ease`,
                         aspectRatio: "4 / 3",
                       }}
                     />
                   </div>
                 )}
 
-                {!isLocal && showLyrics && (
+                {showLyrics && (
                   <div
                     className={clsx(
                       "h-full w-full overflow-hidden px-12 py-24",
-                      !showCover ? "flex items-center justify-center" : "",
+                      !showCover || isLocal ? "flex items-center justify-center" : "",
                     )}
                   >
-                    <Lyrics color={lyricsColor} centered={!showCover} showControls={isUiVisible} />
+                    <Lyrics
+                      key={playItem.id}
+                      item={playItem}
+                      color={lyricsColor}
+                      centered={!showCover || isLocal}
+                      showControls={isUiVisible}
+                      deferRendering={!showMedia}
+                    />
                   </div>
                 )}
               </div>
 
-              {showSpectrum && (
+              {showMedia && showSpectrum && (
                 <div
                   className="pointer-events-none absolute inset-x-0 z-30 flex w-full justify-center"
                   style={{
@@ -425,17 +382,24 @@ const FullScreenPlayer = () => {
                 </div>
               )}
 
-              <PageList
-                ref={pageListRef}
-                className={`absolute top-1/2 right-0 z-30 -translate-y-1/2 rounded-r-none transition-all duration-300 ease-out ${
-                  isPageListOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"
-                }`}
-                style={{
-                  width: 280,
-                  height: "min(60vh, 420px)",
-                }}
-                onClose={() => setIsPageListOpen(false)}
-              />
+              {playItem.hasMultiPart && (
+                <LoadOnOpen isOpen={isPageListOpen}>
+                  <PageList
+                    ref={pageListRef}
+                    isOpen={isPageListOpen}
+                    className={`absolute top-1/2 right-0 z-30 -translate-y-1/2 rounded-r-none transition-all duration-300 ease-out ${
+                      isPageListOpen
+                        ? "translate-x-0 opacity-100 starting:translate-x-full starting:opacity-0"
+                        : "pointer-events-none translate-x-full opacity-0"
+                    }`}
+                    style={{
+                      width: 280,
+                      height: "min(60vh, 420px)",
+                    }}
+                    onClose={() => setIsPageListOpen(false)}
+                  />
+                </LoadOnOpen>
+              )}
             </DrawerBody>
           )
         }

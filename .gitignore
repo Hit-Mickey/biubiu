@@ -25,6 +25,7 @@ pids/
 *.pid
 *.pid.lock
 .node_repl_history
+.reference
 
 # 本机配置和系统文件
 .env

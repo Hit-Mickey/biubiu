@@ -1,69 +1,61 @@
-import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Tab, Tabs } from "@heroui/react";
 
 import ScrollContainer from "../scroll-container";
 
-interface LyricsPreviewModalProps {
-  isOpen: boolean;
-  onOpenChange: Dispatch<SetStateAction<boolean>>;
+interface Props {
   title?: string;
-  lyrics: string;
-  tlyrics?: string;
-  onAdopt: (lyricsText: string, tLyricsText?: string) => void;
-  loading?: boolean;
+  text?: LyricText;
+  onClose: () => void;
+  onAdopt: (text: LyricText) => Promise<boolean>;
 }
 
-const LyricsPreviewModal = ({
-  isOpen,
-  onOpenChange,
-  title,
-  lyrics,
-  tlyrics,
-  onAdopt,
-  loading,
-}: LyricsPreviewModalProps) => {
-  const [activeTab, setActiveTab] = useState<"original" | "translation">("original");
-
-  useEffect(() => {
-    setActiveTab("original");
-  }, [isOpen, tlyrics]);
-
-  const handleAdopt = () => {
-    onAdopt(lyrics?.trim(), tlyrics);
-  };
-
+export default function LyricsPreviewModal({ title, text, onClose, onAdopt }: Props) {
+  const [field, setField] = useState<keyof LyricText>("lyrics");
+  const [saving, setSaving] = useState(false);
   return (
-    <Modal disableAnimation isOpen={isOpen} radius="md" onOpenChange={onOpenChange} placement="center" size="xl">
+    <Modal disableAnimation isOpen radius="md" onClose={onClose} placement="center" size="xl">
       <ModalContent>
         <ModalHeader>{title || "歌词预览"}</ModalHeader>
         <ModalBody className="px-0">
           <Tabs
-            selectedKey={activeTab}
-            onSelectionChange={key => setActiveTab(key as "original" | "translation")}
+            aria-label="歌词预览"
+            selectedKey={field}
+            onSelectionChange={key => setField(key as keyof LyricText)}
             className="px-4"
           >
-            <Tab key="original" title="歌词原文" />
-            {Boolean(tlyrics) && <Tab key="translation" title="歌词翻译" />}
+            <Tab key="lyrics" title="歌词原文" />
+            {text?.tLyrics && <Tab key="tLyrics" title="歌词翻译" />}
+            {text?.romaLyrics && <Tab key="romaLyrics" title="罗马音" />}
           </Tabs>
           <ScrollContainer className="px-4">
             <pre className="text-foreground/90 max-h-[420px] text-sm leading-relaxed break-words whitespace-pre-wrap">
-              {activeTab === "original" ? lyrics || "暂无歌词" : tlyrics || "暂无歌词"}
+              {text ? text[field] || "暂无歌词" : "歌词加载中..."}
             </pre>
           </ScrollContainer>
         </ModalBody>
         <ModalFooter className="justify-end gap-2">
-          <Button variant="light" onPress={() => onOpenChange(false)}>
+          <Button variant="light" onPress={onClose}>
             关闭
           </Button>
-          <Button color="primary" onPress={handleAdopt} isDisabled={loading}>
+          <Button
+            color="primary"
+            isDisabled={!text || saving}
+            onPress={async () => {
+              if (!text) return;
+              setSaving(true);
+              try {
+                await onAdopt(text);
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
             采用歌词
           </Button>
         </ModalFooter>
       </ModalContent>
     </Modal>
   );
-};
-
-export default LyricsPreviewModal;
+}

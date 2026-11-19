@@ -8,6 +8,9 @@ import ScrollContainer from "@/components/scroll-container";
 import { useAppUpdateStore } from "@/store/app-update";
 import { useSettings } from "@/store/settings";
 
+import AudioMirrors from "./audio-mirrors";
+import BackupPanel from "./backup-panel";
+import ListeningHistory from "./listening-history";
 import MenuSettings from "./menu-settings";
 import ProxySettings from "./proxy-settings";
 import ShortcutSettingsPage from "./shortcut-settings";
@@ -130,6 +133,19 @@ const SettingsPage = () => {
             </Tab>
             <Tab key="shortcut" title="快捷键设置">
               <ShortcutSettingsPage />
+            </Tab>
+            <Tab key="library" title="曲库与备份">
+              <Tabs variant="underlined" aria-label="曲库工具" defaultSelectedKey="records">
+                <Tab key="records" title="听歌统计">
+                  <ListeningHistory />
+                </Tab>
+                <Tab key="backups" title="数据备份">
+                  <BackupPanel />
+                </Tab>
+                <Tab key="mirrors" title="播放线路">
+                  <AudioMirrors />
+                </Tab>
+              </Tabs>
             </Tab>
             <Tab key="proxy" title="代理设置">
               <ProxySettings control={system.control} />

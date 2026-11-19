@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session } from "electron";
+import { app, BrowserWindow, Menu, session } from "electron";
 import isDev from "electron-is-dev";
 import log from "electron-log";
 import path from "node:path";
@@ -29,11 +29,6 @@ log.initialize();
 registerWebDavScheme();
 if (process.platform === "win32") app.setAppUserModelId(appId);
 
-if (isDev) {
-  // 为 chrome-devtools-mcp 开启远程调试端口
-  app.commandLine.appendSwitch("remote-debugging-port", "");
-}
-
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
@@ -62,7 +57,7 @@ function createWindow() {
       webSecurity: true,
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: isDev,
+      devTools: false,
     },
   });
 
@@ -156,6 +151,15 @@ if (!gotTheLock) {
       getMainWindow: () => mainWindow,
     });
     const window = createWindow();
+    // Electron adds its own native View menu entry even when the window disables DevTools.
+    for (const menu of Menu.getApplicationMenu()?.items ?? []) {
+      const tools = menu.submenu?.items.find(item => item.role?.toLowerCase() === "toggledevtools");
+      if (tools) {
+        tools.visible = false;
+        tools.enabled = false;
+        tools.registerAccelerator = false;
+      }
+    }
     void injectAuthCookie();
     window.webContents.once("did-finish-load", () => {
       startWebDavSync();

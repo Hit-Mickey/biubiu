@@ -7,6 +7,7 @@ import { useShallow } from "zustand/shallow";
 
 import ConfirmModal from "@/components/confirm-modal";
 import Fallback from "@/components/error-fallback";
+import FullScreenPlayer from "@/components/full-screen-player";
 import LoadOnOpen from "@/components/load-on-open";
 import PlayBar from "@/layout/playbar";
 import { useModalStore } from "@/store/modal";
@@ -16,7 +17,6 @@ import Navbar from "./navbar";
 import SideNav from "./side";
 
 const FavoritesSelectModal = lazy(() => import("@/components/favorites-select-modal"));
-const FullScreenPlayer = lazy(() => import("@/components/full-screen-player"));
 const PlayListDrawer = lazy(() => import("@/components/music-playlist-drawer"));
 const ReleaseNoteModal = lazy(() => import("@/components/release-note-modal"));
 const VideoPagesDownloadSelectModal = lazy(() => import("@/components/video-pages-download-select-modal"));

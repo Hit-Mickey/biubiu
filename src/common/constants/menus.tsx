@@ -11,6 +11,8 @@ import {
   RiCalendarScheduleFill,
   RiFolderMusicLine,
   RiFolderMusicFill,
+  RiPlayListLine,
+  RiPlayListFill,
   RiCloudLine,
   RiCloudFill,
 } from "@remixicon/react";
@@ -44,6 +46,12 @@ export const DefaultMenuList: (MenuItemProps & { needLogin?: boolean })[] = [
     needLogin: true,
     icon: RiHistoryLine,
     activeIcon: RiHistoryFill,
+  },
+  {
+    title: "我的歌单",
+    href: "/desktop-playlists",
+    icon: RiPlayListLine,
+    activeIcon: RiPlayListFill,
   },
   {
     title: "本地音乐",

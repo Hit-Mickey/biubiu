@@ -8,6 +8,7 @@ import IconButton from "@/components/icon-button";
 import MusicPageList from "@/components/music-page-list";
 
 interface Props {
+  isOpen: boolean;
   className?: string;
   style?: React.CSSProperties;
   onClose?: () => void;
@@ -15,6 +16,7 @@ interface Props {
 
 const FullScreenPageList = ({
   ref,
+  isOpen,
   className,
   style,
   onClose,
@@ -24,6 +26,7 @@ const FullScreenPageList = ({
   return (
     <div
       ref={ref}
+      inert={!isOpen}
       className={twMerge(
         "flex flex-col overflow-hidden rounded-2xl bg-white/10 text-white ring-1 ring-white/12 backdrop-blur-md",
         className,

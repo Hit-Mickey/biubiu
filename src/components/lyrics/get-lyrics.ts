@@ -1,3 +1,5 @@
+import type { PlayData } from "@/store/play-list";
+
 import { getLyric } from "@/service/ai-lyrics";
 import { getWebPlayerInfo, type WebPlayerParams } from "@/service/web-player";
 
@@ -24,4 +26,29 @@ export async function getLyricsByBili(params: WebPlayerParams) {
   }
 
   return null;
+}
+
+export interface NativeLyrics extends LyricText {
+  subtitles?: LyricLine[];
+}
+
+export async function getNativeLyrics({
+  source,
+  webDavListId,
+  id,
+  audioUrl,
+  cid,
+  bvid,
+  aid,
+}: Pick<PlayData, "source" | "webDavListId" | "id" | "audioUrl" | "cid" | "bvid" | "aid">): Promise<NativeLyrics> {
+  if (source === "local") return { lyrics: audioUrl ? await window.electron.readLocalLyrics(audioUrl) : undefined };
+  if (source === "webdav")
+    return { lyrics: webDavListId ? await window.electron.getWebDavLyrics(webDavListId, id) : undefined };
+  if (!cid || !Number.isFinite(+cid)) return {};
+  const lines = await getLyricsByBili({
+    cid: +cid,
+    ...(bvid && { bvid }),
+    ...(aid && Number.isFinite(+aid) && { aid: +aid }),
+  });
+  return { subtitles: lines ?? [] };
 }

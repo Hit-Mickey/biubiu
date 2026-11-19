@@ -442,7 +442,6 @@ const Collection = ({ isCollapsed, onOpenAddFavorite, onOpenEditFavorite }: Prop
           renderItem={item => (
             <SortableMenuItem
               key={item.id}
-              id={item.id}
               collapsed={isCollapsed}
               disabled={!isGroupDragEnabled}
               contextMenuItems={contextMenuItems}

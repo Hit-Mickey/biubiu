@@ -25,8 +25,8 @@ export const mapKeyToElectronAccelerator = (e: KeyboardEvent | React.KeyboardEve
 };
 
 export function getShortcutCommand(event: KeyboardEvent) {
-  const target = event.target as HTMLElement | null;
-  if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
+  const target = event.target;
+  if (target instanceof HTMLElement && (target.matches("input, textarea, select") || target.isContentEditable)) return;
   const accelerator = mapKeyToElectronAccelerator(event);
   if (!accelerator) return;
   return useShortcutSettings.getState().shortcuts.find(item => item.shortcut === accelerator)?.id;

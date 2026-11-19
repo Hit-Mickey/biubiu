@@ -17,5 +17,7 @@ declare module 'axios' {
     useWbi?: boolean;
     useCSRF?: boolean;
     skipRefreshCheck?: boolean;
+    /** Read metadata without refreshing a session or launching interactive verification. */
+    passive?: boolean;
   }
 }

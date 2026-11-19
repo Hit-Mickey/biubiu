@@ -1,4 +1,4 @@
-import { apiRequest } from "./request";
+import { apiRequest, type BiliLookupOptions } from "./request";
 
 /**
  * 获取视频详细信息(web端) - 请求参数
@@ -252,6 +252,6 @@ export interface Honor {
  * @param params 请求参数
  * @returns Promise<WebInterfaceViewResponse>
  */
-export const getWebInterfaceView = (params: WebInterfaceViewRequestParams) => {
-  return apiRequest.get<WebInterfaceViewResponse>("/x/web-interface/view", { params });
+export const getWebInterfaceView = (params: WebInterfaceViewRequestParams, options?: BiliLookupOptions) => {
+  return apiRequest.get<WebInterfaceViewResponse>("/x/web-interface/view", { ...options, params });
 };

@@ -143,6 +143,16 @@ export function getWebDavLibrary(): WebDavLibrary {
   return { lists: data.lists.map(publicList), preferences: data.preferences };
 }
 
+export function getBackupTargets() {
+  return data.lists.map(({ id, name }) => ({ id, name }));
+}
+
+export function getBackupConnection(id: string) {
+  const list = getList(id);
+  const client = createClient(list);
+  return { client, directory: `${resolveWebDavDirectory(client.base, list.directory)}BiuBiu-Backups/` };
+}
+
 export function getWebDavPreferences() {
   return data.preferences;
 }

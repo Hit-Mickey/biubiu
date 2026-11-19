@@ -18,11 +18,21 @@ const api: ElectronAPI = {
   getFonts: () => ipcRenderer.invoke(channel.font.getFonts),
   getCookie: key => ipcRenderer.invoke(channel.cookie.get, key),
   setCookie: (name, value, expirationDate) => ipcRenderer.invoke(channel.cookie.set, { name, value, expirationDate }),
+  externalPlaylist: {
+    read: (ref, requestId) => ipcRenderer.invoke(channel.externalPlaylist.read, ref, requestId),
+    cancel: requestId => ipcRenderer.send(channel.externalPlaylist.cancel, requestId),
+  },
   searchNeteaseSongs: params => ipcRenderer.invoke(channel.lyrics.searchNeteaseSongs, params),
   getNeteaseLyrics: params => ipcRenderer.invoke(channel.lyrics.getNeteaseLyrics, params),
   searchLrclibLyrics: params => ipcRenderer.invoke(channel.lyrics.searchLrclib, params),
+  searchQQLyricSongs: keyword => ipcRenderer.invoke(channel.lyrics.searchQQ, keyword),
+  getQQLyrics: mid => ipcRenderer.invoke(channel.lyrics.getQQ, mid),
+  getTrackLyrics: key => ipcRenderer.invoke(channel.lyrics.getTrack, key),
+  updateTrackLyrics: (key, change) => ipcRenderer.invoke(channel.lyrics.updateTrack, key, change),
+  readLocalLyrics: audioUrl => ipcRenderer.invoke(channel.lyrics.readLocal, audioUrl),
   setProxySettings: proxySettings => ipcRenderer.invoke(channel.app.setProxySettings, proxySettings),
   scanLocalMusic: dirs => ipcRenderer.invoke(channel.localMusic.scan, dirs),
+  resolveLocalMusic: ids => ipcRenderer.invoke(channel.localMusic.resolve, ids),
   deleteLocalMusicFile: filePath => ipcRenderer.invoke(channel.localMusic.deleteFile, filePath),
   getWebDavLibrary: () => ipcRenderer.invoke(channel.webdav.library),
   onWebDavChange: listener => {
@@ -40,6 +50,10 @@ const api: ElectronAPI = {
   getWebDavLyrics: (listId, trackId) => ipcRenderer.invoke(channel.webdav.lyrics, listId, trackId),
   setWebDavPreferences: preferences => ipcRenderer.invoke(channel.webdav.preferences, preferences),
   clearWebDavCache: () => ipcRenderer.invoke(channel.webdav.clearCache),
+  getBackupTargets: () => ipcRenderer.invoke(channel.webdav.backupTargets),
+  listBackups: id => ipcRenderer.invoke(channel.webdav.backups, id),
+  uploadBackup: (id, text) => ipcRenderer.invoke(channel.webdav.uploadBackup, id, text),
+  downloadBackup: (id, name) => ipcRenderer.invoke(channel.webdav.downloadBackup, id, name),
   // 监听来自主进程的导航事件，并将路径回调给渲染端
   navigate: cb => {
     const navigateHandler = (_: Electron.IpcRendererEvent, path: string) => {
@@ -161,7 +175,6 @@ const api: ElectronAPI = {
   },
   // 获取应用版本
   getAppVersion: () => ipcRenderer.invoke(channel.app.getVersion),
-  isDev: () => ipcRenderer.invoke(channel.app.isDev),
   // 检查应用更新
   checkAppUpdate: () => ipcRenderer.invoke(channel.app.checkUpdate),
   // 监听应用更新事件
@@ -256,8 +269,6 @@ const api: ElectronAPI = {
   },
   // 清除文件下载任务列表
   clearMediaDownloadTaskList: () => ipcRenderer.invoke(channel.download.clear),
-  // 切换开发者工具
-  toggleDevTools: () => ipcRenderer.send(channel.window.toggleDevTools),
 };
 
 contextBridge.exposeInMainWorld("electron", api);

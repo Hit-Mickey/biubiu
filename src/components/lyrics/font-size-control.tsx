@@ -10,10 +10,11 @@ interface FontSizeControlProps {
   min?: number;
   max?: number;
   onChange: (next: number) => void;
+  onCommit: (value: number) => void;
   onOpenChange?: (open: boolean) => void;
 }
 
-const FontSizeControl = ({ value, min = 12, max = 48, onChange, onOpenChange }: FontSizeControlProps) => {
+const FontSizeControl = ({ value, min = 12, max = 48, onChange, onCommit, onOpenChange }: FontSizeControlProps) => {
   const [open, setOpen] = useState(false);
   const step = 1;
 
@@ -54,6 +55,7 @@ const FontSizeControl = ({ value, min = 12, max = 48, onChange, onOpenChange }: 
             step={step}
             value={value}
             onChange={v => onChange(v as number)}
+            onChangeEnd={v => onCommit(v as number)}
             size="sm"
             color="primary"
             orientation="vertical"

@@ -10,12 +10,13 @@ interface OffsetControlProps {
   min?: number;
   max?: number;
   onChange: (next: number) => void;
+  onCommit: (value: number) => void;
   onOpenChange?: (open: boolean) => void;
 }
 
 const formatLabel = (ms: number) => (ms >= 0 ? `+${ms}` : `${ms}`);
 
-const OffsetControl = ({ value, min = -5000, max = 5000, onChange, onOpenChange }: OffsetControlProps) => {
+const OffsetControl = ({ value, min = -5000, max = 5000, onChange, onCommit, onOpenChange }: OffsetControlProps) => {
   const [open, setOpen] = useState(false);
   const step = 50;
 
@@ -56,6 +57,7 @@ const OffsetControl = ({ value, min = -5000, max = 5000, onChange, onOpenChange 
             step={step}
             value={value}
             onChange={v => onChange(v as number)}
+            onChangeEnd={v => onCommit(v as number)}
             size="sm"
             color="primary"
             orientation="vertical"

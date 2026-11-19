@@ -4,24 +4,42 @@ import crypto from "node:crypto";
 import fsp from "node:fs/promises";
 import path from "node:path";
 
+import { appSettingsStore } from "../store";
 import { channel } from "./channel";
 
 const exts = new Set([".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg", ".wma", ".aiff"]);
 
-async function walk(dir: string, list: string[]) {
+async function* musicFiles(dir: string) {
   try {
-    const entries = await fsp.readdir(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isDirectory()) continue;
-      const full = path.join(dir, entry.name);
-      const ext = path.extname(entry.name).toLowerCase();
-      if (exts.has(ext)) {
-        list.push(full);
-      }
+    for await (const entry of await fsp.opendir(dir)) {
+      if ((entry.isFile() || entry.isSymbolicLink()) && exts.has(path.extname(entry.name).toLowerCase()))
+        yield path.join(dir, entry.name);
     }
   } catch (err) {
     log.error("[local-music] walk error:", err);
   }
+}
+
+async function localFileId(file: string) {
+  const canonical = await fsp.realpath(file).catch(() => file);
+  return crypto.createHash("md5").update(canonical.toLowerCase(), "utf8").digest("hex");
+}
+
+// Find only the requested IDs. Don't parse tags, decode covers or return a copy of the whole library.
+async function resolveFiles(ids: string[]) {
+  const wanted = new Set(
+    Array.isArray(ids) ? ids.filter(id => typeof id === "string" && /^[a-f0-9]{32}$/.test(id)) : [],
+  );
+  const result: Pick<LocalMusicItem, "id" | "path">[] = [];
+  if (!wanted.size) return result;
+  for (const dir of appSettingsStore.get("appSettings").localMusicDirs ?? []) {
+    for await (const file of musicFiles(dir)) {
+      const id = await localFileId(file);
+      if (wanted.delete(id)) result.push({ id, path: file });
+      if (!wanted.size) return result;
+    }
+  }
+  return result;
 }
 
 function toSafeTitle(filePath: string, metaTitle?: string) {
@@ -34,29 +52,23 @@ function isErrnoException(value: unknown): value is NodeJS.ErrnoException {
 }
 
 export function registerLocalMusicHandlers() {
+  ipcMain.handle(channel.localMusic.resolve, (_, ids: string[]) => resolveFiles(ids));
   ipcMain.handle(channel.localMusic.scan, async (_, dirs: string[]) => {
     const result: LocalMusicItem[] = [];
     if (!Array.isArray(dirs) || !dirs.length) return result;
     try {
       const { parseFile } = await import("music-metadata");
       for (const dir of dirs) {
-        const files: string[] = [];
-        await walk(dir, files);
-        for (const file of files) {
+        for await (const file of musicFiles(dir)) {
           try {
             const stat = await fsp.stat(file);
-            let canonicalPath = file;
-            try {
-              canonicalPath = await fsp.realpath(file);
-            } catch (err) {
-              log.error("[local-music] realpath error:", file, err);
-            }
-            const meta = await parseFile(file).catch(() => null);
+            const id = await localFileId(file);
+            const meta = await parseFile(file, { skipCovers: true }).catch(() => null);
             const duration =
               meta?.format?.duration && Number.isFinite(meta.format.duration) ? meta.format.duration : undefined;
             const format = (path.extname(file).slice(1) || "").toLowerCase();
             result.push({
-              id: crypto.createHash("md5").update(canonicalPath.toLowerCase(), "utf8").digest("hex"),
+              id,
               path: file,
               dir,
               title: toSafeTitle(file, meta?.common?.title),

@@ -1,3 +1,4 @@
+import type { ExternalPlaylist, ExternalPlaylistRef } from "../external-playlist";
 import type { WebDavLibrary, WebDavListInput, WebDavPreferences, WebDavRemoveResult, WebDavTrack } from "../webdav";
 
 declare global {
@@ -40,12 +41,21 @@ declare global {
     getCookie: (key: string) => Promise<string | undefined>;
     /** 设置 cookie */
     setCookie: (name: string, value: string, expirationDate?: number) => Promise<void>;
+    externalPlaylist: {
+      read: (ref: ExternalPlaylistRef, requestId: string) => Promise<ExternalPlaylist>;
+      cancel: (requestId: string) => void;
+    };
     /** 搜索网易云歌曲 */
     searchNeteaseSongs: (params: SearchSongByNeteaseParams) => Promise<SearchSongByNeteaseResponse>;
     /** 获取网易云歌词 */
     getNeteaseLyrics: (params: GetLyricsByNeteaseParams) => Promise<GetLyricsByNeteaseResponse>;
     /** 在 LrcLib 搜索歌曲/歌词 */
     searchLrclibLyrics: (params: SearchSongByLrclibParams) => Promise<SearchSongByLrclibResponse[]>;
+    searchQQLyricSongs: (keyword: string) => Promise<QQLyricSong[]>;
+    getQQLyrics: (mid: string) => Promise<LyricText>;
+    getTrackLyrics: (key: string) => Promise<MusicLyrics | undefined>;
+    updateTrackLyrics: (key: string, change: TrackLyricChange) => Promise<void>;
+    readLocalLyrics: (audioUrl: string) => Promise<string | undefined>;
     /** 获取当前应用平台：macos | windows | linux */
     getPlatform: () => AppPlatForm;
     /** 更新网络代理设置 */
@@ -66,8 +76,6 @@ declare global {
     onPlayerCommand: (cb: (cmd: "prev" | "next" | "toggle") => void) => VoidFunction;
     /** 获取当前应用版本 */
     getAppVersion: () => Promise<string>;
-    /** 判断是否为开发模式 */
-    isDev: () => Promise<boolean>;
     /** 是否支持自动更新 */
     isSupportAutoUpdate: () => boolean;
     /** 检查更新 */
@@ -97,8 +105,6 @@ declare global {
     isFullScreen: () => Promise<boolean>;
     /** 监听窗口全屏状态变化 */
     onWindowFullScreenChange: (cb: (isFullScreen: boolean) => void) => VoidFunction;
-    /** 切换开发者工具 */
-    toggleDevTools: () => void;
     /** 获取下载任务列表 */
     getMediaDownloadTaskList: () => Promise<MediaDownloadTask[]>;
     /** 同步下载任务列表 */
@@ -119,6 +125,7 @@ declare global {
     clearMediaDownloadTaskList: () => Promise<void>;
     /** 扫描本地音乐文件 */
     scanLocalMusic: (dirs: string[]) => Promise<LocalMusicItem[]>;
+    resolveLocalMusic: (ids: string[]) => Promise<Pick<LocalMusicItem, "id" | "path">[]>;
     /** 删除本地音乐文件 */
     deleteLocalMusicFile: (filePath: string) => Promise<boolean>;
     getWebDavLibrary: () => Promise<WebDavLibrary>;
@@ -132,6 +139,10 @@ declare global {
     getWebDavLyrics: (listId: string, trackId: string) => Promise<string | undefined>;
     setWebDavPreferences: (preferences: WebDavPreferences) => Promise<void>;
     clearWebDavCache: () => Promise<void>;
+    getBackupTargets: () => Promise<import("../desktop-backup").BackupTarget[]>;
+    listBackups: (id: string) => Promise<string[]>;
+    uploadBackup: (id: string, text: string) => Promise<string>;
+    downloadBackup: (id: string, name: string) => Promise<string>;
   }
 
   interface Window {

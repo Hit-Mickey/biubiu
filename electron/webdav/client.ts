@@ -248,7 +248,9 @@ export class WebDavClient {
           if (method !== "GET" && method !== "HEAD") break;
           headers.delete("Authorization");
         }
-        if (method === "DELETE" && next.pathname !== current.pathname) break;
+        // Never send a write (or its backup payload) to a different resource on redirect.
+        if ((method === "DELETE" || method === "PUT" || method === "MKCOL") && next.pathname !== current.pathname)
+          break;
         current = next;
       }
       throw new Error("无法跟随 WebDAV 服务器重定向");

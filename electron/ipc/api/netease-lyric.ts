@@ -28,6 +28,7 @@ export function getLyricsByNetease(params: GetLyricsByNeteaseParams) {
         lv: -1,
         rv: -1,
         kv: -1,
+        yv: -1,
         _nmclfl: 1,
       },
       timeout: { request: 10000 },

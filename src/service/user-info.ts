@@ -1,4 +1,4 @@
-import { apiRequest } from "./request";
+import { apiRequest, type BiliLookupOptions } from "./request";
 
 /**
  * 导航栏用户信息 - 响应类型
@@ -127,6 +127,6 @@ export interface WbiImg {
  * 获取导航栏用户信息
  * @returns 导航栏用户信息
  */
-export const getUserInfo = () => {
-  return apiRequest.get<GetUserInfoResponse>("/x/web-interface/nav");
+export const getUserInfo = (options?: BiliLookupOptions) => {
+  return apiRequest.get<GetUserInfoResponse>("/x/web-interface/nav", options);
 };

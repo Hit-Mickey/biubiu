@@ -1,7 +1,9 @@
-import axios, { type CreateAxiosDefaults } from "axios";
+import axios, { type AxiosRequestConfig, type CreateAxiosDefaults } from "axios";
 
 import { requestInterceptors } from "./request-interceptors";
 import { geetestInterceptors } from "./response-interceptors";
+
+export type BiliLookupOptions = Pick<AxiosRequestConfig, "signal" | "passive">;
 
 const axiosConfig: CreateAxiosDefaults = {
   timeout: 10000,

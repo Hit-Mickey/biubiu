@@ -10,7 +10,7 @@ let refreshCookiePromise: Promise<boolean> | undefined;
 
 export const requestInterceptors = async (config: InternalAxiosRequestConfig) => {
   const now = unixTime();
-  if (!config.skipRefreshCheck && (useToken.getState().nextCheckRefreshTime || 0) < now) {
+  if (!config.passive && !config.skipRefreshCheck && (useToken.getState().nextCheckRefreshTime || 0) < now) {
     if (!refreshCookiePromise) {
       useToken.setState({ nextCheckRefreshTime: now + 30 });
       refreshCookiePromise = refreshCookie().finally(() => {
@@ -39,7 +39,7 @@ export const requestInterceptors = async (config: InternalAxiosRequestConfig) =>
 
   if (config.useWbi) {
     config.params ??= {};
-    config.params = await encodeParamsWbi(config.params);
+    config.params = await encodeParamsWbi(config.params, { signal: config.signal, passive: config.passive });
   }
 
   if (config.useFormData) {

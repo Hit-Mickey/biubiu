@@ -6,7 +6,6 @@ import { useUser } from "@/store/user";
 
 import WindowAction from "../../components/window-action";
 import AppUpdateNotify from "./app-update";
-import Dev from "./dev";
 import Navigation from "./navigation";
 import Search from "./search";
 import UserCard from "./user";
@@ -34,7 +33,6 @@ const LayoutNavbar = () => {
       </div>
       <div className="window-no-drag flex items-center justify-center space-x-4">
         <AppUpdateNotify />
-        {process.env.NODE_ENV === "development" && <Dev />}
         {Boolean(user?.isLogin) && <UserFeed />}
         <UserCard onDropdownOpenChange={setIsUserDropdownOpen} />
         {["linux", "windows"].includes(platform) && <WindowAction />}

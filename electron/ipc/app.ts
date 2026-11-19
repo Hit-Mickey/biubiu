@@ -1,5 +1,4 @@
 import { app, ipcMain, session } from "electron";
-import isDev from "electron-is-dev";
 import log from "electron-log";
 
 import { checkForAppUpdates, getAutoUpdater } from "../updater";
@@ -58,10 +57,6 @@ export function registerAppHandlers() {
 
   ipcMain.handle(channel.app.quitAndInstall, async () => {
     (await getAutoUpdater()).quitAndInstall();
-  });
-
-  ipcMain.handle(channel.app.isDev, async () => {
-    return isDev;
   });
 
   ipcMain.handle(channel.app.setProxySettings, async (_, proxySettings: ProxySettings) => {

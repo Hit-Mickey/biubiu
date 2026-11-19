@@ -95,6 +95,7 @@ const Favorites = ({ getScrollElement }: Props) => {
       itemKey="id"
       renderItem={item => (
         <GridCard
+          type={CollectionType.Favorite}
           title={item.title}
           cover={item.cover}
           createTime={item.ctime}

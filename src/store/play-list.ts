@@ -1,6 +1,6 @@
 import { addToast } from "@heroui/react";
 import log from "electron-log/renderer";
-import { remove, shuffle } from "es-toolkit/array";
+import { remove } from "es-toolkit/array";
 import { uniqueId } from "es-toolkit/compat";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StorageValue } from "zustand/middleware";
@@ -17,6 +17,7 @@ import { getWebInterfaceView } from "@/service/web-interface-view";
 import { webDavMediaUrl } from "@shared/webdav";
 
 import { usePlayProgress } from "./play-progress";
+import { useSettings } from "./settings";
 
 export type PlayDataType = "mv" | "audio";
 type PlaySource = "local" | "online" | "webdav";
@@ -143,7 +144,7 @@ interface Action {
   playListItem: (id: string) => Promise<void>;
   playList: (items: PlayItem[], playMode?: PlayMode) => Promise<void>;
   addToNext: (item: PlayItem) => void;
-  addList: (items: PlayItem[]) => void;
+  addList: (items: PlayItem[], keyOf?: (item: PlayItem) => string | undefined) => void;
   delPage: (id: string) => void;
   del: (id: string) => void;
   removeWebDavItems: (ids: string[]) => void;
@@ -248,12 +249,21 @@ const updatePlaybackState = () => {
   }
 };
 
+// A URL or retry that was already in flight must not wake the player after the sleep deadline.
+let pausedForSleep = false;
+export function pauseForSleep() {
+  pausedForSleep = true;
+  audio.pause();
+  if (usePlayList.getState().isPlaying) usePlayList.setState({ isPlaying: false });
+}
+
 const playAudioSafely = async () => {
+  if (pausedForSleep) return;
   const src = audio.src;
   try {
     await audio.play();
   } catch (error) {
-    if (audio.src !== src) return;
+    if (pausedForSleep || audio.src !== src) return;
     if ((error as DOMException)?.name === "NotSupportedError") {
       if (usePlayList.getState().getPlayItem()?.source === "webdav") {
         usePlayList.setState({ isPlaying: false });
@@ -261,7 +271,7 @@ const playAudioSafely = async () => {
         return;
       }
       const refreshed = await refreshCurrentAudioSource();
-      if (refreshed) {
+      if (refreshed && !pausedForSleep) {
         try {
           await audio.play();
           return;
@@ -275,6 +285,17 @@ const playAudioSafely = async () => {
     handlePlayError(error);
   }
 };
+
+function recordCompletion(track?: PlayData) {
+  if (!track || !useSettings.getState().recordLocalHistory) return;
+  const duration = audio.duration;
+  void import("./listening-history")
+    .then(({ completedTrack, saveCompletion }) => {
+      const entry = completedTrack(track, duration);
+      if (entry) return saveCompletion(entry);
+    })
+    .catch(error => log.warn("无法保存本机听歌记录", error));
+}
 
 const getPlaybackPosition = () => (audio.src ? audio.currentTime : usePlayProgress.getState().currentTime);
 
@@ -317,6 +338,7 @@ const shouldReportPlayRecord = (item?: { type: PlayDataType; source?: PlaySource
 export const usePlayList = create<State & Action>()(
   persist(
     immer((set, get) => {
+      let lastTrackIndex = -1;
       const ensureAudioSrcValid = async () => {
         const { playId, list } = get();
         const currentPlayItem = list.find(item => item.id === playId);
@@ -423,8 +445,22 @@ export const usePlayList = create<State & Action>()(
               }
             };
 
+            let previousLoopId: string | undefined;
+            let previousLoopTime = 0;
             audio.ontimeupdate = () => {
               const currentTime = Math.round(audio.currentTime * 100) / 100;
+              // Browsers wrap a looping element without firing ended.
+              if (audio.loop && useSettings.getState().recordLocalHistory) {
+                if (
+                  previousLoopId === get().playId &&
+                  previousLoopTime > currentTime &&
+                  previousLoopTime >= audio.duration - 0.6 &&
+                  currentTime < 0.6
+                )
+                  recordCompletion(get().getPlayItem());
+                previousLoopId = get().playId;
+                previousLoopTime = currentTime;
+              } else previousLoopId = undefined;
               usePlayProgress.getState().setCurrentTime(currentTime);
               const playItem = get().getPlayItem?.();
               if (shouldReportPlayRecord(playItem)) {
@@ -472,7 +508,8 @@ export const usePlayList = create<State & Action>()(
             };
 
             audio.onended = () => {
-              if (get().playMode === PlayMode.Single) {
+              recordCompletion(get().getPlayItem());
+              if (pausedForSleep || get().playMode === PlayMode.Single) {
                 return;
               }
 
@@ -584,11 +621,13 @@ export const usePlayList = create<State & Action>()(
           }
         },
         togglePlay: async () => {
+          pausedForSleep = false;
           if (!get().list?.length) {
             return;
           }
 
           if (!get().playId) {
+            set({ playId: get().list[0].id });
             return;
           }
 
@@ -609,6 +648,7 @@ export const usePlayList = create<State & Action>()(
           set({ shouldKeepPagesOrderInRandomPlayMode: shouldKeep });
         },
         play: async item => {
+          pausedForSleep = false;
           const { type, bvid, sid, cover, ownerName, ownerMid, id, source } = item;
           const { list, playId } = get();
           const currentItem = list?.find(item => item.id === playId);
@@ -677,6 +717,7 @@ export const usePlayList = create<State & Action>()(
           });
         },
         playListItem: async (id: string) => {
+          pausedForSleep = false;
           if (get().playId === id) {
             return;
           }
@@ -690,6 +731,7 @@ export const usePlayList = create<State & Action>()(
         },
         playList: async (items, playMode) => {
           if (!items.length) return;
+          pausedForSleep = false;
           const previousId = get().playId;
           const newList = items.map(item => ({
             ...item,
@@ -710,6 +752,7 @@ export const usePlayList = create<State & Action>()(
           }
         },
         next: async () => {
+          pausedForSleep = false;
           const { playMode, list, playId, nextId, shouldKeepPagesOrderInRandomPlayMode } = get();
 
           if (!list?.length) {
@@ -729,6 +772,7 @@ export const usePlayList = create<State & Action>()(
           }
 
           const currentIndex = list.findIndex(item => item.id === playId);
+          if (currentIndex === -1) return;
           const nextIndex = (currentIndex + 1) % list.length;
           switch (playMode) {
             case PlayMode.Sequence:
@@ -769,17 +813,15 @@ export const usePlayList = create<State & Action>()(
                 }
               }
 
-              const shuffledList = shuffle(list?.map(item => item.id));
-              const currentIndexInShuffled = shuffledList.findIndex(shuffled => shuffled === playId);
-              const nextShuffledIndex = (currentIndexInShuffled + 1) % shuffledList.length;
-              set(state => {
-                state.playId = shuffledList[nextShuffledIndex];
-              });
+              // Uniform among the other tracks without allocating a shuffled copy of a large queue.
+              const offset = 1 + Math.floor(Math.random() * (list.length - 1));
+              set({ playId: list[(currentIndex + offset) % list.length].id });
               break;
             }
           }
         },
         prev: async () => {
+          pausedForSleep = false;
           const { playId, list } = get();
 
           if (!list?.length) {
@@ -898,35 +940,34 @@ export const usePlayList = create<State & Action>()(
             });
           }
         },
-        addList: async items => {
-          const { list, playId } = get();
-          if (list.length === 0) {
-            get().playList(items);
+        addList: async (items, keyOf) => {
+          const { list } = get();
+          // A playlist can contain individual video parts; other callers keep whole-video identity.
+          const keys = keyOf && new Set(list.map(keyOf));
+          const missing =
+            list.length || keyOf
+              ? items.filter(item => {
+                  const key = keyOf?.(item);
+                  if (key !== undefined && keys) {
+                    if (keys.has(key)) return false;
+                    keys.add(key);
+                    return true;
+                  }
+                  return !list.some(existing => isSame(existing, item));
+                })
+              : items;
+          if (!missing.length) return;
+          // Legacy sources start the first empty queue. Named-playlist enqueue is distinct from Play.
+          if (!list.length && !keyOf) {
+            get().playList(missing);
             return;
           }
-
-          const currentItem = list.find(item => item.id === playId);
-
-          const paddingItems = items
-            .filter(item => {
-              if (currentItem && isSame(item, currentItem)) {
-                return false;
-              }
-              return !list.some(existing => isSame(existing, item));
-            })
-            .map(item => ({
-              ...item,
-              title: item.source === "webdav" ? item.title : sanitizeTitle(item.title),
-              id: !isBilibiliSource(item.source) && item.id ? item.id : idGenerator(),
-            }));
-
-          if (paddingItems.length === 0) {
-            return;
-          }
-
-          set({
-            list: [...list, ...paddingItems],
-          });
+          const paddingItems = missing.map(item => ({
+            ...item,
+            title: item.source === "webdav" ? item.title : sanitizeTitle(item.title),
+            id: !isBilibiliSource(item.source) && item.id ? item.id : idGenerator(),
+          }));
+          set({ list: [...list, ...paddingItems] });
         },
         delPage: async id => {
           if (get().list.length === 1) {
@@ -1029,8 +1070,9 @@ export const usePlayList = create<State & Action>()(
         },
         getPlayItem: () => {
           const { playId, list } = get();
-          const playItem = list.find(item => item.id === playId);
-          return playItem;
+          if (!playId) return;
+          if (list[lastTrackIndex]?.id !== playId) lastTrackIndex = list.findIndex(item => item.id === playId);
+          return list[lastTrackIndex];
         },
         getAudio: () => audio,
       };

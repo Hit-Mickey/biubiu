@@ -1,11 +1,16 @@
+import type { AddressInfo } from "node:net";
+
 // @vitest-environment node
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { backupFormat, backupNamePattern, maxBackupBytes } from "@shared/desktop-backup";
 import { webDavMediaUrl } from "@shared/webdav";
 
+import { downloadBackup, listBackups, uploadBackup } from "../electron/webdav/backup";
 import { clearWebDavCache } from "../electron/webdav/cache";
 import { normalizeWebDavUrl, WebDavClient } from "../electron/webdav/client";
 import {
@@ -206,6 +211,86 @@ describe("WebDAV library", () => {
     expect(files.has(innerTrack)).toBe(true);
     await deleteWebDavList(id);
     expect(files.has(innerTrack)).toBe(true);
+  });
+
+  test("round-trips versioned backups only in the designated subdirectory of a loopback WebDAV server", async () => {
+    vi.unstubAllGlobals();
+    const folder = `${root}BiuBiu-Backups/`;
+    const blobs = new Map<string, string>();
+    const writes: string[] = [];
+    let made = false;
+    const server = createServer(async (req, res) => {
+      const target = req.url!;
+      const send = (status: number, body = "") => res.writeHead(status).end(body);
+      if (req.method === "PROPFIND") {
+        if (target !== root && !(target === folder && made)) return void send(404);
+        const entries = target === root ? [] : [...blobs.keys()].map(p => davEntry(p, 128));
+        return void send(207, await davResponse(entries).text());
+      }
+      if (target === folder && req.method === "MKCOL") {
+        writes.push(target);
+        send(made ? 405 : 201);
+        made = true;
+        return;
+      }
+      if (!target.startsWith(folder) || !backupNamePattern.test(target.slice(folder.length))) return void send(404);
+      if (req.method === "PUT") {
+        if (!made || req.headers["if-none-match"] !== "*" || blobs.has(target)) return void send(412);
+        writes.push(target);
+        const chunks: Buffer[] = [];
+        for await (const part of req) chunks.push(part);
+        blobs.set(target, Buffer.concat(chunks).toString("utf8"));
+        return void send(201);
+      }
+      send(blobs.has(target) ? 200 : 404, blobs.get(target));
+    });
+    await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const { port } = server.address() as AddressInfo;
+      const { id } = await saveWebDavList({
+        ...config,
+        url: `http://127.0.0.1:${port}/dav/`,
+        username: "",
+        password: "",
+      });
+      try {
+        const text = JSON.stringify({
+          format: backupFormat,
+          version: 1,
+          playlists: { version: 1, playlists: [] },
+          queue: [{ type: "audio", title: "测试曲", sid: 10 }],
+          history: [],
+          settings: {},
+        });
+        expect(await listBackups(id)).toEqual([]);
+        const name = await uploadBackup(id, text);
+        const another = await uploadBackup(id, text);
+        expect(another).not.toBe(name);
+        expect(await listBackups(id)).toEqual([name, another].sort().reverse());
+        expect(await downloadBackup(id, name)).toBe(text);
+        await expect(downloadBackup(id, "../other.json")).rejects.toThrow("无效");
+        await expect(uploadBackup(id, "x".repeat(maxBackupBytes + 1))).rejects.toThrow("8 MiB");
+        expect(writes).toEqual([folder, folder + name, folder, folder + another]);
+      } finally {
+        await deleteWebDavList(id);
+      }
+    } finally {
+      await new Promise<void>(resolve => {
+        server.close(() => resolve());
+        server.closeAllConnections();
+      });
+    }
+  });
+
+  test("refuses redirects that move a backup write to a different resource", async () => {
+    fetchMock
+      .mockReset()
+      .mockResolvedValueOnce(new Response(null, { status: 307, headers: { location: "/dav/other" } }));
+    const client = new WebDavClient(normalizeWebDavUrl(url), config.username, config.password);
+    await expect(client.request(`${root}BiuBiu-Backups/test.json`, { method: "PUT", body: "fixture" })).rejects.toThrow(
+      "重定向",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   test("does not forward credentials to a redirected media host", async () => {

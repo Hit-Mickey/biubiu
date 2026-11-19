@@ -3,7 +3,7 @@ import type { AxiosResponse } from "axios";
 import axios from "axios";
 
 export const geetestInterceptors = async (response: AxiosResponse) => {
-  if (response?.data?.data?.v_voucher) {
+  if (!response.config.passive && response?.data?.data?.v_voucher) {
     const { verifyGeetest } = await import("@/common/utils/geetest");
     const { postGaiaVGateRegister, postGaiaVGateValidate } = await import("@/service/gaia-vgate");
 

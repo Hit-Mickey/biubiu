@@ -7,6 +7,7 @@ import type { IpcHandlerProps } from "./types";
 import { clearWebDavCache } from "../webdav/cache";
 import {
   deleteWebDavList,
+  getBackupTargets,
   getWebDavLibrary,
   getWebDavLyrics,
   getWebDavTrackMetadata,
@@ -33,6 +34,14 @@ export function registerWebDavHandlers({ getMainWindow }: IpcHandlerProps) {
   ipcMain.handle(dav.lyrics, (_, listId: string, trackId: string) => getWebDavLyrics(listId, trackId));
   ipcMain.handle(dav.preferences, (_, settings: WebDavPreferences) => setWebDavPreferences(settings));
   ipcMain.handle(dav.clearCache, () => clearWebDavCache());
+  ipcMain.handle(dav.backupTargets, getBackupTargets);
+  ipcMain.handle(dav.backups, async (_, id: string) => (await import("../webdav/backup")).listBackups(id));
+  ipcMain.handle(dav.uploadBackup, async (_, id: string, text: string) =>
+    (await import("../webdav/backup")).uploadBackup(id, text),
+  );
+  ipcMain.handle(dav.downloadBackup, async (_, id: string, name: string) =>
+    (await import("../webdav/backup")).downloadBackup(id, name),
+  );
   webDavLibraryEvents.on("change", (removed: string[] = []) => {
     const window = getMainWindow();
     if (window && !window.isDestroyed()) window.webContents.send(dav.changed, removed);

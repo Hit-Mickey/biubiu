@@ -1,5 +1,4 @@
 import { BrowserWindow } from "electron";
-import isDev from "electron-is-dev";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,7 +30,7 @@ const createMiniPlayer = (onClosed: () => void) => {
       webSecurity: true,
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: isDev,
+      devTools: false,
     },
   });
 

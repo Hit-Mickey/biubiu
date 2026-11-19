@@ -72,6 +72,9 @@ interface GetLyricsByNeteaseResponse {
   /** 歌词原文 */
   lrc?: NeteaseKlyric;
   klyric?: NeteaseKlyric;
+  yrc?: NeteaseKlyric;
+  ytlrc?: NeteaseKlyric;
+  yromalrc?: NeteaseKlyric;
   /** 翻译歌词 */
   tlyric?: NeteaseKlyric;
   /** 歌词发音，一些日语等歌曲会有 */
@@ -120,14 +123,41 @@ interface LyricsPreference {
   showTranslation: boolean;
 }
 
-interface LyricLine {
+interface LyricWord {
+  /** Absolute playback time in milliseconds. */
   time: number;
+  end?: number;
   text: string;
 }
 
-interface MusicLyrics {
-  fontSize?: number;
-  offset?: number;
+interface LyricLine extends LyricWord {
+  words?: LyricWord[];
+  translation?: string;
+  romanization?: string;
+}
+
+interface LyricText {
   lyrics?: string;
   tLyrics?: string;
+  romaLyrics?: string;
+}
+
+/** Top-level text is the adopted source (compatible with the original cache). */
+interface MusicLyrics extends LyricText {
+  fontSize?: number;
+  offset?: number;
+  /** Read existing manual edits from older versions. */
+  edited?: LyricText;
+}
+
+type TrackLyricChange =
+  | { type: "adopt"; text: LyricText }
+  | { type: "preferences"; offset?: number; fontSize?: number };
+
+interface QQLyricSong {
+  mid: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration: number;
 }
