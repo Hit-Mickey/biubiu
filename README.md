@@ -3,14 +3,11 @@
   <img src="./screenshots/logo.svg" alt="Biu logo" width="120" />
 </p>
 <p align="center">
-  基于哔哩哔哩（B 站）公开接口的跨平台桌面音乐播放器 🎧🎶
-</p>
-<p align="center">
-  非官方项目，与哔哩哔哩无任何官方关联或背书
+  支持哔哩哔哩（B 站）、本地音乐和 WebDAV 的跨平台桌面音乐播放器 🎧🎶
 </p>
 <p align="center">
   <a href="https://github.com/wood3n/biu/releases">
-    <img src="https://badgen.net/github/tag/wood3n/biu?label=最新版本&color=blueviolet" alt="Latest Version" />
+    <img src="https://badgen.net/github/tag/wood3n/biu?label=上游版本&color=blueviolet" alt="上游版本" />
   </a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange.svg" alt="License" /></a>
 </p>
@@ -46,7 +43,10 @@
 ---
 
 ## ✨ 特色功能
+
 - 🎼 支持登录 Bilibili 并获取收藏夹、稍后再看、历史记录等信息
+- 📁 扫描本地音乐目录，把歌曲加入播放队列
+- ☁️ 播放 WebDAV 远程目录中的歌曲，支持递归扫描、搜索排序、列表同步、封面、歌词和歌曲缓存
 - 🎧 高品质音频播放，优先拉取更高码率音频流（如无损 Flac，192K/Hi-Res）
 - 🔥 支持视频文件以及提取视频中的音频下载；支持收藏夹视频批量下载
 - 🧩 轻量界面，内置浅色和深色主题，同时可自定义部分主题样式，细腻的滚动与动效体验
@@ -55,7 +55,10 @@
 - ♻️ 安装包支持自动检测更新，始终保持最新体验
 
 ## 下载和使用
-- 下载页面：[GitHub Releases](https://github.com/wood3n/biu/releases/latest)
+
+本地打包产物位于 `dist/artifacts/`。当前工作区的 Windows x64 WebDAV 便携版为 `dist/artifacts/Biu-1.16.0-WebDAV-win-portable-x64.exe`，双击即可运行。
+
+- 上游版本下载 [Biu GitHub Releases](https://github.com/wood3n/biu/releases/latest)
 - 快速选择：
   - <img alt="Windows" src="https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white" /> 优先选安装包 `win-setup`；需要免安装/无管理员权限选 `win-portable`
   - <img alt="macOS" src="https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white" /> 优先选 `dmg`；需要脚本/自动化分发可选 `zip`
@@ -246,9 +249,27 @@
   - 应用会定期检查 GitHub Releases，下载安装更新（多数安装方式均支持）。
   - Windows 免安装版（portable）在应用内下载更新受限，建议前往 Releases 手动下载替换。
 - `*.yml`、`*.blockmap` 为自动更新辅助文件，手动下载时无需关注。
-- 使用注意
-  - 部分音频清晰度与解析可能需要登录或大会员权限。
-  - 请遵循 Bilibili 使用条款，合理合规使用。
+
+## WebDAV 远程列表
+
+1. 在侧栏打开 **远程列表 → 新建 WebDAV 列表**，填写列表名称和服务器地址，例如 `https://nas.example.com/dav/`。需要认证时，填写账号和密码。
+2. 填写相对于服务器地址的**文件目录**，例如 `/音乐`。留空时扫描服务器地址对应的根目录。勾选 **包含子目录** 可继续扫描最多 5 层。
+3. 点击 **测试连接**，然后 **保存**。双击歌曲可播放，也可搜索、排序、多选后批量播放或加入队列。
+
+列表会在应用启动时及运行期间每天本地时间 11:00 自动同步，也可点击 **更新远程列表** 手动刷新。支持 MP3、FLAC、WAV、OGG、OGA、Opus、M4A 和 AAC，并读取内嵌封面、歌词及同目录的同名封面和 `.lrc` 文件。
+
+编辑列表时可启用 **播放时读取歌曲标签**，扫描时先显示文件名。在 **WebDAV 设置** 中可启用或清空歌曲缓存，也可开启调试日志。
+
+## 本地开发与打包
+
+使用 Node.js `22.17.1` 和 pnpm `10.24.0`。在项目根目录执行以下命令。
+
+```bash
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+运行 `pnpm test --run` 执行测试，运行 `pnpm build` 构建当前平台的程序。Electron 主进程和预加载脚本生成在 `.electron/`，界面生成在 `dist/web/`，打包产物生成在 `dist/artifacts/`。
 
 ## 📄 许可证
 本项目以 PolyForm Noncommercial License 1.0.0（非商业许可）发布，禁止任何商业用途。详情参见 [`LICENSE`](LICENSE)（SPDX：`PolyForm-Noncommercial-1.0.0`）。
@@ -258,16 +279,12 @@
 如果你喜欢这个项目，欢迎 ⭐️ Star 支持！也欢迎提出 Issue 交流与反馈 🙌
 
 ## 🙏 鸣谢
+
+- WebDAV 远程列表参考了 [any-listen](https://github.com/any-listen/any-listen)。
 - 特别感谢 [SocialSisterYi/bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) 对哔哩哔哩 API 的长期收集与整理，为本项目相关接口的使用提供了重要参考。
 - 感谢 [@cjlworld](https://github.com/cjlworld) 为 Arch Linux 用户创建并维护了 [AUR 软件包](https://aur.archlinux.org/packages/biu-bin)，方便 Arch 用户通过 `paru -S biu-bin` 命令安装与更新。
-- 在引用与使用相关资料时，我们遵循其许可条款（`CC-BY-NC 4.0`），仅用于学习与研究，不涉及任何商业用途。
+- `bilibili-API-collect` 的相关资料按其 `CC-BY-NC 4.0` 许可条款用于学习与研究。
 
-## ⚖️ 法律声明与使用限制
-- 本项目仅供学习与研究使用，禁止任何形式的商业用途（包括但不限于销售、收费服务、广告变现、商业集成等）。
-- 本项目与 Bilibili 无任何官方关联或背书，不使用其商标与标识；涉及的名称与商标归其权利人所有。
-- 数据来源于用户调用的公开接口与个人账户授权；使用时需遵守 Bilibili 的《用户协议》《社区规则》及相关法律法规。
-- 禁止绕过登录/会员权限、DRM/加密措施，或进行批量爬取、恶意抓取等违反平台规则的行为。
-- 如需商业授权或调整许可，请联系作者；如涉及权利或合规问题，请通过 Issues 反馈以便及时处理。
 ---
 
 ## 🤝 贡献指南
@@ -292,3 +309,13 @@
 ## 🌟 Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=wood3n/biu&type=date&legend=top-left)](https://www.star-history.com/#wood3n/biu&type=date&legend=top-left)
+
+## ⚖️ 法律声明与使用限制
+
+- 本项目仅供学习与研究使用，禁止任何形式的商业用途（包括但不限于销售、收费服务、广告变现、商业集成等）。
+- 本项目与 Bilibili 无任何官方关联或背书，不使用其商标与标识；涉及的名称与商标归其权利人所有。
+- 音乐来源包括 B 站公开接口、用户账号授权的数据、本地文件和用户配置的 WebDAV 目录。使用 B 站功能时需遵守其《用户协议》《社区规则》及相关法律法规。部分音频清晰度与解析可能需要登录或大会员权限。
+- 禁止绕过登录/会员权限、DRM/加密措施，或进行批量爬取、恶意抓取等违反平台规则的行为。
+- 如需商业授权或调整许可，请联系作者；如涉及权利或合规问题，请通过 Issues 反馈以便及时处理。
+
+启用 **移除歌曲时同时删除远程文件** 后，在列表中确认移除歌曲会删除 WebDAV 服务器上的对应音频文件。

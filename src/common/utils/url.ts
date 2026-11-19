@@ -1,10 +1,12 @@
+import { webDavScheme } from "@shared/webdav";
+
 export const getUrlParams = (url: string) => {
   const urlParams = new URLSearchParams(url.split("?")[1]);
   return Object.fromEntries(urlParams.entries());
 };
 
 export const formatUrlProtocol = (url?: string) => {
-  if (url && !url.startsWith("http")) {
+  if (url && !url.startsWith("http") && !url.startsWith(`${webDavScheme}://`)) {
     return `https:${url}`;
   }
 

@@ -140,12 +140,14 @@ function startMiniPlayerMainSync() {
           isPlaying: state.isPlaying,
           playMode: state.playMode,
           duration: state.duration,
+          item: state.getPlayItem(),
         },
         {
           playId: prevState.playId,
           isPlaying: prevState.isPlaying,
           playMode: prevState.playMode,
           duration: prevState.duration,
+          item: prevState.list.find(item => item.id === prevState.playId),
         },
       )
     ) {

@@ -30,6 +30,14 @@ export function App() {
     getCookitFromBSite();
   }, []);
 
+  useEffect(
+    () =>
+      window.electron.onWebDavChange(removed => {
+        if (removed.length) usePlayList.getState().removeWebDavItems(removed);
+      }),
+    [],
+  );
+
   useEffect(() => {
     if (window.electron && window.electron.navigate) {
       const removeListener = window.electron.navigate(path => navigate(path));

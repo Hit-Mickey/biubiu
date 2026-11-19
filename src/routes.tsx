@@ -11,6 +11,7 @@ import LocalMusicPage from "./pages/local-music";
 import MiniPlayer from "./pages/mini-player";
 import MusicRecommend from "./pages/music-recommend";
 import NotFound from "./pages/not-found";
+import RemoteMusicPage from "./pages/remote-music";
 import Search from "./pages/search";
 import Settings from "./pages/settings";
 import UserProfile from "./pages/user-profile";
@@ -60,6 +61,10 @@ const routes: RouteObject[] = [
       {
         path: "local-music",
         element: <LocalMusicPage />,
+      },
+      {
+        path: "remote-music",
+        element: <RemoteMusicPage />,
       },
       {
         path: "search",

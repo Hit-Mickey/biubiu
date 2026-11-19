@@ -24,6 +24,22 @@ const api: ElectronAPI = {
   setProxySettings: proxySettings => ipcRenderer.invoke(channel.app.setProxySettings, proxySettings),
   scanLocalMusic: dirs => ipcRenderer.invoke(channel.localMusic.scan, dirs),
   deleteLocalMusicFile: filePath => ipcRenderer.invoke(channel.localMusic.deleteFile, filePath),
+  getWebDavLibrary: () => ipcRenderer.invoke(channel.webdav.library),
+  onWebDavChange: listener => {
+    const handler = (_: Electron.IpcRendererEvent, removed: string[]) => listener(removed);
+    ipcRenderer.on(channel.webdav.changed, handler);
+    return () => ipcRenderer.removeListener(channel.webdav.changed, handler);
+  },
+  testWebDavList: list => ipcRenderer.invoke(channel.webdav.testList, list),
+  saveWebDavList: list => ipcRenderer.invoke(channel.webdav.saveList, list),
+  refreshWebDavList: id => ipcRenderer.invoke(channel.webdav.refreshList, id),
+  deleteWebDavList: id => ipcRenderer.invoke(channel.webdav.deleteList, id),
+  removeWebDavTracks: (id, trackIds, deleteFiles) =>
+    ipcRenderer.invoke(channel.webdav.removeTracks, id, trackIds, deleteFiles),
+  getWebDavTrackMetadata: (listId, trackId) => ipcRenderer.invoke(channel.webdav.metadata, listId, trackId),
+  getWebDavLyrics: (listId, trackId) => ipcRenderer.invoke(channel.webdav.lyrics, listId, trackId),
+  setWebDavPreferences: preferences => ipcRenderer.invoke(channel.webdav.preferences, preferences),
+  clearWebDavCache: () => ipcRenderer.invoke(channel.webdav.clearCache),
   // 监听来自主进程的导航事件，并将路径回调给渲染端
   navigate: cb => {
     const navigateHandler = (_: Electron.IpcRendererEvent, path: string) => {

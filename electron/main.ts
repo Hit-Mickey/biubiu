@@ -15,6 +15,7 @@ import { registerAllShortcuts, unregisterAllShortcuts } from "./shortcut";
 import { appSettingsStore } from "./store";
 import { autoUpdater, setupAutoUpdater, stopCheckForUpdates } from "./updater";
 import { getWindowIcon } from "./utils";
+import { registerWebDavProtocol, registerWebDavScheme } from "./webdav/protocol";
 import { setupWindowsThumbar } from "./windows/thumbar";
 import { createTray, destroyTray } from "./windows/tray"; // 托盘功能
 
@@ -22,6 +23,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 log.initialize();
+registerWebDavScheme();
 
 if (isDev) {
   // 为 chrome-devtools-mcp 开启远程调试端口
@@ -142,6 +144,7 @@ if (!gotTheLock) {
       log.error("[main] Failed to read proxy settings from store:", error);
     }
 
+    registerWebDavProtocol();
     createWindow();
     injectAuthCookie();
 

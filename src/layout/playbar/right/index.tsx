@@ -3,7 +3,7 @@ import MusicPlayMode from "@/components/music-play-mode";
 import MusicRate from "@/components/music-rate";
 import MusicVolume from "@/components/music-volume";
 import OpenPlaylistDrawerButton from "@/components/open-playlist-drawer-button";
-import { usePlayList } from "@/store/play-list";
+import { isBilibiliSource, usePlayList } from "@/store/play-list";
 
 const RightControl = () => {
   const playId = usePlayList(s => s.playId);
@@ -12,7 +12,7 @@ const RightControl = () => {
   return (
     <div className="flex h-full items-center justify-end space-x-2">
       <MusicPlayMode />
-      {Boolean(playId) && getPlayItem()?.source !== "local" && <MusicDownloadButton />}
+      {Boolean(playId) && isBilibiliSource(getPlayItem()?.source) && <MusicDownloadButton />}
       <OpenPlaylistDrawerButton />
       <MusicVolume />
       <MusicRate />

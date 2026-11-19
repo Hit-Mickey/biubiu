@@ -14,10 +14,14 @@ import { stripHtml } from "@/common/utils/str";
 import { formatUrlProtocol } from "@/common/utils/url";
 import { getAudioSongInfo } from "@/service/audio-song-info";
 import { getWebInterfaceView } from "@/service/web-interface-view";
+import { webDavMediaUrl } from "@shared/webdav";
 
 import { usePlayProgress } from "./play-progress";
 
 export type PlayDataType = "mv" | "audio";
+type PlaySource = "local" | "online" | "webdav";
+
+export const isBilibiliSource = (source?: PlaySource) => source !== "local" && source !== "webdav";
 
 export interface PlayData {
   id: string;
@@ -60,7 +64,8 @@ export interface PlayData {
   /** 是否为杜比音频 */
   isDolby?: boolean;
   /** 来源 */
-  source?: "local" | "online";
+  source?: PlaySource;
+  webDavListId?: string;
 }
 
 interface State {
@@ -89,8 +94,11 @@ interface State {
 export interface PlayItem {
   type: PlayDataType;
   id?: string;
-  source?: "local" | "online";
+  source?: PlaySource;
   audioUrl?: string;
+  webDavListId?: string;
+  duration?: number;
+  isLossless?: boolean;
   title: string;
   bvid?: string;
   sid?: number;
@@ -111,11 +119,12 @@ interface Action {
   init: VoidFunction;
   play: (params: PlayItem) => Promise<void>;
   playListItem: (id: string) => Promise<void>;
-  playList: (items: PlayItem[]) => Promise<void>;
+  playList: (items: PlayItem[], playMode?: PlayMode) => Promise<void>;
   addToNext: (item: PlayItem) => void;
   addList: (items: PlayItem[]) => void;
   delPage: (id: string) => void;
   del: (id: string) => void;
+  removeWebDavItems: (ids: string[]) => void;
   clear: () => void;
   next: () => Promise<void>;
   prev: () => Promise<void>;
@@ -218,10 +227,17 @@ const updatePlaybackState = () => {
 };
 
 const playAudioSafely = async () => {
+  const src = audio.src;
   try {
     await audio.play();
   } catch (error) {
+    if (audio.src !== src) return;
     if ((error as DOMException)?.name === "NotSupportedError") {
+      if (usePlayList.getState().getPlayItem()?.source === "webdav") {
+        usePlayList.setState({ isPlaying: false });
+        toastError("无法播放 WebDAV 歌曲，请检查远程文件和连接设置");
+        return;
+      }
       const refreshed = await refreshCurrentAudioSource();
       if (refreshed) {
         try {
@@ -251,15 +267,14 @@ const updatePositionState = () => {
   }
 };
 
-export const isSame = (
-  item1?: { type: "mv" | "audio"; sid?: number; bvid?: string; source?: "local" | "online"; id?: string },
-  item2?: { type: "mv" | "audio"; sid?: number; bvid?: string; source?: "local" | "online"; id?: string },
-) => {
+type PlayIdentity = Pick<PlayItem, "type" | "sid" | "bvid" | "source" | "id">;
+
+export const isSame = (item1?: PlayIdentity, item2?: PlayIdentity) => {
   if (!item1 || !item2) {
     return false;
   }
-  if (item1.source === "local" || item2.source === "local") {
-    return Boolean(item1.id) && Boolean(item2.id) && item1.id === item2.id;
+  if (!isBilibiliSource(item1.source) || !isBilibiliSource(item2.source)) {
+    return item1.source === item2.source && Boolean(item1.id) && item1.id === item2.id;
   }
   if (item1.type !== item2.type) {
     return false;
@@ -273,8 +288,8 @@ export const isSame = (
   return false;
 };
 
-const shouldReportPlayRecord = (item?: { type: PlayDataType; source?: "local" | "online" }) =>
-  item?.type === "mv" && item?.source !== "local";
+const shouldReportPlayRecord = (item?: { type: PlayDataType; source?: PlaySource }) =>
+  item?.type === "mv" && isBilibiliSource(item.source);
 
 export const usePlayList = create<State & Action>()(
   persist(
@@ -282,9 +297,11 @@ export const usePlayList = create<State & Action>()(
       const ensureAudioSrcValid = async () => {
         const { playId, list } = get();
         const currentPlayItem = list.find(item => item.id === playId);
-        if (currentPlayItem?.source === "local" && currentPlayItem?.audioUrl) {
+        if (!isBilibiliSource(currentPlayItem?.source) && currentPlayItem?.audioUrl) {
           if (audio.src !== currentPlayItem.audioUrl) {
             audio.src = currentPlayItem.audioUrl;
+          } else if (currentPlayItem.source === "webdav" && audio.error) {
+            audio.load();
           }
           const currentTime = usePlayProgress.getState().currentTime;
           if (typeof currentTime === "number" && currentTime > 0) {
@@ -305,6 +322,7 @@ export const usePlayList = create<State & Action>()(
 
         if (currentPlayItem?.type === "mv" && currentPlayItem?.bvid && currentPlayItem?.cid) {
           const mvPlayData = await getDashUrl(currentPlayItem.bvid, currentPlayItem.cid);
+          if (get().playId !== playId) return;
           if (mvPlayData?.audioUrl) {
             if (audio.src !== mvPlayData.audioUrl) {
               audio.src = mvPlayData.audioUrl;
@@ -336,6 +354,7 @@ export const usePlayList = create<State & Action>()(
 
         if (currentPlayItem?.type === "audio" && currentPlayItem?.sid) {
           const musicPlayData = await getAudioUrl(currentPlayItem.sid);
+          if (get().playId !== playId) return;
           if (musicPlayData?.audioUrl) {
             if (audio.src !== musicPlayData.audioUrl) {
               audio.src = musicPlayData.audioUrl;
@@ -402,6 +421,17 @@ export const usePlayList = create<State & Action>()(
 
             audio.onratechange = () => {
               updatePositionState();
+            };
+
+            audio.onerror = () => {
+              if (get().getPlayItem()?.source !== "webdav") return;
+              set({ isPlaying: false });
+              if (
+                audio.error?.code === MediaError.MEDIA_ERR_NETWORK ||
+                audio.error?.code === MediaError.MEDIA_ERR_DECODE
+              ) {
+                toastError("WebDAV 音频读取失败");
+              }
             };
 
             audio.onplay = () => {
@@ -481,8 +511,9 @@ export const usePlayList = create<State & Action>()(
                 updateMediaSession({
                   title: playItem.title,
                   artist: playItem.ownerName,
-                  cover: playItem.pageCover,
+                  cover: playItem.pageCover || playItem.cover,
                 });
+                if (playItem.source === "webdav") void updateWebDavPlaybackInfo(playItem);
               }
             }
           }
@@ -553,10 +584,11 @@ export const usePlayList = create<State & Action>()(
         setShouldKeepPagesOrderInRandomPlayMode: shouldKeep => {
           set({ shouldKeepPagesOrderInRandomPlayMode: shouldKeep });
         },
-        play: async ({ type, bvid, sid, title, cover, ownerName, ownerMid, id, source, audioUrl }: PlayItem) => {
+        play: async item => {
+          const { type, bvid, sid, cover, ownerName, ownerMid, id, source } = item;
           const { list, playId } = get();
           const currentItem = list?.find(item => item.id === playId);
-          const sanitizedTitle = sanitizeTitle(title);
+          const title = source === "webdav" ? item.title : sanitizeTitle(item.title);
           const candidate = { type, bvid, sid, source, id };
 
           // 当前正在播放，如果暂停了则播放
@@ -581,33 +613,25 @@ export const usePlayList = create<State & Action>()(
             return;
           }
 
-          const isLocal = source === "local";
+          const isBilibili = isBilibiliSource(source);
           // 新添加项
           let playItem: PlayData[] =
-            isLocal && id
-              ? [
-                  {
-                    id,
-                    type,
-                    source,
-                    audioUrl,
-                    title: sanitizedTitle,
-                  },
-                ]
+            !isBilibili && id
+              ? [{ ...item, id, title }]
               : [
                   {
                     id: idGenerator(),
                     type,
                     bvid,
                     sid,
-                    title: sanitizedTitle,
+                    title,
                     cover: cover ? formatUrlProtocol(cover) : undefined,
                     ownerName,
                     ownerMid,
                   },
                 ];
           // 补充缺失信息
-          if (!isLocal && (!cover || !ownerName || !ownerMid)) {
+          if (isBilibili && (!cover || !ownerName || !ownerMid)) {
             if (type === "mv" && bvid) {
               playItem = await getMVData(bvid);
             }
@@ -640,17 +664,26 @@ export const usePlayList = create<State & Action>()(
             }
           });
         },
-        playList: async items => {
+        playList: async (items, playMode) => {
+          if (!items.length) return;
+          const previousId = get().playId;
           const newList = items.map(item => ({
             ...item,
-            title: sanitizeTitle(item.title),
-            id: item.source === "local" && item.id ? item.id : idGenerator(),
+            title: item.source === "webdav" ? item.title : sanitizeTitle(item.title),
+            id: !isBilibiliSource(item.source) && item.id ? item.id : idGenerator(),
           }));
 
           set(state => {
             state.list = newList;
             state.playId = newList[0].id;
+            state.nextId = undefined;
+            if (playMode !== undefined) state.playMode = playMode;
           });
+          if (playMode !== undefined) audio.loop = playMode === PlayMode.Single;
+          if (previousId === newList[0].id && audio.paused) {
+            await ensureAudioSrcValid();
+            await playAudioSafely();
+          }
         },
         next: async () => {
           const { playMode, list, playId, nextId, shouldKeepPagesOrderInRandomPlayMode } = get();
@@ -742,10 +775,11 @@ export const usePlayList = create<State & Action>()(
             state.playId = list[prevIndex].id;
           });
         },
-        addToNext: async ({ type, title, bvid, sid, cover, ownerName, ownerMid, id, source, audioUrl }) => {
+        addToNext: async item => {
+          const { type, bvid, sid, cover, ownerName, ownerMid, id, source } = item;
           const { playId, nextId: currentNextId, list } = get();
           const currentItem = list.find(item => item.id === playId);
-          const sanitizedTitle = sanitizeTitle(title);
+          const title = source === "webdav" ? item.title : sanitizeTitle(item.title);
           const candidate = { type, bvid, sid, source, id };
           // 如果当前正在播放，则不添加
           if (isSame(candidate, currentItem)) {
@@ -766,29 +800,21 @@ export const usePlayList = create<State & Action>()(
             set(state => {
               state.nextId = list[existItemIndex].id;
               // 将已存在项移动到下一首
-              const currentItemIndex = list.findIndex(item => item.id === playId);
-              if (currentItemIndex !== existItemIndex - 1) {
-                state.list.splice(existItemIndex, 1);
-                state.list.splice(currentItemIndex, 0, list[existItemIndex]);
-              }
+              const [existing] = state.list.splice(existItemIndex, 1);
+              const currentItemIndex = state.list.findIndex(item => item.id === playId);
+              state.list.splice(currentItemIndex + 1, 0, existing);
             });
             return;
           }
 
           let nextPlayItem: PlayData[] =
-            source === "local" && id
+            !isBilibiliSource(source) && id
               ? [
                   {
+                    ...item,
                     id,
-                    type,
-                    bvid,
-                    sid,
-                    source,
-                    audioUrl,
-                    title: sanitizedTitle,
-                    cover: cover ? formatUrlProtocol(cover) : undefined,
-                    ownerName,
-                    ownerMid,
+                    title,
+                    cover: formatUrlProtocol(cover),
                   },
                 ]
               : [
@@ -797,13 +823,13 @@ export const usePlayList = create<State & Action>()(
                     type,
                     bvid,
                     sid,
-                    title: sanitizedTitle,
+                    title,
                     cover: cover ? formatUrlProtocol(cover) : undefined,
                     ownerName,
                     ownerMid,
                   },
                 ];
-          if (source !== "local" && (!cover || !ownerName || !ownerMid)) {
+          if (isBilibiliSource(source) && (!cover || !ownerName || !ownerMid)) {
             if (type === "mv" && bvid) {
               nextPlayItem = await getMVData(bvid);
             }
@@ -866,8 +892,8 @@ export const usePlayList = create<State & Action>()(
             })
             .map(item => ({
               ...item,
-              title: sanitizeTitle(item.title),
-              id: item.source === "local" && item.id ? item.id : idGenerator(),
+              title: item.source === "webdav" ? item.title : sanitizeTitle(item.title),
+              id: !isBilibiliSource(item.source) && item.id ? item.id : idGenerator(),
             }));
 
           if (paddingItems.length === 0) {
@@ -936,6 +962,25 @@ export const usePlayList = create<State & Action>()(
             remove(state.list, item => isSame(item, removedItem));
           });
         },
+        removeWebDavItems: ids => {
+          const { list, playId, nextId } = get();
+          const removed = new Set(ids);
+          const keep = (item: PlayData) => item.source !== "webdav" || !removed.has(item.id);
+          const remaining = list.filter(keep);
+          if (remaining.length === list.length) return;
+          if (!remaining.length) {
+            get().clear();
+            return;
+          }
+          const index = list.findIndex(item => item.id === playId);
+          const selected = list[index];
+          const next = selected && !keep(selected) ? (list.slice(index + 1).find(keep) ?? remaining[0]).id : playId;
+          set({
+            list: remaining,
+            playId: next,
+            nextId: remaining.some(item => item.id === nextId) ? nextId : undefined,
+          });
+        },
         clear: () => {
           const currentPlayItem = get().getPlayItem?.();
           if (shouldReportPlayRecord(currentPlayItem)) {
@@ -981,6 +1026,29 @@ export const usePlayList = create<State & Action>()(
   ),
 );
 
+async function updateWebDavPlaybackInfo(item: PlayData) {
+  if (!item.webDavListId) return;
+  try {
+    const metadata = await window.electron.getWebDavTrackMetadata(item.webDavListId, item.id);
+    const cover = metadata.hasCover ? webDavMediaUrl("cover", item.webDavListId, item.id) : undefined;
+    usePlayList.setState(state => {
+      const queued = state.list.find(track => track.id === item.id);
+      if (queued) {
+        queued.title = metadata.title;
+        queued.ownerName = metadata.artist;
+        queued.cover = cover;
+        queued.duration = metadata.duration;
+        queued.isLossless = metadata.lossless;
+      }
+    });
+    if (usePlayList.getState().playId === item.id) {
+      updateMediaSession({ title: metadata.title, artist: metadata.artist, cover });
+    }
+  } catch {
+    // Playback can continue with the filename when tags are unavailable.
+  }
+}
+
 async function refreshCurrentAudioSource(): Promise<boolean> {
   const { getPlayItem } = usePlayList.getState?.() ?? {};
   const playItem = getPlayItem?.();
@@ -992,6 +1060,7 @@ async function refreshCurrentAudioSource(): Promise<boolean> {
   try {
     if (playItem.type === "mv" && playItem.bvid && playItem.cid) {
       const mvPlayData = await getDashUrl(playItem.bvid, playItem.cid);
+      if (usePlayList.getState().playId !== playItem.id) return false;
       if (mvPlayData?.audioUrl) {
         audio.src = mvPlayData.audioUrl;
         usePlayList.setState(state => {
@@ -1009,6 +1078,7 @@ async function refreshCurrentAudioSource(): Promise<boolean> {
 
     if (playItem.type === "audio" && playItem.sid) {
       const musicPlayData = await getAudioUrl(playItem.sid);
+      if (usePlayList.getState().playId !== playItem.id) return false;
       if (musicPlayData?.audioUrl) {
         audio.src = musicPlayData.audioUrl;
         usePlayList.setState(state => {
@@ -1061,7 +1131,15 @@ usePlayList.subscribe(async (state, prevState) => {
           void beginPlayReport(playItem);
         }
       }
-      if (playItem?.source === "local" && playItem?.audioUrl && audio.paused) {
+      if (playItem?.source === "webdav" && playItem.audioUrl) {
+        usePlayProgress.getState().setCurrentTime(0);
+        usePlayList.setState({ duration: playItem.duration });
+        resetAudioAndPlay(playItem.audioUrl);
+        updateMediaSession({ title: playItem.title, artist: playItem.ownerName, cover: playItem.cover });
+        void updateWebDavPlaybackInfo(playItem);
+        return;
+      }
+      if (playItem?.source === "local" && playItem.audioUrl && audio.paused) {
         resetAudioAndPlay(playItem.audioUrl);
         return;
       }
@@ -1073,6 +1151,7 @@ usePlayList.subscribe(async (state, prevState) => {
       if (playItem?.type === "mv") {
         if (playItem?.bvid && playItem?.cid) {
           const mvPlayData = await getDashUrl(playItem.bvid, playItem.cid);
+          if (usePlayList.getState().playId !== state.playId) return;
           if (mvPlayData?.audioUrl) {
             resetAudioAndPlay(mvPlayData?.audioUrl);
 
@@ -1103,9 +1182,11 @@ usePlayList.subscribe(async (state, prevState) => {
           }
         } else if (playItem?.bvid) {
           const mvData = await getMVData(playItem.bvid);
+          if (usePlayList.getState().playId !== state.playId) return;
           const [firstMV, ...restMV] = mvData;
           if (firstMV?.cid) {
             const mvPlayData = await getDashUrl(playItem.bvid, firstMV.cid);
+            if (usePlayList.getState().playId !== state.playId) return;
             if (mvPlayData?.audioUrl) {
               resetAudioAndPlay(mvPlayData?.audioUrl);
 
@@ -1157,6 +1238,7 @@ usePlayList.subscribe(async (state, prevState) => {
 
       if (playItem?.type === "audio" && playItem?.sid) {
         const musicPlayData = await getAudioUrl(playItem.sid);
+        if (usePlayList.getState().playId !== state.playId) return;
         if (musicPlayData?.audioUrl) {
           resetAudioAndPlay(musicPlayData?.audioUrl);
 

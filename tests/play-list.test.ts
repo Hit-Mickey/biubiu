@@ -111,6 +111,28 @@ describe("play-list store", () => {
     expect(navigator.mediaSession.playbackState).toBe("playing");
   });
 
+  test("plays and queues WebDAV tracks by their own IDs", async () => {
+    const player = usePlayList.getState();
+    await player.init();
+    const first = {
+      id: "dav-first",
+      source: "webdav",
+      type: "audio",
+      title: "第一首",
+      audioUrl: "biu-webdav://audio/list/first",
+    } as const;
+    const second = { ...first, id: "dav-second", title: "第二首", audioUrl: "biu-webdav://audio/list/second" };
+    await player.play(first);
+    player.addList([first, second]);
+    expect(usePlayList.getState().list.map(item => item.id)).toEqual([first.id, second.id]);
+    expect(player.getAudio().src).toBe(first.audioUrl);
+    player.addToNext(second);
+    await player.next();
+    expect(player.getAudio().src).toBe(second.audioUrl);
+    player.removeWebDavItems([second.id]);
+    expect(usePlayList.getState().playId).toBe(first.id);
+  });
+
   test("playList sets list and next/prev in sequence", async () => {
     const s = usePlayList.getState();
     await s.init();

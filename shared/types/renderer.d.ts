@@ -1,3 +1,5 @@
+import type { WebDavLibrary, WebDavListInput, WebDavPreferences, WebDavRemoveResult, WebDavTrack } from "../webdav";
+
 declare global {
   type AppPlatForm = "macos" | "windows" | "linux";
 
@@ -118,6 +120,17 @@ declare global {
     scanLocalMusic: (dirs: string[]) => Promise<LocalMusicItem[]>;
     /** 删除本地音乐文件 */
     deleteLocalMusicFile: (filePath: string) => Promise<boolean>;
+    getWebDavLibrary: () => Promise<WebDavLibrary>;
+    onWebDavChange: (listener: (removed: string[]) => void) => VoidFunction;
+    testWebDavList: (list: WebDavListInput) => Promise<void>;
+    saveWebDavList: (list: WebDavListInput) => Promise<{ id: string; passwordSessionOnly: boolean }>;
+    refreshWebDavList: (id: string) => Promise<void>;
+    deleteWebDavList: (id: string) => Promise<void>;
+    removeWebDavTracks: (id: string, trackIds: string[], deleteFiles: boolean) => Promise<WebDavRemoveResult>;
+    getWebDavTrackMetadata: (listId: string, trackId: string) => Promise<WebDavTrack>;
+    getWebDavLyrics: (listId: string, trackId: string) => Promise<string | undefined>;
+    setWebDavPreferences: (preferences: WebDavPreferences) => Promise<void>;
+    clearWebDavCache: () => Promise<void>;
   }
 
   interface Window {

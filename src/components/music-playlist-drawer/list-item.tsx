@@ -6,7 +6,7 @@ import { RiMoreFill, RiMusic2Line, RiPlayFill } from "@remixicon/react";
 import clx from "classnames";
 
 import Image from "@/components/image";
-import { type PlayData } from "@/store/play-list";
+import { isBilibiliSource, type PlayData } from "@/store/play-list";
 
 import { getMenus } from "./menu";
 
@@ -64,7 +64,7 @@ const ListItem = ({ data, isLogin, isPlaying, onAction, onClose, onPress }: Prop
               onClose();
             }}
           >
-            {data?.source === "local" ? "本地音乐" : data?.ownerName || "未知"}
+            {data.source === "local" ? "本地音乐" : data.ownerName || (data.source === "webdav" ? "WebDAV" : "未知")}
           </span>
         </div>
         <Dropdown
@@ -88,7 +88,7 @@ const ListItem = ({ data, isLogin, isPlaying, onAction, onClose, onPress }: Prop
 
           <DropdownMenu
             aria-label="播放列表操作菜单"
-            items={getMenus({ isLogin, isLocal: data.source === "local" })}
+            items={getMenus({ isLogin, isBilibili: isBilibiliSource(data.source) })}
             // @ts-ignore 忽略onAction类型问题
             onAction={onAction}
           >

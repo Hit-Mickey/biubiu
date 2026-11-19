@@ -10,7 +10,7 @@ import Image from "@/components/image";
 import MusicFavButton from "@/components/music-fav-button";
 import MusicThumb from "@/components/music-thumb";
 import { useModalStore } from "@/store/modal";
-import { usePlayList } from "@/store/play-list";
+import { isBilibiliSource, usePlayList } from "@/store/play-list";
 import { useUser } from "@/store/user";
 
 import PageListDrawer from "./page-list";
@@ -23,7 +23,7 @@ const LeftControl = () => {
   const playId = usePlayList(s => s.playId);
 
   const playItem = useMemo(() => list.find(item => item.id === playId), [list, playId]);
-  const isClickable = Boolean(playItem && playItem.source !== "local");
+  const isClickable = Boolean(playItem && isBilibiliSource(playItem.source));
 
   return (
     <div className="flex h-full w-full items-center justify-start space-x-2">
@@ -74,17 +74,19 @@ const LeftControl = () => {
             "cursor-pointer hover:underline": Boolean(playItem?.ownerMid),
           })}
           onClick={e => {
-            if (playItem?.source === "local" || !playItem?.ownerMid) return;
+            if (!isClickable || !playItem?.ownerMid) return;
             e.stopPropagation();
             navigate(`/user/${playItem?.ownerMid}`);
           }}
         >
-          {playItem?.source === "local" ? "本地音乐" : playItem?.ownerName || "未知"}
+          {playItem?.source === "local"
+            ? "本地音乐"
+            : playItem?.ownerName || (playItem?.source === "webdav" ? "WebDAV" : "未知")}
         </span>
       </div>
       <div className="flex items-center">
         {Boolean(playItem?.hasMultiPart) && <PageListDrawer />}
-        {Boolean(user?.isLogin) && Boolean(playItem) && playItem?.source !== "local" && (
+        {Boolean(user?.isLogin) && isClickable && (
           <>
             <MusicFavButton />
             <MusicThumb />

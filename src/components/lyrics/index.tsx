@@ -26,10 +26,15 @@ type PlayItem = ReturnType<ReturnType<typeof usePlayList.getState>["getPlayItem"
 
 const activeTextBase = "text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.35)]";
 
-const timeTagPattern = /\[(\d{1,2}):(\d{1,2})(?:\.(\d{1,3}))?\]/g;
+const timeTagPattern = /\[(\d+):(\d{1,2})(?:\.(\d{1,3}))?\]/g;
 
 const DEFAULT_FONT_SIZE = 20;
 const DEFAULT_OFFSET = 0;
+
+function lyricsCacheKey(item: PlayItem) {
+  if (item?.source === "webdav") return `webdav-${item.id}`;
+  if (item?.bvid && item.cid) return `${item.bvid}-${item.cid}`;
+}
 
 const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: boolean; showControls?: boolean }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -37,7 +42,9 @@ const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: 
   const lineRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const [centerPadding, setCenterPadding] = useState(0);
   const playId = usePlayList(s => s.playId);
+  const isWebDav = usePlayList(s => s.getPlayItem()?.source === "webdav");
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
+  const [plainLyrics, setPlainLyrics] = useState("");
   const [translatedLyrics, setTranslatedLyrics] = useState<LyricLine[]>([]);
   const [offset, setOffset] = useState<number>(DEFAULT_OFFSET);
   const [fontSize, setFontSize] = useState<number>(DEFAULT_FONT_SIZE);
@@ -82,12 +89,13 @@ const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: 
 
   const tryLoadCachedLyrics = useCallback(async () => {
     const playItem = usePlayList.getState().getPlayItem();
-    if (!playItem?.bvid || !playItem?.cid) return null;
+    const key = lyricsCacheKey(playItem);
+    if (!key) return null;
 
     const store = await window.electron.getStore(StoreNameMap.LyricsCache);
     if (!store || typeof store !== "object") return null;
 
-    return store[`${playItem.bvid}-${playItem.cid}`] ?? null;
+    return store[key] ?? null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playId]);
 
@@ -95,9 +103,32 @@ const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: 
     let canceled = false;
     setOffset(DEFAULT_OFFSET);
     setFontSize(DEFAULT_FONT_SIZE);
+    setPlainLyrics("");
 
     const playItem = usePlayList.getState().getPlayItem();
     const fetchLyrics = async () => {
+      if (playItem?.source === "webdav" && playItem.webDavListId) {
+        setLyrics([]);
+        setTranslatedLyrics([]);
+        setIsLoading(true);
+        try {
+          const [raw, cached] = await Promise.all([
+            window.electron.getWebDavLyrics(playItem.webDavListId, playItem.id),
+            tryLoadCachedLyrics(),
+          ]);
+          if (canceled) return;
+          setOffset(cached?.offset ?? DEFAULT_OFFSET);
+          setFontSize(cached?.fontSize ?? DEFAULT_FONT_SIZE);
+          const lines = parseLrc(raw);
+          setLyrics(lines);
+          if (!lines.length && raw) setPlainLyrics(raw.replace(/^\[[a-z]+:[^\]\n]*\]\s*$/gim, "").trim());
+        } catch {
+          if (!canceled) setLyrics([]);
+        } finally {
+          if (!canceled) setIsLoading(false);
+        }
+        return;
+      }
       if (!playItem?.cid) {
         setLyrics([]);
         setTranslatedLyrics([]);
@@ -190,9 +221,9 @@ const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: 
     () =>
       debounce(async (playItem: PlayItem, nextOffset?: number, nextFontSize?: number) => {
         try {
-          if (!playItem?.bvid || !playItem?.cid) return;
+          const key = lyricsCacheKey(playItem);
+          if (!key) return;
           const store = await window.electron.getStore(StoreNameMap.LyricsCache);
-          const key = `${playItem.bvid}-${playItem.cid}`;
           const prev = store?.[key] || {};
 
           await window.electron.setStore(StoreNameMap.LyricsCache, {
@@ -215,9 +246,6 @@ const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: 
       setOffset(next);
 
       const playItem = usePlayList.getState().getPlayItem();
-      const cid = playItem?.cid ? Number(playItem.cid) : undefined;
-      if (!playItem?.bvid || cid === undefined || Number.isNaN(cid)) return;
-
       persistLyricsCache(playItem, next, fontSize);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -229,9 +257,6 @@ const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: 
       setFontSize(next);
 
       const playItem = usePlayList.getState().getPlayItem();
-      const cid = playItem?.cid ? Number(playItem.cid) : undefined;
-      if (!playItem?.bvid || cid === undefined || Number.isNaN(cid)) return;
-
       persistLyricsCache(playItem, offset, next);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -370,6 +395,10 @@ const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: 
             >
               {lyrics.map((line, index) => renderLine(line, index))}
             </div>
+          ) : plainLyrics ? (
+            <div className="py-20 leading-relaxed break-words whitespace-pre-wrap" style={{ color, fontSize }}>
+              {plainLyrics}
+            </div>
           ) : (
             <div className="text-foreground/70 flex h-full items-center justify-center">
               {isLoading ? "歌词加载中..." : "暂无歌词"}
@@ -385,19 +414,23 @@ const Lyrics = ({ color, centered, showControls }: { color?: string; centered?: 
             <div className="pointer-events-auto">
               <OffsetControl value={offset} onChange={handleOffsetChange} onOpenChange={() => {}} />
             </div>
-            <div className="pointer-events-auto">
-              <IconButton
-                type="button"
-                onPress={onOpenSearch}
-                className="bg-foreground/20 text-foreground hover:bg-foreground/30 min-w-0 rounded-full text-xs font-semibold"
-              >
-                <RiTBoxLine size={16} />
-              </IconButton>
-            </div>
+            {!isWebDav && (
+              <div className="pointer-events-auto">
+                <IconButton
+                  type="button"
+                  onPress={onOpenSearch}
+                  className="bg-foreground/20 text-foreground hover:bg-foreground/30 min-w-0 rounded-full text-xs font-semibold"
+                >
+                  <RiTBoxLine size={16} />
+                </IconButton>
+              </div>
+            )}
           </div>
         )}
       </div>
-      <LyricsSearchModal isOpen={isSearchOpen} onOpenChange={setIsSearchOpen} onLyricsAdopted={handleLyricsAdopted} />
+      {!isWebDav && (
+        <LyricsSearchModal isOpen={isSearchOpen} onOpenChange={setIsSearchOpen} onLyricsAdopted={handleLyricsAdopted} />
+      )}
     </>
   );
 };

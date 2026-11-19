@@ -12,14 +12,14 @@ interface Props extends ImageProps {
 }
 
 const Image = ({ params, width, height, src, className, emptyPlaceholder, ...rest }: Props) => {
-  const [isError, setIsError] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string>();
   const formatSrc = formatUrlProtocol(src);
   const finalSrc =
     params && formatSrc && formatSrc.includes("/bfs/") && !formatSrc.includes("@")
       ? `${formatSrc}@${params}`
       : formatSrc;
 
-  if (!src || isError) {
+  if (!src || failedSrc === src) {
     return (
       <div
         className={twMerge("border-content2 flex h-full items-center justify-center rounded-md border", className)}
@@ -36,7 +36,7 @@ const Image = ({ params, width, height, src, className, emptyPlaceholder, ...res
       height={height}
       src={finalSrc}
       onError={() => {
-        setIsError(true);
+        setFailedSrc(src);
       }}
       className={twMerge("object-cover", className)}
       {...rest}
