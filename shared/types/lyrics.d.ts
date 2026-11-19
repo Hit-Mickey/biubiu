@@ -142,6 +142,24 @@ interface LyricText {
   romaLyrics?: string;
 }
 
+type LyricSearchSource = "netease" | "lrclib" | "qq";
+
+interface DesktopLyricLine {
+  text: string;
+  translation?: string;
+  romanization?: string;
+}
+
+interface DesktopLyricsWindowState {
+  open: boolean;
+  locked: boolean;
+}
+
+interface DesktopLyricsRendererAPI {
+  onLine: (listener: (line: DesktopLyricLine) => void) => VoidFunction;
+  close: VoidFunction;
+}
+
 /** Top-level text is the adopted source (compatible with the original cache). */
 interface MusicLyrics extends LyricText {
   fontSize?: number;

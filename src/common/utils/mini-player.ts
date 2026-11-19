@@ -10,6 +10,7 @@ import {
   type MiniPlayerMessageFromMini,
   type MiniPlayerState,
 } from "./mini-player-channel";
+import { setPlaybackVolume, stepPlaybackVolume, togglePlaybackMute } from "./playback-volume";
 
 let bc: BroadcastChannel | null = null;
 let unsubscribePlayList: VoidFunction | null = null;
@@ -78,12 +79,16 @@ function handleMessageFromMini(message: MiniPlayerMessageFromMini, channel: Broa
     }
     case "setVolume": {
       const value = data.state?.volume;
-      if (typeof value === "number" && Number.isFinite(value)) {
-        const volume = Math.max(0, Math.min(1, value));
-        const { isMuted, setVolume, toggleMute } = usePlayList.getState();
-        setVolume(volume);
-        if (isMuted !== (volume === 0)) toggleMute();
-      }
+      if (typeof value === "number") setPlaybackVolume(value);
+      break;
+    }
+    case "adjustVolume": {
+      const delta = data.state?.volumeDelta;
+      if (delta === 0.05 || delta === -0.05) stepPlaybackVolume(delta);
+      break;
+    }
+    case "toggleMute": {
+      togglePlaybackMute();
       break;
     }
     case "volumeUp":

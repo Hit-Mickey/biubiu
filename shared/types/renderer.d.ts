@@ -91,6 +91,10 @@ declare global {
     /** 切换 mini/主窗口 */
     toggleMiniPlayer: () => Promise<void>;
     onMiniPlayerClosed: (listener: VoidFunction) => VoidFunction;
+    setDesktopLyricsVisible: (open: boolean) => Promise<void>;
+    setDesktopLyricsLocked: (locked: boolean) => Promise<void>;
+    onDesktopLyricsState: (listener: (state: DesktopLyricsWindowState) => void) => VoidFunction;
+    showDesktopLyricLine: (line: DesktopLyricLine) => void;
     /** 最小化窗口 */
     minimizeWindow: () => void;
     /** 最大化/还原窗口 */

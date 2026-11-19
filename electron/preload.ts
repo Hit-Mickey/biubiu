@@ -206,6 +206,14 @@ const api: ElectronAPI = {
   quitAndInstall: () => ipcRenderer.invoke(channel.app.quitAndInstall),
   // 切换 mini/主窗口
   toggleMiniPlayer: () => ipcRenderer.invoke(channel.window.toggleMini),
+  setDesktopLyricsVisible: open => ipcRenderer.invoke(channel.desktopLyrics.visible, open),
+  setDesktopLyricsLocked: locked => ipcRenderer.invoke(channel.desktopLyrics.locked, locked),
+  showDesktopLyricLine: line => ipcRenderer.send(channel.desktopLyrics.line, line),
+  onDesktopLyricsState: listener => {
+    const handle = (_event: Electron.IpcRendererEvent, state: DesktopLyricsWindowState) => listener(state);
+    ipcRenderer.on(channel.desktopLyrics.state, handle);
+    return () => ipcRenderer.removeListener(channel.desktopLyrics.state, handle);
+  },
   onMiniPlayerClosed: listener => {
     const handler = () => listener();
     ipcRenderer.on(channel.window.miniClosed, handler);
@@ -271,4 +279,16 @@ const api: ElectronAPI = {
   clearMediaDownloadTaskList: () => ipcRenderer.invoke(channel.download.clear),
 };
 
-contextBridge.exposeInMainWorld("electron", api);
+if (process.argv.includes("--biubiu-desktop-lyrics")) {
+  const desktopLyrics: DesktopLyricsRendererAPI = {
+    close: () => ipcRenderer.send(channel.window.close),
+    onLine: listener => {
+      const handle = (_event: Electron.IpcRendererEvent, line: DesktopLyricLine) => listener(line);
+      ipcRenderer.on(channel.desktopLyrics.line, handle);
+      return () => ipcRenderer.removeListener(channel.desktopLyrics.line, handle);
+    },
+  };
+  contextBridge.exposeInMainWorld("desktopLyrics", desktopLyrics);
+} else {
+  contextBridge.exposeInMainWorld("electron", api);
+}

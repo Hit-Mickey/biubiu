@@ -38,6 +38,7 @@ interface AppSettings {
   reportPlayHistory: boolean;
   recordLocalHistory: boolean;
   preferredAudioHost: string;
+  lyricSearchSource: LyricSearchSource;
   /** 本地音乐目录列表 */
   localMusicDirs: string[];
 }

@@ -1,15 +1,12 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 
-import { Button, Popover, PopoverContent, PopoverTrigger, Slider } from "@heroui/react";
+import { Button, Slider } from "@heroui/react";
 import {
   RiExpandDiagonalLine,
   RiPauseCircleFill,
   RiPlayCircleFill,
   RiSkipBackFill,
   RiSkipForwardFill,
-  RiVolumeDownLine,
-  RiVolumeMuteLine,
-  RiVolumeUpLine,
 } from "@remixicon/react";
 import clx from "classnames";
 import { useShallow } from "zustand/react/shallow";
@@ -24,6 +21,7 @@ import {
 } from "@/common/utils/mini-player-channel";
 import { getShortcutCommand } from "@/common/utils/shortcut";
 import Image from "@/components/image";
+import VolumeControl from "@/components/music-volume/control";
 import { usePlayProgress } from "@/store/play-progress";
 
 import { usePlayState } from "./play-state";
@@ -52,42 +50,20 @@ const CoverView = memo(() => {
   );
 });
 
-const MiniVolume = ({ onChange }: { onChange: (volume: number) => void }) => {
-  const volume = usePlayState(s => s.volume);
-  const VolumeIcon = volume === 0 ? RiVolumeMuteLine : volume > 0.5 ? RiVolumeUpLine : RiVolumeDownLine;
+type PostCommand = (type: MiniPlayerCommand, state?: MiniPlayerMessageFromMini["data"]["state"]) => void;
 
+const MiniVolume = memo(function MiniVolume({ post }: { post: PostCommand }) {
+  const volume = usePlayState(s => s.volume);
   return (
-    <Popover placement="top-end" offset={4} containerPadding={4} disableAnimation>
-      <PopoverTrigger>
-        <Button
-          isIconOnly
-          size="sm"
-          variant="light"
-          disableAnimation
-          className="hover:text-primary window-no-drag"
-          aria-label="音量控制"
-        >
-          <VolumeIcon size={16} />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="window-no-drag w-36 p-2">
-        <Slider
-          aria-label="音量"
-          size="sm"
-          minValue={0}
-          maxValue={1}
-          step={0.01}
-          value={volume}
-          onChange={value => onChange(value as number)}
-          endContent={
-            <span className="text-foreground/60 w-8 text-right text-xs tabular-nums">{Math.round(volume * 100)}%</span>
-          }
-          disableAnimation
-        />
-      </PopoverContent>
-    </Popover>
+    <VolumeControl
+      compact
+      volume={volume}
+      onChange={volume => post("setVolume", { volume })}
+      onStep={volumeDelta => post("adjustVolume", { volumeDelta })}
+      onMute={() => post("toggleMute")}
+    />
   );
-};
+});
 
 const MiniPlayer = () => {
   const { isSingle, isPlaying, title, duration, playMode } = usePlayState(
@@ -104,7 +80,7 @@ const MiniPlayer = () => {
   const updatePlayState = usePlayState(state => state.update);
   const bcRef = useRef<BroadcastChannel>(null);
 
-  const postMessage = (type: MiniPlayerCommand, state?: MiniPlayerMessageFromMini["data"]["state"]) => {
+  const postMessage = useCallback<PostCommand>((type, state) => {
     if (!bcRef.current) return;
     bcRef.current.postMessage({
       from: "mini",
@@ -114,7 +90,7 @@ const MiniPlayer = () => {
       },
       ts: Date.now(),
     });
-  };
+  }, []);
 
   useStyle();
 
@@ -257,7 +233,7 @@ const MiniPlayer = () => {
               </Button>
             </div>
             <div className="flex items-center">
-              <MiniVolume onChange={volume => postMessage("setVolume", { volume })} />
+              <MiniVolume post={postMessage} />
               <Button
                 isIconOnly
                 size="sm"

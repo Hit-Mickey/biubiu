@@ -1,9 +1,11 @@
 import { BrowserWindow, ipcMain } from "electron";
 
+import { registerDesktopLyricsHandlers } from "../desktop-lyrics";
 import { createMiniPlayer, destroyMiniPlayer, miniPlayer } from "../mini-player";
 import { channel } from "./channel";
 
 export function registerWindowHandlers({ getMainWindow }) {
+  registerDesktopLyricsHandlers(getMainWindow);
   ipcMain.on(channel.window.minimize, event => {
     const win = BrowserWindow.fromWebContents(event.sender);
     win?.minimize();

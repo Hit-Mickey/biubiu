@@ -29,5 +29,6 @@ export const defaultAppSettings: AppSettings = {
   reportPlayHistory: true,
   recordLocalHistory: false,
   preferredAudioHost: "",
+  lyricSearchSource: "qq",
   localMusicDirs: [],
 };

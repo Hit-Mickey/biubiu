@@ -24,7 +24,7 @@ function PlayBar() {
     <Card
       radius="none"
       shadow="sm"
-      className="bg-background grid h-full grid-cols-[minmax(0,1fr)_minmax(0,3fr)_minmax(0,1fr)] px-4"
+      className="bg-background grid h-full grid-cols-[minmax(0,1fr)_minmax(0,3fr)_minmax(max-content,1fr)] px-4"
     >
       <div className="h-full">
         {Boolean(playId) && (

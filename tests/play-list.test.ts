@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeEach, vi } from "vitest";
 
 import { PlayMode } from "@/common/constants/audio";
+import { setPlaybackVolume, stepPlaybackVolume, togglePlaybackMute } from "@/common/utils/playback-volume";
 import { pauseForSleep, usePlayList } from "@/store/play-list";
 
 vi.mock("@/common/utils/audio", () => ({
@@ -97,6 +98,27 @@ describe("play-list store", () => {
     expect(audio.playbackRate).toBe(1.25);
     expect(usePlayList.getState().playMode).toBe(PlayMode.Single);
     expect(audio.loop).toBe(true);
+  });
+
+  test("volume button actions share mute restore, slider and wheel behavior", async () => {
+    await usePlayList.getState().init();
+    const audio = usePlayList.getState().getAudio();
+    setPlaybackVolume(0.73);
+    togglePlaybackMute();
+    expect(audio.muted).toBe(true);
+    togglePlaybackMute();
+    expect(audio.muted).toBe(false);
+    expect(audio.volume).toBe(0.73);
+    stepPlaybackVolume(0.05);
+    expect(audio.volume).toBe(0.78);
+    setPlaybackVolume(0);
+    expect(audio.muted).toBe(true);
+    stepPlaybackVolume(0.05);
+    expect(audio.muted).toBe(false);
+    expect(audio.volume).toBe(0.05);
+    stepPlaybackVolume(-0.05);
+    expect(audio.muted).toBe(true);
+    setPlaybackVolume(0.5);
   });
 
   test("play audio adds item and toggles playing", async () => {

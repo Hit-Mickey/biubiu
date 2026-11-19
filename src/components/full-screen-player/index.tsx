@@ -8,10 +8,14 @@ import { readableColor } from "color2k";
 import { useReducedMotion } from "framer-motion";
 import { useShallow } from "zustand/shallow";
 
+import type { TrackLyrics } from "@/components/lyrics/use-track-lyrics";
+
 import { Themes } from "@/common/constants/theme";
 import { hexToHsl, resolveTheme, isHex } from "@/common/utils/color";
 import AudioWaveform from "@/components/audio-waveform";
+import DesktopLyricsButton from "@/components/desktop-lyrics-button";
 import Lyrics from "@/components/lyrics";
+import PlaybackLinesButton from "@/components/playback-lines-button";
 import { useFullScreenPlayerSettings } from "@/store/full-screen-player-settings";
 import { useModalStore } from "@/store/modal";
 import { usePlayList } from "@/store/play-list";
@@ -45,7 +49,7 @@ const drawerVariants: NonNullable<ComponentProps<typeof Drawer>["motionProps"]>[
   },
 };
 
-const FullScreenPlayer = () => {
+const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
   const isOpen = useModalStore(s => s.isFullScreenPlayerOpen);
   const close = useModalStore(s => s.closeFullScreenPlayer);
   const playItem = usePlayList(state => state.getPlayItem());
@@ -70,6 +74,7 @@ const FullScreenPlayer = () => {
   const [isPageListOpen, setIsPageListOpen] = useState(false);
   const [isUiVisible, setIsUiVisible] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDesktopLyricsMenuOpen, setIsDesktopLyricsMenuOpen] = useState(false);
   const [firstOpenFinished, setFirstOpenFinished] = useState(false);
   const [playerContent, setPlayerContent] = useState<HTMLDivElement | null>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -102,6 +107,7 @@ const FullScreenPlayer = () => {
   useEffect(() => {
     if (!isOpen) return;
     setIsUiVisible(true);
+    setIsDesktopLyricsMenuOpen(false);
     return () => {
       if (hideUiTimeoutRef.current !== null) {
         window.clearTimeout(hideUiTimeoutRef.current);
@@ -127,7 +133,7 @@ const FullScreenPlayer = () => {
   };
 
   const scheduleHideUi = (delay: number) => {
-    if (isSettingsOpen) return;
+    if (isSettingsOpen || isDesktopLyricsMenuOpen) return;
     if (hideUiTimeoutRef.current) {
       window.clearTimeout(hideUiTimeoutRef.current);
     }
@@ -187,6 +193,19 @@ const FullScreenPlayer = () => {
   const coverHeight = coverWidth * 0.75;
   const waveformWidth = Math.min(640, Math.max(400, Math.round(windowWidth * 0.5)));
   const waveformBarCount = Math.max(48, Math.min(128, Math.round(waveformWidth / 7.5)));
+  const toolClass = "bg-foreground/20 text-foreground hover:bg-foreground/30 pointer-events-auto min-w-0 rounded-full";
+  const lyricTools = (
+    <>
+      <PlaybackLinesButton className={toolClass} />
+      <DesktopLyricsButton
+        className={toolClass}
+        onOpenChange={open => {
+          setIsDesktopLyricsMenuOpen(open);
+          if (open) handleMouseEnter();
+        }}
+      />
+    </>
+  );
 
   return (
     <Drawer
@@ -313,12 +332,17 @@ const FullScreenPlayer = () => {
                     <Lyrics
                       key={playItem.id}
                       item={playItem}
+                      lyrics={lyrics}
                       color={lyricsColor}
                       centered={!showCover || isLocal}
                       showControls={isUiVisible}
                       deferRendering={!showMedia}
+                      extraControls={lyricTools}
                     />
                   </div>
+                )}
+                {!showLyrics && showMedia && isUiVisible && (
+                  <div className="absolute right-18 bottom-30 flex flex-col items-center gap-3">{lyricTools}</div>
                 )}
               </div>
 

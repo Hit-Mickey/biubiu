@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { defaultAppSettings } from "@shared/settings/app-settings";
+import { lyricSearchSources } from "@shared/settings/lyric-search-sources";
 import { StoreNameMap } from "@shared/store";
 
 interface SettingsActions {
@@ -36,6 +37,9 @@ export const useSettings = create<AppSettings & SettingsActions>()(
           // 兼容之前的错误默认值
           if (store?.appSettings?.fontFamily === "system-default") {
             store.appSettings.fontFamily = "system-ui";
+          }
+          if (store?.appSettings && !Object.hasOwn(lyricSearchSources, store.appSettings.lyricSearchSource)) {
+            store.appSettings.lyricSearchSource = defaultAppSettings.lyricSearchSource;
           }
 
           return {
@@ -78,6 +82,7 @@ export const useSettings = create<AppSettings & SettingsActions>()(
           reportPlayHistory: state.reportPlayHistory,
           recordLocalHistory: state.recordLocalHistory,
           preferredAudioHost: state.preferredAudioHost,
+          lyricSearchSource: state.lyricSearchSource,
           localMusicDirs: state.localMusicDirs,
         };
       },

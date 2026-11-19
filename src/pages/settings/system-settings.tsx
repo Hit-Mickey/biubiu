@@ -29,6 +29,7 @@ import {
 import FontSelect from "@/components/font-select";
 import UpdateCheckButton from "@/components/update-check-button";
 import { formatAppVersion } from "@shared/app";
+import { lyricSearchSources } from "@shared/settings/lyric-search-sources";
 
 import ColorSettings from "./color-settings";
 import ImportExport from "./export-import";
@@ -262,6 +263,33 @@ export const SystemSettingsTab = ({
                 <SelectItem key="high">高品质</SelectItem>
                 <SelectItem key="medium">中等</SelectItem>
                 <SelectItem key="low">低品质</SelectItem>
+              </Select>
+            )}
+          />
+        </div>
+      </div>
+      <div className="flex w-full items-center justify-between">
+        <div className="mr-6 space-y-1">
+          <div className="text-medium font-medium">歌词搜索默认源</div>
+          <div className="text-sm text-zinc-500">打开歌词搜索时优先使用的来源</div>
+        </div>
+        <div className="w-[180px]">
+          <Controller
+            control={control}
+            name="lyricSearchSource"
+            render={({ field }) => (
+              <Select
+                aria-label="歌词搜索默认源"
+                disallowEmptySelection
+                selectedKeys={[field.value]}
+                onSelectionChange={keys => {
+                  const [source] = keys;
+                  if (source && Object.hasOwn(lyricSearchSources, source)) field.onChange(source);
+                }}
+              >
+                {Object.entries(lyricSearchSources).map(([source, label]) => (
+                  <SelectItem key={source}>{label}</SelectItem>
+                ))}
               </Select>
             )}
           />

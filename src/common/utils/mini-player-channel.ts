@@ -10,12 +10,14 @@ export type MiniPlayerCommand =
   | "prev"
   | "togglePlay"
   | "setVolume"
+  | "adjustVolume"
+  | "toggleMute"
   | "volumeUp"
   | "volumeDown";
 
 export interface MiniPlayerMessageFromMini {
   from: "mini";
-  data: { type: MiniPlayerCommand; state?: { currentTime?: number; volume?: number } };
+  data: { type: MiniPlayerCommand; state?: { currentTime?: number; volume?: number; volumeDelta?: number } };
   ts: number;
 }
 

@@ -46,6 +46,12 @@ export const channel = {
     updateTrack: "lyrics:track-update",
     readLocal: "lyrics:local-read",
   },
+  desktopLyrics: {
+    visible: "desktop-lyrics:visible",
+    locked: "desktop-lyrics:locked",
+    line: "desktop-lyrics:line",
+    state: "desktop-lyrics:state",
+  },
   router: {
     navigate: "router:navigate",
   },

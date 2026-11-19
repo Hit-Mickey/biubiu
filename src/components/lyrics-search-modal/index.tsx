@@ -20,11 +20,11 @@ import {
 } from "@heroui/react";
 
 import { formatDuration } from "@/common/utils/time";
+import { useSettings } from "@/store/settings";
+import { lyricSearchSources } from "@shared/settings/lyric-search-sources";
 
 import LyricsPreviewModal from "./lyrics-preview-modal";
 
-type Source = "netease" | "lrclib" | "qq";
-const names: Record<Source, string> = { netease: "网易云", lrclib: "LrcLib", qq: "QQ 音乐" };
 interface Result {
   id: string;
   title?: string;
@@ -34,7 +34,7 @@ interface Result {
   read: () => Promise<LyricText>;
 }
 
-async function search(source: Source, keyword: string): Promise<Result[]> {
+async function search(source: LyricSearchSource, keyword: string): Promise<Result[]> {
   if (source === "qq") {
     return (await window.electron.searchQQLyricSongs(keyword)).map(song => ({
       ...song,
@@ -90,14 +90,14 @@ interface Props {
 /** Mounted only while open. A track switch also discards any pending preview. */
 export default function LyricsSearchModal({ title, onClose, onAdopt }: Props) {
   const [keyword, setKeyword] = useState(title);
-  const [source, setSource] = useState<Source>("netease");
+  const [source, setSource] = useState(() => useSettings.getState().lyricSearchSource);
   const [songs, setSongs] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<{ title: string; text?: LyricText }>();
   const request = useRef<symbol | null>(null);
   const query = useRef(title);
 
-  const submit = useCallback(async (tab: Source) => {
+  const submit = useCallback(async (tab: LyricSearchSource) => {
     const id = Symbol();
     request.current = id;
     const q = query.current.trim();
@@ -109,7 +109,7 @@ export default function LyricsSearchModal({ title, onClose, onAdopt }: Props) {
       const rows = await search(tab, q);
       if (request.current === id) setSongs(rows);
     } catch {
-      if (request.current === id) addToast({ title: `${names[tab]}搜索失败`, color: "danger" });
+      if (request.current === id) addToast({ title: `${lyricSearchSources[tab]}搜索失败`, color: "danger" });
     } finally {
       if (request.current === id) setLoading(false);
     }
@@ -165,10 +165,10 @@ export default function LyricsSearchModal({ title, onClose, onAdopt }: Props) {
           <Tabs
             aria-label="歌词来源"
             selectedKey={source}
-            onSelectionChange={key => setSource(key as Source)}
+            onSelectionChange={key => setSource(key as LyricSearchSource)}
             classNames={{ panel: "py-0" }}
           >
-            {Object.entries(names).map(([key, name]) => (
+            {Object.entries(lyricSearchSources).map(([key, name]) => (
               <Tab key={key} title={name} />
             ))}
           </Tabs>
@@ -181,7 +181,7 @@ export default function LyricsSearchModal({ title, onClose, onAdopt }: Props) {
               <Table
                 removeWrapper
                 selectionMode="single"
-                aria-label={`${names[source]}歌曲`}
+                aria-label={`${lyricSearchSources[source]}歌曲`}
                 onRowAction={key => {
                   const song = songs.find(s => s.id === key);
                   if (song) void select(song);

@@ -7,13 +7,20 @@ import { createPlayListDrawerSlice, type PlayListDrawerState } from "./play-list
 import { createReleaseNoteModalSlice, type ReleaseNoteModalState } from "./release-note-modal";
 import { createVideoPageDownloadModalSlice, type VideoPageDownloadModalState } from "./video-page-download-modal";
 
+interface PlaybackLinesModalState {
+  isPlaybackLinesOpen: boolean;
+  openPlaybackLines: () => void;
+  closePlaybackLines: () => void;
+}
+
 export const useModalStore = create<
   FavSelectModalState &
     ConfirmModalState &
     VideoPageDownloadModalState &
     ReleaseNoteModalState &
     FullScreenPlayerModalState &
-    PlayListDrawerState
+    PlayListDrawerState &
+    PlaybackLinesModalState
 >((...a) => ({
   ...createFavSelectModalSlice(...a),
   ...createConfirmModalSlice(...a),
@@ -21,4 +28,7 @@ export const useModalStore = create<
   ...createReleaseNoteModalSlice(...a),
   ...createFullScreenPlayerSlice(...a),
   ...createPlayListDrawerSlice(...a),
+  isPlaybackLinesOpen: false,
+  openPlaybackLines: () => a[0]({ isPlaybackLinesOpen: true }),
+  closePlaybackLines: () => a[0]({ isPlaybackLinesOpen: false }),
 }));

@@ -8,7 +8,6 @@ import ScrollContainer from "@/components/scroll-container";
 import { useAppUpdateStore } from "@/store/app-update";
 import { useSettings } from "@/store/settings";
 
-import AudioMirrors from "./audio-mirrors";
 import BackupPanel from "./backup-panel";
 import ListeningHistory from "./listening-history";
 import MenuSettings from "./menu-settings";
@@ -27,6 +26,7 @@ const useSystemSettingsForm = () => {
     closeWindowOption,
     autoStart,
     audioQuality,
+    lyricSearchSource,
     hiddenMenuKeys,
     displayMode,
     ffmpegPath,
@@ -45,6 +45,7 @@ const useSystemSettingsForm = () => {
       closeWindowOption: s.closeWindowOption,
       autoStart: s.autoStart,
       audioQuality: s.audioQuality,
+      lyricSearchSource: s.lyricSearchSource,
       hiddenMenuKeys: s.hiddenMenuKeys,
       displayMode: s.displayMode,
       ffmpegPath: s.ffmpegPath,
@@ -73,6 +74,7 @@ const useSystemSettingsForm = () => {
       closeWindowOption,
       autoStart,
       audioQuality,
+      lyricSearchSource,
       hiddenMenuKeys,
       displayMode,
       ffmpegPath,
@@ -141,9 +143,6 @@ const SettingsPage = () => {
                 </Tab>
                 <Tab key="backups" title="数据备份">
                   <BackupPanel />
-                </Tab>
-                <Tab key="mirrors" title="播放线路">
-                  <AudioMirrors />
                 </Tab>
               </Tabs>
             </Tab>

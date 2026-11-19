@@ -1,16 +1,19 @@
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PlayData } from "@/store/play-list";
 
-import Lyrics from "@/components/lyrics";
+import LyricsView from "@/components/lyrics";
 import LyricsSearchModal from "@/components/lyrics-search-modal";
+import DesktopLyricsOutput from "@/components/lyrics/desktop-output";
 import { getNativeLyrics } from "@/components/lyrics/get-lyrics";
+import { useTrackLyrics } from "@/components/lyrics/use-track-lyrics";
 import { getLyric } from "@/service/ai-lyrics";
 import { getWebPlayerInfo } from "@/service/web-player";
 import { usePlayProgress } from "@/store/play-progress";
+import { useSettings } from "@/store/settings";
 
 let media: HTMLAudioElement;
 vi.mock("@/store/play-list", () => ({ usePlayList: { getState: () => ({ getAudio: () => media }) } }));
@@ -27,6 +30,10 @@ const track = (id: string, source: PlayData["source"] = "local"): PlayData => ({
   audioUrl: `file:///music/${id}.mp3`,
   webDavListId: source === "webdav" ? "list" : undefined,
 });
+function Lyrics(props: Omit<ComponentProps<typeof LyricsView>, "lyrics">) {
+  return <LyricsView {...props} lyrics={useTrackLyrics(props.item)} />;
+}
+
 const render = (item: PlayData) =>
   act(async () => {
     root.render(<Lyrics key={item.id} item={item} />);
@@ -136,14 +143,17 @@ describe("current-track lyric view", () => {
     const onAdopt = vi.fn().mockResolvedValue(true);
     setBridge({ searchNeteaseSongs, searchQQLyricSongs, getQQLyrics });
     await act(async () => root.render(<LyricsSearchModal title="fixture" onClose={() => {}} onAdopt={onAdopt} />));
-    expect(searchNeteaseSongs).toHaveBeenCalledTimes(1);
-    expect(searchQQLyricSongs).not.toHaveBeenCalled();
+    expect(searchQQLyricSongs).toHaveBeenCalledTimes(1);
+    expect(searchNeteaseSongs).not.toHaveBeenCalled();
     const click = async (selector: string, label: string) =>
       act(async () => {
         Array.from(document.querySelectorAll<HTMLElement>(selector))
           .find(node => node.textContent === label)!
           .click();
       });
+    await click('[role="tab"]', "网易云");
+    expect(searchNeteaseSongs).toHaveBeenCalledTimes(1);
+    expect(searchQQLyricSongs).toHaveBeenCalledTimes(1);
     await click('[role="tab"]', "QQ 音乐");
     expect(searchQQLyricSongs).toHaveBeenCalledWith("fixture");
     expect(getQQLyrics).not.toHaveBeenCalled();
@@ -151,6 +161,53 @@ describe("current-track lyric view", () => {
     expect(getQQLyrics).toHaveBeenCalledTimes(1);
     await click("button", "采用歌词");
     expect(onAdopt).toHaveBeenCalledWith(text);
+  });
+  it("reads the saved search source each time the search modal opens", async () => {
+    const getStore = vi.fn().mockResolvedValue({ appSettings: { lyricSearchSource: "lrclib" } });
+    const searchLrclibLyrics = vi.fn().mockResolvedValue([]);
+    const searchQQLyricSongs = vi.fn().mockResolvedValue([]);
+    setBridge({ getStore, searchLrclibLyrics, searchQQLyricSongs });
+    await useSettings.persist.rehydrate();
+    await act(async () =>
+      root.render(<LyricsSearchModal key="saved" title="fixture" onClose={() => {}} onAdopt={vi.fn()} />),
+    );
+    expect(searchLrclibLyrics).toHaveBeenCalledWith({ q: "fixture" });
+    expect(searchQQLyricSongs).not.toHaveBeenCalled();
+    getStore.mockResolvedValue({ appSettings: {} });
+    await useSettings.persist.rehydrate();
+    await act(async () =>
+      root.render(<LyricsSearchModal key="legacy" title="fixture" onClose={() => {}} onAdopt={vi.fn()} />),
+    );
+    expect(searchQQLyricSongs).toHaveBeenCalledWith("fixture");
+    expect(searchLrclibLyrics).toHaveBeenCalledTimes(1);
+  });
+  it("shares one lyric read and sends desktop updates only when the offset-adjusted line changes", async () => {
+    const getTrackLyrics = vi.fn().mockResolvedValue({ offset: 500 });
+    const readLocalLyrics = vi.fn().mockResolvedValue("[00:01]first\n[00:03]second");
+    const showDesktopLyricLine = vi.fn();
+    setBridge({ getTrackLyrics, readLocalLyrics, showDesktopLyricLine });
+    const item = track("shared");
+    function BothViews() {
+      const lyrics = useTrackLyrics(item);
+      return (
+        <>
+          <LyricsView item={item} lyrics={lyrics} />
+          <DesktopLyricsOutput lyrics={lyrics} />
+        </>
+      );
+    }
+    usePlayProgress.getState().setCurrentTime(0.6);
+    await act(async () => root.render(<BothViews />));
+    expect(getTrackLyrics).toHaveBeenCalledTimes(1);
+    expect(readLocalLyrics).toHaveBeenCalledTimes(1);
+    expect(showDesktopLyricLine).toHaveBeenLastCalledWith(expect.objectContaining({ text: "first" }));
+    showDesktopLyricLine.mockClear();
+    await act(async () => usePlayProgress.getState().setCurrentTime(0.7));
+    expect(showDesktopLyricLine).not.toHaveBeenCalled();
+    await act(async () => usePlayProgress.getState().setCurrentTime(2.6));
+    expect(showDesktopLyricLine).toHaveBeenLastCalledWith(expect.objectContaining({ text: "second" }));
+    await act(async () => usePlayProgress.getState().setCurrentTime(0.6));
+    expect(showDesktopLyricLine).toHaveBeenLastCalledWith(expect.objectContaining({ text: "first" }));
   });
   it("offers search and lyric preferences without a text editor", async () => {
     setBridge({ getTrackLyrics: vi.fn().mockResolvedValue({ lyrics: "original" }) });

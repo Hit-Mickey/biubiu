@@ -1,0 +1,59 @@
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+#root {
+  -webkit-app-region: drag;
+  position: relative;
+  display: grid;
+  align-items: center;
+  color: white;
+  font: 700 26px/1.25 system-ui, sans-serif;
+  text-align: center;
+  text-shadow: 0 1px 3px black, 0 0 5px black;
+  user-select: none;
+}
+
+.lyrics {
+  min-width: 0;
+  padding-inline: 28px;
+}
+
+.lyrics > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#lyric-translation,
+#lyric-romanization {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+#root button {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  color: white;
+  background: #242424c9;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0;
+}
+
+#root:hover button,
+#root button:focus-visible {
+  opacity: 1;
+}

@@ -9,8 +9,13 @@ import ConfirmModal from "@/components/confirm-modal";
 import Fallback from "@/components/error-fallback";
 import FullScreenPlayer from "@/components/full-screen-player";
 import LoadOnOpen from "@/components/load-on-open";
+import DesktopLyricsOutput from "@/components/lyrics/desktop-output";
+import { useTrackLyrics } from "@/components/lyrics/use-track-lyrics";
 import PlayBar from "@/layout/playbar";
+import { useDesktopLyrics } from "@/store/desktop-lyrics";
+import { useFullScreenPlayerSettings } from "@/store/full-screen-player-settings";
 import { useModalStore } from "@/store/modal";
+import { usePlayList } from "@/store/play-list";
 import { useUser } from "@/store/user";
 
 import Navbar from "./navbar";
@@ -18,19 +23,27 @@ import SideNav from "./side";
 
 const FavoritesSelectModal = lazy(() => import("@/components/favorites-select-modal"));
 const PlayListDrawer = lazy(() => import("@/components/music-playlist-drawer"));
+const PlaybackLinesPanel = lazy(() => import("@/components/playback-lines-button/panel"));
 const ReleaseNoteModal = lazy(() => import("@/components/release-note-modal"));
 const VideoPagesDownloadSelectModal = lazy(() => import("@/components/video-pages-download-select-modal"));
 
 function PlayerOverlays() {
-  const [favorites, downloads, release, playlist, fullScreen] = useModalStore(
+  const [favorites, downloads, release, playlist, fullScreen, playbackLines] = useModalStore(
     useShallow(state => [
       state.isFavSelectModalOpen,
       state.isVideoPageDownloadModalOpen,
       state.isReleaseNoteModalOpen,
       state.isPlayListDrawerOpen,
       state.isFullScreenPlayerOpen,
+      state.isPlaybackLinesOpen,
     ]),
   );
+  const desktopLyrics = useDesktopLyrics(s => s.open);
+  const showFullScreenLyrics = useFullScreenPlayerSettings(s => s.showLyrics);
+  const track = usePlayList(s => (desktopLyrics || (fullScreen && showFullScreenLyrics) ? s.getPlayItem() : undefined));
+  const lyrics = useTrackLyrics(track);
+  useEffect(() => window.electron.onDesktopLyricsState(useDesktopLyrics.setState), []);
+
   return (
     <>
       <LoadOnOpen isOpen={favorites}>
@@ -47,8 +60,14 @@ function PlayerOverlays() {
         <PlayListDrawer />
       </LoadOnOpen>
       <LoadOnOpen isOpen={fullScreen}>
-        <FullScreenPlayer />
+        <FullScreenPlayer lyrics={lyrics} />
       </LoadOnOpen>
+      {playbackLines && (
+        <Suspense fallback={null}>
+          <PlaybackLinesPanel />
+        </Suspense>
+      )}
+      {desktopLyrics && <DesktopLyricsOutput lyrics={lyrics} />}
     </>
   );
 }

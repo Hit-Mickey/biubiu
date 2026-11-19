@@ -1,86 +1,42 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
-import { addToast } from "@heroui/react";
 import { RiTBoxLine } from "@remixicon/react";
 import clsx from "classnames";
 
 import type { PlayData } from "@/store/play-list";
 
 import { usePlayProgress } from "@/store/play-progress";
-import { adoptedLyrics, applyLyricChange, lyricsCacheKey } from "@shared/lyrics";
+
+import type { TrackLyrics } from "./use-track-lyrics";
 
 import IconButton from "../icon-button";
 import ActiveWords from "./active-words";
 import FontSizeControl from "./font-size-control";
-import { getNativeLyrics, type NativeLyrics } from "./get-lyrics";
 import OffsetControl from "./offset-control";
-import { activeLineAt, parseLyrics } from "./timeline";
+import { activeLineAt } from "./timeline";
 
 const SearchModal = lazy(() => import("../lyrics-search-modal"));
-const emptyText: LyricText = {};
 const emptySheet = { lines: [], plain: "", plainTranslation: "", plainRomanization: "" };
 const mask =
   "linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.15) 6%, rgba(0,0,0,0.5) 12%, black 24%, black 76%, rgba(0,0,0,0.5) 88%, rgba(0,0,0,0.15) 94%, transparent 100%)";
 
 interface Props {
   item: PlayData;
+  lyrics: TrackLyrics;
   color?: string;
   centered?: boolean;
   showControls?: boolean;
   deferRendering?: boolean;
+  extraControls?: ReactNode;
 }
 
 /** FullScreenPlayer keys this component by song and unmounts it when lyrics are hidden. */
-export default function Lyrics({ item, color, centered, showControls, deferRendering }: Props) {
-  const { id, source, cid, bvid, aid, webDavListId } = item;
-  const localUrl = source === "local" ? item.audioUrl : undefined;
-  const key = lyricsCacheKey(item);
-  const [cache, setCache] = useState<MusicLyrics>();
-  const [native, setNative] = useState<NativeLyrics>();
+export default function Lyrics({ item, lyrics, color, centered, showControls, deferRendering, extraControls }: Props) {
+  const { hasCache, getSheet, offset, fontSize, isLoading } = lyrics;
   const [searchOpen, setSearchOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
-  const override = cache?.edited ?? adoptedLyrics(cache);
-  const needNative = !!cache && !override;
-  const text = override ?? native ?? emptyText;
-  const isLoading = !cache || (needNative && !native);
-  const offset = cache?.offset ?? 0;
-  const fontSize = cache?.fontSize || 20;
-
-  useEffect(() => {
-    let current = true;
-    window.electron
-      .getTrackLyrics(key)
-      .catch(() => undefined)
-      .then(result => {
-        if (current) setCache(result ?? {});
-      });
-    return () => {
-      current = false;
-    };
-  }, [key]);
-
-  useEffect(() => {
-    setNative(undefined);
-    if (!needNative) return;
-    let current = true;
-    getNativeLyrics({ source, id, webDavListId, cid, bvid, aid, audioUrl: localUrl })
-      .catch(() => emptyText)
-      .then(result => {
-        if (current) setNative(result);
-      });
-    return () => {
-      current = false;
-    };
-  }, [needNative, source, id, webDavListId, cid, bvid, aid, localUrl]);
-
-  const { lyrics, tLyrics, romaLyrics } = text;
-  const subtitles = override ? undefined : native?.subtitles;
-  const sheet = useMemo(() => {
-    if (deferRendering) return emptySheet;
-    if (subtitles) return { ...emptySheet, lines: subtitles };
-    return parseLyrics({ lyrics, tLyrics, romaLyrics });
-  }, [deferRendering, subtitles, lyrics, tLyrics, romaLyrics]);
+  const sheet = deferRendering ? emptySheet : getSheet();
   // Zustand only notifies React when the selected line changes, not on each timeupdate/word.
   const activeIndex = usePlayProgress(s => activeLineAt(sheet.lines, s.currentTime * 1000 + offset));
 
@@ -102,19 +58,6 @@ export default function Lyrics({ item, color, centered, showControls, deferRende
     return () => observer.disconnect();
   }, [activeIndex, sheet, fontSize]);
 
-  const commit = async (change: TrackLyricChange) => {
-    try {
-      await window.electron.updateTrackLyrics(key, change);
-      if (change.type !== "preferences") {
-        setCache(prev => applyLyricChange(prev ?? {}, change));
-        setSearchOpen(false);
-      }
-      return true;
-    } catch {
-      addToast({ title: "歌词保存失败", color: "danger" });
-      return false;
-    }
-  };
   if (deferRendering) return null;
   const title = item.pageTitle || item.title;
   return (
@@ -174,34 +117,39 @@ export default function Lyrics({ item, color, centered, showControls, deferRende
             </div>
           )}
         </div>
-        {showControls && cache && (
+        {showControls && (
           <div className="text-foreground/80 pointer-events-none absolute right-6 bottom-6 flex flex-col items-center space-y-3 text-sm transition-opacity duration-200">
-            <div className="pointer-events-auto">
-              <FontSizeControl
-                value={fontSize}
-                onChange={v => setCache(prev => ({ ...prev, fontSize: v }))}
-                onCommit={v => void commit({ type: "preferences", fontSize: v })}
-              />
-            </div>
-            <div className="pointer-events-auto">
-              <OffsetControl
-                value={offset}
-                onChange={v => setCache(prev => ({ ...prev, offset: v }))}
-                onCommit={v => void commit({ type: "preferences", offset: v })}
-              />
-            </div>
-            {source !== "webdav" && (
-              <div className="pointer-events-auto">
-                <IconButton
-                  aria-label="搜索歌词"
-                  title="搜索歌词"
-                  onPress={() => setSearchOpen(true)}
-                  className="bg-foreground/20 text-foreground hover:bg-foreground/30 min-w-0 rounded-full text-xs font-semibold"
-                >
-                  <RiTBoxLine size={16} />
-                </IconButton>
-              </div>
+            {hasCache && (
+              <>
+                <div className="pointer-events-auto">
+                  <FontSizeControl
+                    value={fontSize}
+                    onChange={v => lyrics.preview({ fontSize: v })}
+                    onCommit={v => void lyrics.commit({ type: "preferences", fontSize: v })}
+                  />
+                </div>
+                <div className="pointer-events-auto">
+                  <OffsetControl
+                    value={offset}
+                    onChange={v => lyrics.preview({ offset: v })}
+                    onCommit={v => void lyrics.commit({ type: "preferences", offset: v })}
+                  />
+                </div>
+                {item.source !== "webdav" && (
+                  <div className="pointer-events-auto">
+                    <IconButton
+                      aria-label="搜索歌词"
+                      title="搜索歌词"
+                      onPress={() => setSearchOpen(true)}
+                      className="bg-foreground/20 text-foreground hover:bg-foreground/30 min-w-0 rounded-full text-xs font-semibold"
+                    >
+                      <RiTBoxLine size={16} />
+                    </IconButton>
+                  </div>
+                )}
+              </>
             )}
+            {extraControls}
           </div>
         )}
       </div>
@@ -210,7 +158,11 @@ export default function Lyrics({ item, color, centered, showControls, deferRende
           <SearchModal
             title={title}
             onClose={() => setSearchOpen(false)}
-            onAdopt={next => commit({ type: "adopt", text: next })}
+            onAdopt={async next => {
+              const adopted = await lyrics.commit({ type: "adopt", text: next });
+              if (adopted) setSearchOpen(false);
+              return adopted;
+            }}
           />
         </Suspense>
       )}
