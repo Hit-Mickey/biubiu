@@ -155,6 +155,83 @@ describe("play-list store", () => {
     expect(usePlayList.getState().playId).toBe(first.id);
   });
 
+  test("switching to a queued WebDAV track plays once without showing an error toast", async () => {
+    const { addToast } = await import("@heroui/react");
+    const player = usePlayList.getState();
+    await player.init();
+    const first = {
+      id: "dav-a",
+      source: "webdav",
+      type: "audio",
+      title: "第一首",
+      audioUrl: "biu-webdav://audio/list/a",
+    } as const;
+    const second = {
+      id: "dav-b",
+      source: "webdav",
+      type: "audio",
+      title: "第二首",
+      audioUrl: "biu-webdav://audio/list/b",
+    } as const;
+    await player.playList([first, second]);
+    const playSpy = vi.spyOn(player.getAudio(), "play");
+    playSpy.mockClear();
+    vi.mocked(addToast).mockClear();
+
+    await player.play(second);
+    expect(usePlayList.getState().playId).toBe(second.id);
+    expect(playSpy).toHaveBeenCalledTimes(1);
+    expect(addToast).not.toHaveBeenCalled();
+    playSpy.mockRestore();
+  });
+
+  test("NativeAudioAdapter treats interrupted play as AbortError without emitting error", async () => {
+    const firstCall = Promise.withResolvers<any>();
+    const secondCall = Promise.withResolvers<any>();
+    let playCalls = 0;
+    const invokeMock = vi.fn((cmd: string) => {
+      if (cmd === "audio_play") {
+        playCalls += 1;
+        return playCalls === 1 ? firstCall.promise : secondCall.promise;
+      }
+      return Promise.resolve(0);
+    });
+    const prevInternals = (window as any).__TAURI_INTERNALS__;
+    (window as any).__TAURI_INTERNALS__ = {
+      invoke: invokeMock,
+      transformCallback: () => 1,
+    };
+    try {
+      const { NativeAudioAdapter } = await import("@/bridge/native-audio");
+      const adapter = new NativeAudioAdapter();
+      const onError = vi.fn();
+      adapter.onerror = onError;
+      adapter.src = "biu-webdav://audio/list/track";
+
+      const p1 = adapter.play();
+      const p2 = adapter.play();
+      firstCall.reject(new Error("play interrupted"));
+      secondCall.resolve({
+        src: adapter.src,
+        isPlaying: true,
+        currentTime: 0,
+        duration: 180,
+        volume: 0.5,
+        muted: false,
+        rate: 1,
+        looping: false,
+      });
+
+      await expect(p1).rejects.toMatchObject({ name: "AbortError" });
+      await expect(p2).resolves.toBeUndefined();
+      expect(adapter.paused).toBe(false);
+      expect(adapter.error).toBeNull();
+      expect(onError).not.toHaveBeenCalled();
+    } finally {
+      (window as any).__TAURI_INTERNALS__ = prevInternals;
+    }
+  });
+
   test("playlist enqueue can distinguish expanded video parts without changing legacy whole-video matching", async () => {
     const { compactPlayData, trackKey } = await import("@/store/desktop-playlists/tracks");
     const player = usePlayList.getState();

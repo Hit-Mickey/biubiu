@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { defaultShortcutSettings } from "@shared/settings/shortcut-settings";
+import { defaultShortcutSettings, mergeShortcutSettings } from "@shared/settings/shortcut-settings";
 import { StoreNameMap } from "@shared/store";
 
 interface ShortcutActions {
@@ -16,9 +16,7 @@ export const useShortcutSettings = create<ShortcutSettings & ShortcutActions>()(
       ...defaultShortcutSettings,
       refresh: async () => {
         const store = await window.electron.getStore(StoreNameMap.ShortcutSettings);
-        if (store) {
-          set(store);
-        }
+        set(mergeShortcutSettings(store));
       },
       update: (patch: Partial<ShortcutSettings>) => {
         set(patch);
@@ -34,7 +32,7 @@ export const useShortcutSettings = create<ShortcutSettings & ShortcutActions>()(
           const store = await window.electron.getStore(StoreNameMap.ShortcutSettings);
 
           return {
-            state: store,
+            state: mergeShortcutSettings(store),
           };
         },
 
@@ -49,6 +47,7 @@ export const useShortcutSettings = create<ShortcutSettings & ShortcutActions>()(
         },
       },
       partialize: state => ({
+        defaultsVersion: state.defaultsVersion,
         shortcuts: state.shortcuts,
         globalShortcuts: state.globalShortcuts,
         enableGlobalShortcuts: state.enableGlobalShortcuts,

@@ -7,7 +7,7 @@
 </p>
 <p align="center">
   <a href="https://github.com/Hit-Mickey/biubiu/releases">
-    <img src="https://img.shields.io/badge/version-v1.0.1-blueviolet" alt="v1.0.1" />
+    <img src="https://img.shields.io/badge/version-v2.0.0-blueviolet" alt="v2.0.0" />
   </a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange.svg" alt="License" /></a>
 </p>
@@ -47,6 +47,8 @@
 - 🎼 支持登录 Bilibili 并获取收藏夹、稍后再看、历史记录等信息
 - 📁 扫描本地音乐目录，把歌曲加入播放队列
 - ☁️ 播放 WebDAV 远程目录中的歌曲，支持递归扫描、搜索排序、列表同步、封面、歌词和歌曲缓存
+- 🎯 在「我的歌单」「远程列表」和「本地音乐」中点击「定位当前播放」，可滚动到当前歌曲
+- 🎤 桌面歌词支持悬停设置。Windows 和 Linux 默认用 `Ctrl+G` 在应用内开关歌词，用 `Ctrl+Alt+G` 全局开关歌词。macOS 对应 `⌘+G` 和 `⌘+⌥+G`
 - 🎧 高品质音频播放，优先拉取更高码率音频流（如无损 Flac，192K/Hi-Res）
 - 🔥 支持视频文件以及提取视频中的音频下载；支持收藏夹视频批量下载
 - 🧩 轻量界面，内置浅色和深色主题，同时可自定义部分主题样式，细腻的滚动与动效体验
@@ -56,179 +58,23 @@
 
 ## 下载和使用
 
-本地打包产物位于 `dist/artifacts/`。Windows 提供 x64、ARM64 两种架构的安装版和便携版，macOS 提供 DMG 和 ZIP，Linux 提供 AppImage、DEB 和 RPM。请按系统和架构选择。
+在 GitHub Releases 中选择与你的系统和处理器对应的文件。Windows 的「设置 → 系统 → 系统信息」会显示处理器架构，Mac 的「关于本机」会显示芯片型号。Linux 可运行 `uname -m` 查看。 [下载 BiuBiu](https://github.com/Hit-Mickey/biubiu/releases)
 
-- 版本发布与更新 [BiuBiu GitHub Releases](https://github.com/Hit-Mickey/biubiu/releases)
-- 快速选择：
-  - 优先选安装包 `win-setup`；需要免安装/无管理员权限选 `win-portable`
-  - 优先选 `dmg`；需要脚本/自动化分发可选 `zip`
-  - 优先选 `AppImage`；偏好包管理器可选 `deb`/`rpm`
-- 常见产物对比如下（`<version>` 为版本号，`<arch>` 常见为 `x64`/`arm64`）：
+| 系统 | 架构 | 安装或运行 |
+| --- | --- | --- |
+| Windows 10 / 11 | x64、ARM64 | 双击对应架构的 `-setup.exe` 安装。便携版请将 `-portable.zip` 完整解压后运行 `biubiu.exe`。 |
+| macOS 12 及以上 | Intel x64、Apple Silicon ARM64 | 打开 DMG，将 BiuBiu 拖至「应用程序」，也可解压对应架构的 ZIP。 |
+| Linux | x86_64、aarch64 | AppImage 需要执行权限，可运行 `chmod +x BiuBiu_*.AppImage`。Debian / Ubuntu 可用 DEB，Fedora 系发行版可用 RPM。 |
 
-<table>
-  <thead>
-    <tr>
-      <th align="left">系统</th>
-      <th align="left">推荐下载</th>
-      <th align="left">优点</th>
-      <th align="left">限制</th>
-      <th align="left">文件名示例</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>
-        <img alt="Windows" src="https://img.shields.io/badge/Windows-10%2F11-0078D6?logo=windows&logoColor=white" />
-        <br />
-        <code>x64</code>/<code>arm64</code>
-      </td>
-      <td>
-        安装包（NSIS）
-        <br />
-        <code>win-setup</code>
-      </td>
-      <td>
-        一键安装/卸载、开始菜单/桌面快捷方式<br />
-        通常兼容性最好、适合长期使用<br />
-        自动更新支持更完整
-      </td>
-      <td>
-        需要安装到磁盘（非免安装）<br />
-        可能触发系统权限/安全提示
-      </td>
-      <td>
-        <code>BiuBiu-&lt;version&gt;-win-setup-x64.exe</code><br />
-        <code>BiuBiu-&lt;version&gt;-win-setup-arm64.exe</code>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <img alt="Windows" src="https://img.shields.io/badge/Windows-10%2F11-0078D6?logo=windows&logoColor=white" />
-        <br />
-        <code>x64</code>/<code>arm64</code>
-      </td>
-      <td>
-        免安装版（Portable）
-        <br />
-        <code>win-portable</code>
-      </td>
-      <td>
-        解压/下载即用，不改系统配置<br />
-        适合U盘/临时环境/无管理员权限
-      </td>
-      <td>
-        应用内自动更新受限，通常需要手动下载替换
-      </td>
-      <td>
-        <code>BiuBiu-&lt;version&gt;-win-portable-x64.exe</code><br />
-        <code>BiuBiu-&lt;version&gt;-win-portable-arm64.exe</code>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <img alt="macOS" src="https://img.shields.io/badge/macOS-12%2B-000000?logo=apple&logoColor=white" />
-        <br />
-        <code>x64</code>/<code>arm64</code>
-      </td>
-      <td>
-        DMG（推荐）
-        <br />
-        <code>.dmg</code>
-      </td>
-      <td>
-        拖拽安装体验好、适合大多数用户<br />
-        分发与回收方便
-      </td>
-      <td>
-        首次打开可能需要在系统设置中允许来源<br />
-        不同系统安全策略提示不同
-      </td>
-      <td>
-        <code>BiuBiu-&lt;version&gt;-mac-x64.dmg</code><br />
-        <code>BiuBiu-&lt;version&gt;-mac-arm64.dmg</code>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <img alt="macOS" src="https://img.shields.io/badge/macOS-12%2B-000000?logo=apple&logoColor=white" />
-        <br />
-        <code>x64</code>/<code>arm64</code>
-      </td>
-      <td>
-        ZIP
-        <br />
-        <code>.zip</code>
-      </td>
-      <td>
-        体积通常更小、适合脚本/CI 分发<br />
-        解压即用
-      </td>
-      <td>
-        安装体验不如 DMG 直观（需要手动放入应用目录）
-      </td>
-      <td>
-        <code>BiuBiu-&lt;version&gt;-mac-x64.zip</code><br />
-        <code>BiuBiu-&lt;version&gt;-mac-arm64.zip</code>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <img alt="Linux" src="https://img.shields.io/badge/Linux-x64%2Farm64-FCC624?logo=linux&logoColor=000000" />
-      </td>
-      <td>
-        AppImage（最通用）
-        <br />
-        <code>.AppImage</code>
-      </td>
-      <td>
-        发行版通用、下载即运行<br />
-        不依赖包管理器，适合多发行版
-      </td>
-      <td>
-        需手动赋予可执行权限（例如 <code>chmod +x</code>）<br />
-        桌面集成需要额外操作
-      </td>
-      <td>
-        <code>BiuBiu-&lt;version&gt;-linux-x64.AppImage</code><br />
-        <code>BiuBiu-&lt;version&gt;-linux-arm64.AppImage</code>
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <img alt="Linux" src="https://img.shields.io/badge/Linux-x64%2Farm64-FCC624?logo=linux&logoColor=000000" />
-      </td>
-      <td>
-        DEB / RPM
-        <br />
-        <code>.deb</code> / <code>.rpm</code>
-      </td>
-      <td>
-        更符合系统习惯，桌面/菜单集成更好<br />
-        方便用系统包管理器安装/卸载
-      </td>
-      <td>
-        与发行版/依赖关系更强（Debian/Ubuntu 用 <code>.deb</code>，Fedora/RHEL 用 <code>.rpm</code>）
-      </td>
-      <td>
-        <code>BiuBiu-&lt;version&gt;-linux-x64.deb</code> / <code>.rpm</code><br />
-        <code>BiuBiu-&lt;version&gt;-linux-arm64.deb</code> / <code>.rpm</code>
-      </td>
-    </tr>
-  </tbody>
-</table>
+应用启动后和运行期间会检查本仓库的最新正式版。「设置 → 关于应用」也可手动检查。点击「下载更新」会下载对应系统和架构的发布附件，并校验 GitHub 提供的 SHA-256。校验通过后，Windows 安装版可点击「退出并安装更新」，macOS 会打开 DMG，Linux 会打开系统安装工具或替换当前 AppImage。Windows 便携版可打开下载目录，退出程序后解压新 ZIP。
 
-- 系统要求（建议）
-  - Windows 10 / 11（`x64` / `arm64`）
-  - macOS 12+（`x64` / `arm64`）
-  - 主流 Linux 发行版（`x64` / `arm64`）
-- 架构怎么选
-  - Windows：设置 → 系统 → 关于 → “系统类型”（ARM 设备选 `arm64`，其余多为 `x64`）
-  - macOS：Apple 芯片选 `arm64`，Intel 芯片选 `x64`
-  - Linux：执行 `uname -m`，常见 `x86_64` 对应 `x64`，`aarch64` 对应 `arm64`
-- 自动更新说明
-  - 应用会定期检查本仓库的 GitHub Releases。设置页也可手动检查。
-  - Windows 免安装版（portable）在应用内下载更新受限，建议前往 Releases 手动下载替换。
-- `*.yml`、`*.blockmap` 为自动更新辅助文件，手动下载时无需关注。
+## 从 Electron 版升级
+
+建议先在旧版「设置 → 曲库与备份」导出一份备份，然后退出旧版，启动新版。新版首次启动会从同一用户的旧版配置目录读取通用设置、快捷键、WebDAV 列表、歌词和下载记录。已有的新版配置优先。旧版目录保留，可继续使用原版导出备份。
+
+旧版的桌面歌单、听歌记录和播放队列保存在 Chromium 数据库。迁移时会临时使用已安装的 Edge、Chrome 或 Chromium 读取 BiuBiu 数据库的副本，导入歌单、记录、队列和播放位置，完成后关闭临时浏览器。缺少可用浏览器或读库失败时，下次启动会重试。也可在新版「设置 → 曲库与备份」导入旧版导出的曲库文件。导入已有文件时，界面会预览将替换的内容。
+
+新版需要在 B 站重新登录，并在需要认证的 WebDAV 列表中重新填写密码。WebDAV 音频缓存可在下次播放时重新生成。Windows 正式版配置在 `%APPDATA%\BiuBiu-Tauri`，macOS 在 `~/Library/Application Support/BiuBiu-Tauri`，Linux 在 `${XDG_CONFIG_HOME:-~/.config}/BiuBiu-Tauri`。开发版使用带 `-dev` 的独立目录。
 
 ## WebDAV 远程列表
 
@@ -255,25 +101,33 @@
 
 ## 本地开发与打包
 
-使用 Node.js `22.17.1` 及以上的 22.x，或 `24.20.0` 及以上的 24.x，并使用 pnpm `10.24.0`。在项目根目录执行以下命令。
+桌面外壳使用 Tauri v2，主窗口、迷你播放器和桌面歌词使用系统 WebView。Rust 负责播放队列、音频解码、输出、下载、WebDAV、SQLite 和系统媒体控制。切换到迷你播放器或关闭到托盘时会释放主窗口，后台播放、定时暂停和播放进度由 Rust 继续维护。退出后再次打开，可以从保存的位置继续播放。
+
+准备 Node.js（22.17.1 及以上的 22.x，或 24.20.0 及以上的 24.x）、pnpm 10.24.0 和稳定版 Rust。Windows 推荐安装 Visual Studio C++ 桌面开发工具和 WebView2，macOS 需要 Xcode 命令行工具。Ubuntu 22.04 所需系统开发包见发布工作流的「Linux build libraries」。 [Tauri 开发环境](https://v2.tauri.app/start/prerequisites/) · [发布工作流](.github/workflows/release.yml)
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-如果 Windows PowerShell 中的中文日志出现乱码，在运行 `pnpm dev` 前切换终端编码。
-
-```powershell
-chcp 65001 > $null
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+```bash
+pnpm exec tsc --noEmit
+pnpm exec vitest run
+cargo test --manifest-path src-tauri/Cargo.toml
+pnpm build
+node scripts/collect-release.mjs
 ```
 
-运行 `pnpm test --run` 执行测试。运行 `pnpm build` 构建当前系统的 x64 和 ARM64 安装包。Electron 主进程和预加载脚本生成在 `.electron/`，界面生成在 `dist/web/`，打包产物生成在 `dist/artifacts/`。Linux 打包需要 `rpm` 工具。
+`pnpm build:web` 构建网页资源，输出到 `dist/web/`。`pnpm build` 构建当前平台的程序和安装包。Windows 可直接运行 `src-tauri/target/release/biubiu.exe` 测试，安装包位于 `src-tauri/target/release/bundle/nsis/`。最后一条命令将本平台发布附件整理到 `dist/release/`，包括 Windows 便携 ZIP 或 macOS 应用 ZIP。
 
-推送 `v*` 标签时，GitHub Actions 的 **Release** 工作流会构建 Windows、macOS 和 Linux 安装包。各平台构建成功后，安装包会发布到 GitHub Releases。也可以在工作流页面选择已有的版本标签手动运行。 [Release 工作流](https://github.com/Hit-Mickey/biubiu/actions/workflows/release.yml)
+Windows x64 仓库附带精简版 FFmpeg。Linux 和 macOS 首次开发或打包时会从 FFmpeg 官方下载源码、验证摘要并为本机架构编译，需要 Bash、C 编译器和 GNU Make。Windows ARM64 的发布任务使用 CLANGARM64 编译原生 FFmpeg。构建选项和所用源码版本见 [FFmpeg 构建脚本](scripts/build-ffmpeg.sh)，随包分发的许可见 [LGPL 2.1](src-tauri/resources/ffmpeg/COPYING.LGPLv2.1)。
 
-设置页显示版本 `v1.0.1`。打包和更新使用 SemVer `1.0.1`，对应的发布标签为 `v1.0.1`。
+### 发布新版本
+
+1. 将 `package.json`、`src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json` 的版本改为相同的 SemVer 值，运行一次 Cargo 更新锁文件，并将版本改动提交到要发布的分支。
+2. 在目标提交上打标签并推送。例如，软件版本 `2.0.0` 对应标签 `v2.0.0`。
+3. GitHub Actions 的 **Release** 工作流会为 Windows、macOS 和 Linux 各构建 x64、ARM64 两种架构。每个任务上传本次构建的文件。六项构建全部成功，且发布清单中的 14 个附件都通过校验后，工作流会将附件上传至 GitHub Release 并公开。正式版和预发布版分别标记。
+4. 网页补发可在 **Actions → Release → Run workflow** 填入已有标签。手工选择分支且标签留空，只会生成该分支的测试构建，可在运行页面下载 Artifacts。已经公开的同名 Release 会保留。
 
 ## 📄 许可证
 

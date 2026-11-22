@@ -1,5 +1,4 @@
 import { addToast } from "@heroui/react";
-import log from "electron-log/renderer";
 import { remove } from "es-toolkit/array";
 import { uniqueId } from "es-toolkit/compat";
 import { create } from "zustand";
@@ -7,8 +6,11 @@ import { createJSONStorage, persist, type StorageValue } from "zustand/middlewar
 import { immer } from "zustand/middleware/immer";
 import { shallow } from "zustand/shallow";
 
+import { isTauriRuntime } from "@/bridge/env";
+import { NativeAudioAdapter, syncNativeMetadata, syncNativeQueue } from "@/bridge/native-audio";
 import { getPlayModeList, PlayMode } from "@/common/constants/audio";
 import { getAudioUrl, getDashUrl, isUrlValid } from "@/common/utils/audio";
+import log from "@/common/utils/logger";
 import { beginPlayReport, endPlayReport, reportHeartbeat } from "@/common/utils/play-report";
 import { stripHtml } from "@/common/utils/str";
 import { formatUrlProtocol } from "@/common/utils/url";
@@ -213,6 +215,7 @@ const toastError = (title: string) => {
 const sanitizeTitle = (title: string) => stripHtml(title);
 
 const handlePlayError = (error: any) => {
+  if ((error as DOMException)?.name === "AbortError") return;
   const errorMsg = error?.message || error?.name || "";
   if (!errorMsg.includes("interrupted") && !errorMsg.includes("NotAllowed")) {
     toastError(error instanceof Error ? error.message : "获取播放链接失败");
@@ -227,9 +230,22 @@ const updateMediaSession = ({ title, artist, cover }: { title: string; artist?: 
       artwork: cover ? [{ src: cover }] : [],
     });
   }
+  if (isTauriRuntime()) {
+    const state = usePlayList.getState();
+    syncNativeMetadata({
+      playId: state.playId,
+      title,
+      artist,
+      cover,
+      duration: state.duration,
+    });
+  }
 };
 
 const createAudio = (): HTMLAudioElement => {
+  if (isTauriRuntime()) {
+    return new NativeAudioAdapter() as unknown as HTMLAudioElement;
+  }
   const audio = new Audio();
   audio.preload = "metadata";
   audio.controls = false;
@@ -238,6 +254,45 @@ const createAudio = (): HTMLAudioElement => {
 };
 
 export const audio = createAudio();
+let suppressNativeTrackSwitch = false;
+let nativeQueueSyncTimer: number | undefined;
+let nativeTrackEventUnlisten: (() => void) | undefined;
+
+function scheduleNativeQueueSync() {
+  if (!isTauriRuntime()) return;
+  if (nativeQueueSyncTimer !== undefined) {
+    window.clearTimeout(nativeQueueSyncTimer);
+  }
+  nativeQueueSyncTimer = window.setTimeout(() => {
+    nativeQueueSyncTimer = undefined;
+    const s = usePlayList.getState();
+    syncNativeQueue({
+      list: s.list.map(item => ({
+        id: item.id,
+        title: item.title,
+        type: item.type,
+        source: item.source,
+        bvid: item.bvid,
+        aid: item.aid?.toString(),
+        cid: item.cid,
+        sid: item.sid,
+        audioUrl: item.audioUrl,
+        cover: item.cover,
+        ownerName: item.ownerName,
+        pageTitle: item.pageTitle,
+        pageCover: item.pageCover,
+        pageIndex: item.pageIndex,
+        totalPage: item.totalPage,
+        duration: item.duration,
+        webDavListId: item.webDavListId,
+      })),
+      playId: s.playId,
+      nextId: s.nextId,
+      playMode: s.playMode,
+      shouldKeepPagesOrderInRandomPlayMode: s.shouldKeepPagesOrderInRandomPlayMode,
+    });
+  }, 80);
+}
 
 const updatePlaybackState = () => {
   if ("mediaSession" in navigator) {
@@ -287,7 +342,7 @@ const playAudioSafely = async () => {
 };
 
 function recordCompletion(track?: PlayData) {
-  if (!track || !useSettings.getState().recordLocalHistory) return;
+  if (isTauriRuntime() || !track || !useSettings.getState().recordLocalHistory) return;
   const duration = audio.duration;
   void import("./listening-history")
     .then(({ completedTrack, saveCompletion }) => {
@@ -431,6 +486,97 @@ export const usePlayList = create<State & Action>()(
         list: [],
         init: async () => {
           if (audio) {
+            let hydratedFromBackend = false;
+            if (isTauriRuntime() && audio instanceof NativeAudioAdapter) {
+              const snap = await audio.hydrateFromBackend();
+              if (snap && (snap.isPlaying || snap.src)) {
+                hydratedFromBackend = true;
+                suppressNativeTrackSwitch = true;
+                try {
+                  set(state => {
+                    state.isPlaying = snap.isPlaying;
+                    state.volume = snap.volume;
+                    state.isMuted = snap.muted;
+                    state.rate = snap.rate || 1;
+                    if (snap.duration > 0) state.duration = Math.round(snap.duration * 100) / 100;
+                    if (snap.playId && state.list.some(item => item.id === snap.playId)) {
+                      state.playId = snap.playId;
+                    }
+                    if (typeof snap.playMode === "number" && snap.playMode >= 1 && snap.playMode <= 4) {
+                      state.playMode = snap.playMode as PlayMode;
+                    }
+                  });
+                  usePlayProgress.getState().setCurrentTime(Math.round((snap.currentTime || 0) * 100) / 100);
+                } finally {
+                  suppressNativeTrackSwitch = false;
+                }
+              }
+              if (snap && !snap.src) {
+                const resume = (await (
+                  await import("@tauri-apps/api/core")
+                ).invoke("store_get", { name: "playback-resume" })) as
+                  | {
+                      playId?: string;
+                      position: number;
+                      volume: number;
+                      isMuted: boolean;
+                      playMode: PlayMode;
+                      rate: number;
+                    }
+                  | undefined;
+                if (resume?.playId && get().list.some(item => item.id === resume.playId)) {
+                  suppressNativeTrackSwitch = true;
+                  try {
+                    set({
+                      playId: resume.playId,
+                      volume: resume.volume,
+                      isMuted: resume.isMuted,
+                      playMode: resume.playMode,
+                      rate: resume.rate,
+                    });
+                    usePlayProgress.getState().setCurrentTime(resume.position);
+                    localStorage.setItem("play-current-time", String(resume.position));
+                  } finally {
+                    suppressNativeTrackSwitch = false;
+                  }
+                }
+              }
+              if (!nativeTrackEventUnlisten) {
+                void import("@tauri-apps/api/event")
+                  .then(({ listen }) =>
+                    listen<{ playId?: string; playMode?: number; volume?: number; muted?: boolean }>(
+                      "audio://track-changed",
+                      event => {
+                        const payload = event.payload;
+                        if (!payload) return;
+                        suppressNativeTrackSwitch = true;
+                        try {
+                          usePlayList.setState(state => {
+                            if (payload.playId && state.list.some(i => i.id === payload.playId)) {
+                              state.playId = payload.playId;
+                            }
+                            if (
+                              typeof payload.playMode === "number" &&
+                              payload.playMode >= 1 &&
+                              payload.playMode <= 4
+                            ) {
+                              state.playMode = payload.playMode as PlayMode;
+                            }
+                            if (typeof payload.volume === "number") state.volume = payload.volume;
+                            if (typeof payload.muted === "boolean") state.isMuted = payload.muted;
+                          });
+                        } finally {
+                          suppressNativeTrackSwitch = false;
+                        }
+                      },
+                    ),
+                  )
+                  .then(fn => {
+                    nativeTrackEventUnlisten = fn;
+                  });
+              }
+            }
+
             audio.volume = get().volume;
             audio.muted = get().isMuted;
             audio.defaultPlaybackRate = get().rate;
@@ -555,7 +701,9 @@ export const usePlayList = create<State & Action>()(
             if (get().playId) {
               const playItem = get().list.find(item => item.id === get().playId);
               if (playItem) {
-                usePlayProgress.getState().initCurrentTime();
+                if (!hydratedFromBackend) {
+                  usePlayProgress.getState().initCurrentTime();
+                }
                 const duration = get().duration || playItem.duration;
                 // Restore the controls from saved metadata without opening a media stream.
                 if (duration && Number.isFinite(duration) && duration > 0) {
@@ -570,10 +718,14 @@ export const usePlayList = create<State & Action>()(
                   artist: playItem.ownerName,
                   cover: playItem.pageCover || playItem.cover,
                 });
+                if (hydratedFromBackend) {
+                  updatePlaybackState();
+                }
                 updatePositionState();
                 if (playItem.source === "webdav") void updateWebDavPlaybackInfo(playItem);
               }
             }
+            scheduleNativeQueueSync();
           }
         },
         toggleMute: () => {
@@ -668,12 +820,6 @@ export const usePlayList = create<State & Action>()(
           const existItem = list?.find(item => isSame(item, candidate));
           if (existItem) {
             set({ playId: existItem.id });
-            try {
-              await ensureAudioSrcValid();
-              await playAudioSafely();
-            } catch (error) {
-              handlePlayError(error);
-            }
             return;
           }
 
@@ -1180,7 +1326,18 @@ function resetAudioAndPlay(url: string) {
 
 // 切换歌曲时，更新当前播放的歌曲信息
 usePlayList.subscribe(async (state, prevState) => {
+  if (
+    state.list !== prevState.list ||
+    state.playId !== prevState.playId ||
+    state.nextId !== prevState.nextId ||
+    state.playMode !== prevState.playMode ||
+    state.shouldKeepPagesOrderInRandomPlayMode !== prevState.shouldKeepPagesOrderInRandomPlayMode
+  ) {
+    scheduleNativeQueueSync();
+  }
+
   if (state.playId !== prevState.playId) {
+    if (suppressNativeTrackSwitch) return;
     if (!state.playId) {
       const prevPlayItem = prevState.list.find(item => item.id === prevState.playId);
       if (shouldReportPlayRecord(prevPlayItem)) {

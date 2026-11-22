@@ -126,6 +126,12 @@ radial-gradient(900px circle at 86% 92%, rgb(${color} / 0.16), transparent 60%),
 rgb(0 0 0 / ${overlayAlpha})`;
 }
 
+function releaseCover(cover?: BlurredCover) {
+  if (!cover) return;
+  cover.canvas.width = 0;
+  cover.canvas.height = 0;
+}
+
 export function useGlassmorphism(coverSrc: string | undefined, fallbackHex: string, enabled: boolean) {
   const [covers, setCovers] = useState<Covers>(emptyCovers);
   const { blurPx, transitionMs } = useMemo(getEffectsProfile, []);
@@ -133,16 +139,32 @@ export function useGlassmorphism(coverSrc: string | undefined, fallbackHex: stri
 
   useEffect(() => {
     if (!enabled) {
-      setCovers(emptyCovers);
+      setCovers(prev => {
+        releaseCover(prev.current);
+        releaseCover(prev.previous);
+        return emptyCovers;
+      });
       return;
     }
 
     const controller = new AbortController();
     const { signal } = controller;
     const showCover = (current?: BlurredCover) => {
-      if (signal.aborted) return;
+      if (signal.aborted) {
+        releaseCover(current);
+        return;
+      }
       setCovers(covers => {
-        if (covers.current?.src === current?.src) return covers;
+        if (covers.current?.src === current?.src) {
+          if (current !== covers.current) releaseCover(current);
+          return covers;
+        }
+        if (!transitionMs) {
+          releaseCover(covers.current);
+          releaseCover(covers.previous);
+          return { current };
+        }
+        releaseCover(covers.previous);
         return { current, previous: transitionMs ? covers.current : undefined };
       });
     };
@@ -158,7 +180,11 @@ export function useGlassmorphism(coverSrc: string | undefined, fallbackHex: stri
     const previous = covers.previous;
     if (!previous) return;
     const timeout = window.setTimeout(() => {
-      setCovers(covers => (covers.previous === previous ? { current: covers.current } : covers));
+      setCovers(covers => {
+        if (covers.previous !== previous) return covers;
+        releaseCover(previous);
+        return { current: covers.current };
+      });
     }, transitionMs);
     return () => window.clearTimeout(timeout);
   }, [covers.previous, transitionMs]);

@@ -1,10 +1,18 @@
+import "./bridge";
+
 import { createRoot } from "react-dom/client";
 
-import AppShell from "./app-shell";
+import { HeroUIProvider } from "@heroui/react";
+
+import Theme from "./components/theme";
 import MiniPlayer from "./pages/mini-player";
 
+import "./app.css";
+
 createRoot(document.getElementById("root") as HTMLElement).render(
-  <AppShell>
-    <MiniPlayer />
-  </AppShell>,
+  <HeroUIProvider locale="zh-CN">
+    <Theme>
+      <MiniPlayer />
+    </Theme>
+  </HeroUIProvider>,
 );

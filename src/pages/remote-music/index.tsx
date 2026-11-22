@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { addToast, Button, Input, Select, SelectItem, Spinner } from "@heroui/react";
 import {
@@ -20,6 +20,8 @@ import type { WebDavList, WebDavTrack } from "@shared/webdav";
 import { PlayMode } from "@/common/constants/audio";
 import Empty from "@/components/empty";
 import IconButton from "@/components/icon-button";
+import LocatePlayingButton from "@/components/locate-playing-button";
+import { type ScrollRefObject } from "@/components/scroll-container";
 import { VirtualList } from "@/components/virtual-list";
 import { useModalStore } from "@/store/modal";
 import { usePlayList } from "@/store/play-list";
@@ -47,6 +49,7 @@ interface SortOrder {
   descending: boolean;
 }
 const defaultSort: SortOrder = { key: "default", descending: false };
+const RowHeight = 44;
 const collator = new Intl.Collator("zh-CN", { numeric: true, sensitivity: "base" });
 
 function sortTracks(tracks: WebDavTrack[], { key, descending }: SortOrder) {
@@ -65,6 +68,7 @@ function notifyError(error: unknown) {
 }
 
 const RemoteMusicPage = () => {
+  const scrollRef = useRef<ScrollRefObject | null>(null);
   const { data, error, refresh } = useRequest(() => window.electron.getWebDavLibrary());
   const [listId, setListId] = useState<string>();
   const [editor, setEditor] = useState<{ list?: WebDavList }>();
@@ -76,7 +80,7 @@ const RemoteMusicPage = () => {
     defaultValue: {},
   });
   const openConfirm = useModalStore(state => state.onOpenConfirmModal);
-  const playId = usePlayList(state => state.playId);
+  const currentPlayItem = usePlayList(state => state.getPlayItem());
 
   useEffect(() => window.electron.onWebDavChange(refresh), [refresh]);
 
@@ -97,6 +101,16 @@ const RemoteMusicPage = () => {
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedTracks = useMemo(() => filtered.filter(track => selected.has(track.id)), [filtered, selected]);
   const targets = selectedTracks.length ? selectedTracks : filtered;
+
+  const activeTrackIndex = useMemo(() => {
+    if (!currentPlayItem) return;
+    if (
+      currentPlayItem.source !== "webdav" ||
+      (currentPlayItem.webDavListId && currentPlayItem.webDavListId !== list?.id)
+    )
+      return -1;
+    return filtered.findIndex(track => track.id === currentPlayItem.id);
+  }, [currentPlayItem, filtered, list?.id]);
 
   const chooseList = (id: string | undefined) => {
     setListId(id);
@@ -317,6 +331,14 @@ const RemoteMusicPage = () => {
               >
                 <RiPlayListAddLine size={18} />
               </IconButton>
+              <LocatePlayingButton
+                currentIndex={activeTrackIndex}
+                missingMessage={
+                  keyword.trim() ? "当前筛选结果中未找到正在播放的歌曲" : "未在当前列表中找到正在播放的歌曲"
+                }
+                scrollRef={scrollRef}
+                rowHeight={RowHeight}
+              />
               <Button
                 size="sm"
                 variant="flat"
@@ -382,16 +404,17 @@ const RemoteMusicPage = () => {
           />
           <VirtualList
             key={list.id}
+            scrollRef={scrollRef}
             className="min-h-0 flex-1"
             data={filtered}
-            itemHeight={44}
+            itemHeight={RowHeight}
             empty={<Empty title={keyword.trim() ? "没有匹配的歌曲" : "当前目录没有歌曲"} />}
             renderItem={(track, row) => (
               <RemoteTrackRow
                 key={track.id}
                 track={track}
                 number={row.index + 1}
-                active={playId === track.id}
+                active={row.index === activeTrackIndex}
                 selecting={selecting}
                 selected={selected.has(track.id)}
                 onSelect={value =>

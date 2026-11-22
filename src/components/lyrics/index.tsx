@@ -1,18 +1,23 @@
-import { lazy, Suspense, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 import { RiTBoxLine } from "@remixicon/react";
 import clsx from "classnames";
 
 import type { PlayData } from "@/store/play-list";
 
+import { useDesktopLyrics } from "@/store/desktop-lyrics";
+import { usePlayList } from "@/store/play-list";
 import { usePlayProgress } from "@/store/play-progress";
 
+import type { DisplayLyricLine } from "./line-layout";
 import type { TrackLyrics } from "./use-track-lyrics";
 
 import IconButton from "../icon-button";
 import ActiveWords from "./active-words";
 import FontSizeControl from "./font-size-control";
+import { displayLyricLine, plainLyricText, translationSuffix } from "./line-layout";
 import OffsetControl from "./offset-control";
+import { observeLyricScroll } from "./scroll";
 import { activeLineAt } from "./timeline";
 
 const SearchModal = lazy(() => import("../lyrics-search-modal"));
@@ -30,6 +35,17 @@ interface Props {
   extraControls?: ReactNode;
 }
 
+function LyricRow({ active, children, className, ...props }: ComponentProps<"div"> & { active: boolean }) {
+  return (
+    <div
+      {...props}
+      className={clsx("leading-snug break-words whitespace-pre-wrap", active && "lyric-viewport", className)}
+    >
+      {active ? <div className="lyric-strip">{children}</div> : children}
+    </div>
+  );
+}
+
 /** FullScreenPlayer keys this component by song and unmounts it when lyrics are hidden. */
 export default function Lyrics({ item, lyrics, color, centered, showControls, deferRendering, extraControls }: Props) {
   const { hasCache, getSheet, offset, fontSize, isLoading } = lyrics;
@@ -37,6 +53,33 @@ export default function Lyrics({ item, lyrics, color, centered, showControls, de
   const wrapperRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
   const sheet = deferRendering ? emptySheet : getSheet();
+  const split = useDesktopLyrics(s => s.appearance.splitBilingual);
+  const lines = useMemo<DisplayLyricLine[]>(
+    () => (split ? sheet.lines.map(line => displayLyricLine(line, true)) : sheet.lines),
+    [sheet.lines, split],
+  );
+  const plain = useMemo(() => {
+    if (!sheet.plainTranslation) return plainLyricText(sheet.plain, split);
+    const originals = sheet.plain.split("\n");
+    const translations = sheet.plainTranslation.split("\n");
+    if (originals.length !== translations.length)
+      return (
+        <>
+          {sheet.plain}
+          <div className="mt-2 text-white/80">{sheet.plainTranslation}</div>
+        </>
+      );
+    return originals.map((text, i) => (
+      <div key={i} className="min-h-[1lh]">
+        {text}
+        {translations[i] && (
+          <span className={clsx("text-white/80", split && "block")}>
+            {split ? translations[i] : translationSuffix(text, translations[i])}
+          </span>
+        )}
+      </div>
+    ));
+  }, [sheet.plain, sheet.plainTranslation, split]);
   // Zustand only notifies React when the selected line changes, not on each timeupdate/word.
   const activeIndex = usePlayProgress(s => activeLineAt(sheet.lines, s.currentTime * 1000 + offset));
 
@@ -55,8 +98,32 @@ export default function Lyrics({ item, lyrics, color, centered, showControls, de
     center();
     const observer = new ResizeObserver(center);
     observer.observe(wrapper);
+    observer.observe(row);
     return () => observer.disconnect();
-  }, [activeIndex, sheet, fontSize]);
+  }, [activeIndex, lines, fontSize]);
+
+  useLayoutEffect(() => {
+    const row = rowsRef.current?.children[activeIndex] as HTMLElement | undefined;
+    const line = lines[activeIndex];
+    if (!row || !line) return;
+    const scroller = observeLyricScroll(row);
+    const media = usePlayList.getState().getAudio();
+    const end = line.end ?? lines[activeIndex + 1]?.time;
+    const sync = () =>
+      scroller.update(
+        media.currentTime * 1000 + offset - line.time,
+        end === undefined ? undefined : end - line.time,
+        !media.paused && !media.seeking,
+        media.playbackRate,
+      );
+    const events = ["timeupdate", "playing", "pause", "seeked", "ratechange"];
+    events.forEach(event => media.addEventListener(event, sync));
+    sync();
+    return () => {
+      events.forEach(event => media.removeEventListener(event, sync));
+      scroller.disconnect();
+    };
+  }, [activeIndex, lines, offset]);
 
   if (deferRendering) return null;
   const title = item.pageTitle || item.title;
@@ -70,7 +137,7 @@ export default function Lyrics({ item, lyrics, color, centered, showControls, de
         >
           {sheet.lines.length ? (
             <div ref={rowsRef} className="space-y-2">
-              {sheet.lines.map((line, index) => {
+              {lines.map((line, index) => {
                 const active = index === activeIndex;
                 return (
                   <div
@@ -78,28 +145,31 @@ export default function Lyrics({ item, lyrics, color, centered, showControls, de
                     className={clsx(
                       "w-full transform-none py-2 transition-all duration-300 ease-out",
                       centered ? "text-center" : "text-left",
-                      active ? "opacity-100" : "opacity-60",
+                      active ? "font-extrabold opacity-100" : "font-normal opacity-60",
                     )}
                     style={{ fontSize: active ? fontSize * 1.5 : fontSize, transform: "none" }}
                   >
-                    <div
-                      className={clsx(
-                        "leading-snug break-words whitespace-pre-wrap",
-                        active ? "font-extrabold text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.35)]" : "font-normal",
-                      )}
+                    <LyricRow
+                      active={active}
+                      className={active ? "text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.35)]" : undefined}
                       style={{ color: color || undefined }}
                     >
                       {active && line.words?.length ? <ActiveWords words={line.words} offset={offset} /> : line.text}
-                    </div>
-                    {line.translation && (
-                      <div className="mt-1 text-sm break-words whitespace-pre-wrap text-white/80">
-                        {line.translation}
-                      </div>
+                      {!split && translationSuffix(line.text, line.translation)}
+                    </LyricRow>
+                    {split && line.translation && (
+                      <LyricRow active={active} className="mt-1 text-white/80">
+                        {active && line.translationWords?.length ? (
+                          <ActiveWords words={line.translationWords} offset={offset} />
+                        ) : (
+                          line.translation
+                        )}
+                      </LyricRow>
                     )}
                     {line.romanization && (
-                      <div className="mt-1 text-sm break-words whitespace-pre-wrap text-white/70">
+                      <LyricRow active={active} className="mt-1 text-white/70">
                         {line.romanization}
-                      </div>
+                      </LyricRow>
                     )}
                   </div>
                 );
@@ -107,9 +177,8 @@ export default function Lyrics({ item, lyrics, color, centered, showControls, de
             </div>
           ) : sheet.plain ? (
             <div className="py-20 leading-relaxed break-words whitespace-pre-wrap" style={{ color, fontSize }}>
-              {sheet.plain}
-              {sheet.plainTranslation && <div className="mt-2 text-sm text-white/80">{sheet.plainTranslation}</div>}
-              {sheet.plainRomanization && <div className="mt-2 text-sm text-white/70">{sheet.plainRomanization}</div>}
+              {plain}
+              {sheet.plainRomanization && <div className="mt-2 text-white/70">{sheet.plainRomanization}</div>}
             </div>
           ) : (
             <div className="text-foreground/70 flex h-full items-center justify-center">

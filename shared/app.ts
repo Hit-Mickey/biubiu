@@ -1,6 +1,5 @@
 export const appName = "BiuBiu";
-export const appId = "com.hitmickey.biubiu";
-export const updateRepository = { owner: "Hit-Mickey", repo: "biubiu" };
+const updateRepository = { owner: "Hit-Mickey", repo: "biubiu" };
 export const repositoryIssuesUrl = `https://github.com/${updateRepository.owner}/${updateRepository.repo}/issues`;
 
 export function formatAppVersion(version: string) {

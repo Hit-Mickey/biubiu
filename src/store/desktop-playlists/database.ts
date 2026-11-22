@@ -1,3 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
+
+import { isTauriRuntime } from "@/bridge/env";
+
 const dbName = "biubiu-desktop-playlists";
 const storeName = "playlists";
 const changeEvent = "desktop-playlists:changed";
@@ -16,8 +20,51 @@ function result<T>(request: IDBRequest<T>) {
   });
 }
 
+async function sqliteTransaction<T>(mode: IDBTransactionMode, run: (entries: Entries) => Promise<T>): Promise<T> {
+  for (;;) {
+    const revision = await invoke<number>("playlist_revision");
+    const values = new Map<string, unknown>();
+    const ops: Array<{ op: "put" | "delete" | "clear"; key?: string; value?: unknown }> = [];
+    let cleared = false;
+    let value: T;
+    try {
+      value = await run({
+        get: async <V>(key: string) => {
+          if (!cleared && !values.has(key)) values.set(key, await invoke("playlist_entry", { key }));
+          return (values.get(key) ?? undefined) as V | undefined;
+        },
+        put: (key, val) => {
+          values.set(key, val);
+          ops.push({ op: "put", key, value: val });
+        },
+        delete: key => {
+          values.set(key, undefined);
+          ops.push({ op: "delete", key });
+        },
+        clear: () => {
+          cleared = true;
+          values.clear();
+          ops.push({ op: "clear" });
+        },
+      });
+    } catch (error) {
+      if ((await invoke<number>("playlist_revision")) !== revision) continue;
+      throw error;
+    }
+    const commit = mode === "readwrite" && ops.length > 0;
+    if (commit) {
+      if (!(await invoke<boolean>("sqlite_playlists_commit", { ops, revision }))) continue;
+      window.dispatchEvent(new Event(changeEvent));
+    } else if ((await invoke<number>("playlist_revision")) !== revision) continue;
+    return value;
+  }
+}
+
 /** Nothing is opened at import time; all reads/writes in a callback share one transaction. */
 export async function transaction<T>(mode: IDBTransactionMode, run: (entries: Entries) => Promise<T>): Promise<T> {
+  if (isTauriRuntime()) {
+    return sqliteTransaction(mode, run);
+  }
   const request = indexedDB.open(dbName, 1);
   request.onupgradeneeded = () => request.result.createObjectStore(storeName);
   const db = await result(request);

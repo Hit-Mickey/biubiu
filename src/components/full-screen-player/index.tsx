@@ -10,6 +10,7 @@ import { useShallow } from "zustand/shallow";
 
 import type { TrackLyrics } from "@/components/lyrics/use-track-lyrics";
 
+import { resolveMediaUrl } from "@/bridge/media-url";
 import { Themes } from "@/common/constants/theme";
 import { hexToHsl, resolveTheme, isHex } from "@/common/utils/color";
 import AudioWaveform from "@/components/audio-waveform";
@@ -148,7 +149,7 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
 
   const reduceMotion = !!useReducedMotion();
   const showMedia = firstOpenFinished || reduceMotion;
-  const coverSrc = playItem?.pageCover || playItem?.cover;
+  const coverSrc = resolveMediaUrl(playItem?.pageCover || playItem?.cover);
   const { covers, fallback, transitionMs, glow } = useGlassmorphism(
     coverSrc,
     primaryColor,
@@ -305,6 +306,7 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
                   >
                     <Image
                       src={coverSrc}
+                      referrerPolicy="no-referrer"
                       radius="lg"
                       className="transition-shadow ease-out"
                       classNames={{

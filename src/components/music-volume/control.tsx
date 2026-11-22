@@ -78,7 +78,7 @@ export default function VolumeControl({ volume, onChange, onStep, onMute, portal
     >
       <IconButton
         ref={buttonRef}
-        className={compact ? "window-no-drag" : undefined}
+        className={compact ? "window-no-drag h-7 w-7 min-w-7" : undefined}
         aria-label={muted ? "取消静音" : "静音"}
         aria-haspopup="dialog"
         aria-expanded={open}

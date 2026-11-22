@@ -1,5 +1,5 @@
-import log from "electron-log/renderer";
-
+import { isTauriRuntime } from "@/bridge/env";
+import log from "@/common/utils/logger";
 import { postClickInterfaceClickWebH5 } from "@/service/click-interface-click-web-h5";
 import { postClickInterfaceWebHeartbeat } from "@/service/click-interface-web-heartbeat";
 import { useSettings } from "@/store/settings";
@@ -57,6 +57,7 @@ const generateSessionId = () => {
 };
 
 const checkReportingEnabled = () => {
+  if (isTauriRuntime()) return false;
   const { reportPlayHistory } = useSettings.getState();
   if (!reportPlayHistory) {
     currentSession = null;

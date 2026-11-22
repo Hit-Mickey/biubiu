@@ -1,5 +1,7 @@
 import axios, { type AxiosRequestConfig, type CreateAxiosDefaults } from "axios";
 
+import { getPlatformAxiosAdapter } from "@/bridge/http-adapter";
+
 import { requestInterceptors } from "./request-interceptors";
 import { geetestInterceptors } from "./response-interceptors";
 
@@ -8,6 +10,7 @@ export type BiliLookupOptions = Pick<AxiosRequestConfig, "signal" | "passive">;
 const axiosConfig: CreateAxiosDefaults = {
   timeout: 10000,
   withCredentials: true,
+  adapter: getPlatformAxiosAdapter(),
 };
 
 export const axiosInstance = axios.create(axiosConfig);

@@ -3,10 +3,12 @@ node_modules/
 .pnpm-store/
 .npm/
 
-# Electron 和 Rsbuild 产物，包括 dist/artifacts/ 中的安装包和便携版
-/.electron/
+# Tauri、Rust 和 Rsbuild 产物
+/src-tauri/target/
+/src-tauri/gen/
+/src-tauri/resources/ffmpeg/ffmpeg-linux
+/src-tauri/resources/ffmpeg/ffmpeg-mac
 /dist/
-/electron-builder/
 build/Release/
 
 # 测试和开发工具缓存

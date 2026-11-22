@@ -10,6 +10,7 @@ declare global {
   }
 
   interface ShortcutSettings {
+    defaultsVersion?: number;
     shortcuts: ShortcutItem[];
     globalShortcuts: ShortcutItem[];
     enableGlobalShortcuts: boolean;

@@ -1,0 +1,12 @@
+.lyric-viewport {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.lyric-strip {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  white-space: nowrap;
+}

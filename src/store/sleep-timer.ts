@@ -1,4 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
+
+import { isTauriRuntime } from "@/bridge/env";
 
 const unitMs = { seconds: 1000, minutes: 60_000, hours: 3_600_000 };
 export type SleepUnit = keyof typeof unitMs;
@@ -11,6 +14,7 @@ export function sleepDelayMs(amount: number, unit: SleepUnit) {
 }
 
 export function cancelSleepTimer() {
+  if (isTauriRuntime()) void invoke("sleep_timer_set", { deadline: 0 });
   clearTimeout(timer);
   timer = undefined;
   useSleepTimer.setState({ deadline: null });
@@ -22,6 +26,10 @@ export function setSleepTimer(amount: number, unit: SleepUnit, pause: () => void
   clearTimeout(timer);
   const deadline = Date.now() + delay;
   useSleepTimer.setState({ deadline });
+  if (isTauriRuntime()) {
+    void invoke("sleep_timer_set", { deadline });
+    return true;
+  }
   const arm = () => {
     const remaining = deadline - Date.now();
     if (remaining > 0) {

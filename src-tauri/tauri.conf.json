@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "BiuBiu",
+  "version": "2.0.0",
+  "identifier": "com.hitmickey.biubiu",
+  "build": {
+    "beforeDevCommand": "node scripts/prepare-media.mjs && pnpm dev:web",
+    "devUrl": "http://localhost:5678",
+    "beforeBuildCommand": "node scripts/prepare-media.mjs && pnpm build:web",
+    "frontendDist": "../dist/web"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "macOSPrivateApi": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "resources": {
+      "resources/ffmpeg/COPYING.LGPLv2.1": "resources/ffmpeg/COPYING.LGPLv2.1",
+      "icons/logo.png": "icons/logo.png"
+    },
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["SimpChinese", "English"],
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

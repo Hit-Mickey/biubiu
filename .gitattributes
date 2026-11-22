@@ -1,3 +1,4 @@
 # Some TypeScript blobs are stored as CRLF. Accept the line ending, not trailing spaces.
 *.ts whitespace=trailing-space,space-before-tab,cr-at-eol
 *.tsx whitespace=trailing-space,space-before-tab,cr-at-eol
+*.sh text eol=lf

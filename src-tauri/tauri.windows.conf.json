@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "targets": ["nsis"],
+    "resources": {
+      "resources/ffmpeg/ffmpeg.exe": "resources/ffmpeg/ffmpeg.exe",
+      "icons/tray.ico": "icons/tray.ico",
+      "icons/prev.png": "icons/prev.png",
+      "icons/next.png": "icons/next.png",
+      "icons/play.png": "icons/play.png",
+      "icons/pause.png": "icons/pause.png"
+    }
+  }
+}

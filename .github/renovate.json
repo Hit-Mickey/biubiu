@@ -61,14 +61,6 @@
       "labels": ["deps:eslint"]
     },
     {
-      "matchPackagePatterns": ["^electron"],
-      "groupName": "electron ecosystem",
-      "automerge": false,
-      "stabilityDays": 7,
-      "schedule": ["before 6am on monday"],
-      "labels": ["deps:electron"]
-    },
-    {
       "matchPackagePatterns": ["^react", "^@types/react"],
       "groupName": "react ecosystem",
       "automerge": false,
@@ -85,10 +77,7 @@
         "^lint-staged",
         "^vitest",
         "^knip",
-        "^changelogen",
-        "^rimraf",
-        "^chokidar",
-        "^rollup"
+        "^changelogen"
       ],
       "groupName": "code quality and build tools",
       "labels": ["deps:quality"],
@@ -132,12 +121,10 @@
         "^zod$",
         "^moment",
         "^classnames$",
-        "^cookie$",
         "^es-toolkit$",
         "^filesize$",
         "^spark-md5$",
         "^jsencrypt$",
-        "^font-list$",
         "^ahooks$",
         "^react-hook-form$",
         "^@hookform/",
@@ -149,7 +136,7 @@
     },
     {
       "description": "Disable updates for selected packages",
-      "matchPackageNames": ["fluent-ffmpeg", "framer-motion"],
+      "matchPackageNames": ["framer-motion"],
       "enabled": false
     }
   ]

@@ -1,3 +1,5 @@
+import { isTauriRuntime } from "@/bridge/env";
+import { loadBilibiliCookiesViaBridge } from "@/bridge/http-adapter";
 import { postPassportLoginWebConfirmRefresh } from "@/service/passport-login-web-confirm-refresh";
 import { getPassportLoginWebCookieInfo } from "@/service/passport-login-web-cookie-info";
 import { postPassportLoginWebCookieRefresh } from "@/service/passport-login-web-cookie-refresh";
@@ -82,6 +84,10 @@ export function nextCookieRefreshTime() {
 }
 
 export async function loadBilibiliCookies() {
+  if (isTauriRuntime()) {
+    await loadBilibiliCookiesViaBridge();
+    return;
+  }
   const response = await fetch("https://www.bilibili.com/", {
     credentials: "include",
     signal: AbortSignal.timeout(10_000),

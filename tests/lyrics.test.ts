@@ -1,16 +1,37 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { localMediaUrl } from "@/common/utils/local-media-url";
+import { displayLyricLine, firstPlainLyric, plainLyricText } from "@/components/lyrics/line-layout";
 import { activeLineAt, lastStarted, parseLyrics } from "@/components/lyrics/timeline";
 import { adoptedLyrics, applyLyricChange, assertLyricsKey, lyricsCacheKey, maxLyricLength } from "@shared/lyrics";
 
-import { readLocalLyrics } from "../electron/ipc/api/local-lyrics";
-import { getQQLyrics, searchQQ } from "../electron/ipc/api/qq-lyrics";
-
 describe("lyric timeline", () => {
+  it("separates bilingual phrases while keeping punctuation, explicit translations and karaoke timings", () => {
+    const [line] = parseLyrics({ lyrics: "[00:01]I ride <00:02>all night 我要<00:03>策马奔腾" }).lines;
+    const parts = displayLyricLine(line, true);
+    expect([parts.text, parts.translation]).toEqual(["I ride all night", "我要策马奔腾"]);
+    expect(parts.words?.map(w => [w.time, w.text])).toEqual([
+      [1000, "I ride "],
+      [2000, "all night"],
+    ]);
+    expect(parts.translationWords?.map(w => [w.time, w.text])).toEqual([
+      [2000, "我要"],
+      [3000, "策马奔腾"],
+    ]);
+    expect(displayLyricLine(line, false)).toBe(line);
+    for (const text of ["我在 New York 的夜里", "We met in 北京", "短句", "just English"]) {
+      const mono = { time: 0, text };
+      expect(displayLyricLine(mono, true)).toBe(mono);
+    }
+    expect(displayLyricLine({ time: 0, text: "你好世界 Hello world" }, true).translation).toBe("Hello world");
+    expect(displayLyricLine({ time: 0, text: "Hello（你好）" }, true)).toMatchObject({
+      text: "Hello",
+      translation: "（你好）",
+    });
+    expect(displayLyricLine({ time: 0, text: "Hello / 你好" }, true).text).toBe("Hello");
+    expect(displayLyricLine({ ...line, translation: "独立译文" }, true).text).toBe(line.text);
+    expect(plainLyricText("We ride on一路前行\n\nsolo", true)).toBe("We ride on\n一路前行\n\nsolo");
+    expect(firstPlainLyric("First line\n第一行\nNext line", "", "").translation).toBe("第一行");
+  });
   it("distinguishes leading repeats from SPL word markers, ends and delayed first words", () => {
     const { lines } = parseLyrics({
       lyrics:
@@ -101,65 +122,5 @@ describe("per-track raw lyric cache", () => {
     expect(adoptedLyrics({ fontSize: 24 })).toBeUndefined();
     expect(() => applyLyricChange(next, { type: "adopt", text: { lyrics: " ", tLyrics: "译" } })).toThrow();
     expect(() => applyLyricChange(next, { type: "adopt", text: { lyrics: "x".repeat(maxLyricLength + 1) } })).toThrow();
-  });
-});
-
-it("loads only a configured track's same-stem sidecar, without decoding a large or arbitrary file", async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), "biubiu-lyrics-"));
-  try {
-    const stem = path.join(dir, "曲 #100%");
-    const audio = stem + ".mp3";
-    const url = `file://${audio.replace(/\\/g, "/")}`;
-    await writeFile(audio, "");
-    await writeFile(stem + ".lrc", Buffer.from("﻿[00:01]歌词", "utf16le"));
-    await writeFile(stem + ".spl", "[00:02]word<00:03>end");
-    expect(await readLocalLyrics(url, [dir])).toBe("[00:02]word<00:03>end");
-    expect(await readLocalLyrics(localMediaUrl(audio)!, [dir])).toBe("[00:02]word<00:03>end");
-    await writeFile(stem + ".spl", Buffer.alloc(maxLyricLength + 1));
-    expect(await readLocalLyrics(url, [dir])).toBe("[00:01]歌词");
-    expect(await readLocalLyrics(url, [path.join(dir, "other")])).toBeUndefined();
-    expect(await readLocalLyrics(url.replace(/\.mp3$/, ".lrc"), [dir])).toBeUndefined();
-    expect(await readLocalLyrics("https://example.org/test.mp3", [dir])).toBeUndefined();
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-});
-
-describe("on-demand QQ lyric source", () => {
-  afterEach(() => vi.unstubAllGlobals());
-  it("uses fixed HTTPS endpoints with no credentials, limits results and decodes selected lyrics", async () => {
-    const fetcher = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", fetcher);
-    const song = { mid: "ABC123", name: "song", album: { name: "album" }, singer: [{ name: "artist" }], interval: 12 };
-    fetcher.mockResolvedValueOnce(
-      Response.json({ req: { code: 0, data: { body: { song: { list: Array(30).fill(song) } } } } }),
-    );
-    const rows = await searchQQ(" song ");
-    expect(rows).toHaveLength(12);
-    expect(rows[0]).toMatchObject({ mid: "ABC123", artist: "artist" });
-    expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(fetcher.mock.calls[0][0]).toBe("https://u.y.qq.com/cgi-bin/musicu.fcg");
-    const encoded = Buffer.from("[00:01.000]你好").toString("base64");
-    fetcher.mockResolvedValueOnce(Response.json({ retcode: 0, lyric: encoded, trans: encoded }));
-    expect(await getQQLyrics(rows[0].mid)).toMatchObject({ lyrics: "[00:01.000]你好", tLyrics: "[00:01.000]你好" });
-    expect(new URL(String(fetcher.mock.calls[1][0])).hostname).toBe("i.y.qq.com");
-    for (const [, options] of fetcher.mock.calls) {
-      expect(options).toMatchObject({ redirect: "error", credentials: "omit" });
-      expect(options?.signal).toBeDefined();
-      const headers = new Headers(options?.headers);
-      expect(headers.has("cookie")).toBe(false);
-      expect(headers.has("authorization")).toBe(false);
-    }
-  });
-  it("rejects arbitrary URLs and oversized or unsuccessful responses", async () => {
-    const fetcher = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", fetcher);
-    await expect(getQQLyrics("https://other.example/")).rejects.toThrow();
-    expect(await searchQQ("x".repeat(129))).toEqual([]);
-    expect(fetcher).not.toHaveBeenCalled();
-    fetcher.mockResolvedValueOnce(new Response("", { headers: { "content-length": String(2 * 1024 * 1024) } }));
-    await expect(searchQQ("track")).rejects.toThrow();
-    fetcher.mockResolvedValueOnce(new Response(new Uint8Array(1024 * 1024 + 1)));
-    await expect(getQQLyrics("id")).rejects.toThrow();
   });
 });

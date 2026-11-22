@@ -1,3 +1,6 @@
+import { isTauriRuntime } from "@/bridge/env";
+import { sampleAudioMirrorViaBridge } from "@/bridge/http-adapter";
+
 type Stream = { baseUrl?: string; base_url?: string; backupUrl?: string[]; backup_url?: string[] };
 
 export function streamCandidates(stream?: Stream) {
@@ -26,6 +29,17 @@ export function mediaHost(value: string) {
 
 // A streaming sample: even a server ignoring Range cannot load the full song into memory.
 export async function sampleMirror(url: string, parent: AbortSignal) {
+  if (isTauriRuntime()) {
+    if (parent.aborted) throw new DOMException("Aborted", "AbortError");
+    return new Promise<number>((resolve, reject) => {
+      const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+      parent.addEventListener("abort", onAbort, { once: true });
+      sampleAudioMirrorViaBridge(url)
+        .then(resolve, reject)
+        .finally(() => parent.removeEventListener("abort", onAbort));
+    });
+  }
+
   const size = 128 * 1024;
   const start = performance.now();
   const response = await fetch(url, {

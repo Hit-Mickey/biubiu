@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { addToast, Button, Select, SelectItem } from "@heroui/react";
-import { RiDeleteBinLine, RiFolderAddLine, RiRefreshLine, RiPlayFill, RiPlayListAddLine } from "@remixicon/react";
+import { RiDeleteBinLine, RiFolderAddLine, RiPlayFill, RiPlayListAddLine, RiRefreshLine } from "@remixicon/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { localMediaUrl } from "@/common/utils/local-media-url";
 import Empty from "@/components/empty";
 import IconButton from "@/components/icon-button";
+import LocatePlayingButton from "@/components/locate-playing-button";
 import ScrollContainer, { type ScrollRefObject } from "@/components/scroll-container";
 import SearchButton from "@/components/search-button";
 import { useModalStore } from "@/store/modal";
@@ -25,10 +26,8 @@ const LocalMusicPage = () => {
   const [selectedDir, setSelectedDir] = useState<string>("all");
   const [keyword, setKeyword] = useState<string>("");
   const scrollRef = useRef<ScrollRefObject | null>(null);
-  const playId = usePlayList(s => s.playId);
-  const playList = usePlayList(s => s.list);
-
-  const playItem = useMemo(() => playList.find(item => item.id === playId), [playId, playList]);
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  const playItem = usePlayList(s => s.getPlayItem());
 
   useEffect(() => {
     const init = async () => {
@@ -60,6 +59,11 @@ const LocalMusicPage = () => {
     estimateSize: () => rowHeight,
     overscan: 10,
   });
+
+  const activeTrackIndex = useMemo(() => {
+    if (!playItem) return;
+    return playItem.source === "local" ? filtered.findIndex(song => song.id === playItem.id) : -1;
+  }, [filtered, playItem]);
 
   const playAll = async () => {
     await usePlayList.getState().playList(
@@ -208,6 +212,20 @@ const LocalMusicPage = () => {
               <RiPlayListAddLine size={18} />
             </IconButton>
           )}
+          {Boolean(list.length) && (
+            <LocatePlayingButton
+              currentIndex={activeTrackIndex}
+              missingMessage={
+                keyword.trim() || selectedDir !== "all"
+                  ? "当前筛选结果中未找到正在播放的歌曲"
+                  : "未在本地音乐中找到正在播放的歌曲"
+              }
+              scrollRef={scrollRef}
+              listRef={listContainerRef}
+              rowHeight={rowHeight}
+              size="md"
+            />
+          )}
         </div>
         <div className="flex items-center gap-2">
           <SearchButton
@@ -261,7 +279,7 @@ const LocalMusicPage = () => {
       {filtered.length === 0 ? (
         <Empty />
       ) : (
-        <div className="relative">
+        <div ref={listContainerRef} className="relative">
           <div
             style={{
               height: rowVirtualizer.getTotalSize(),
@@ -286,7 +304,7 @@ const LocalMusicPage = () => {
                 >
                   <LocalMusicItemRow
                     data={song}
-                    isPlaying={playItem?.id === song.id}
+                    isPlaying={vItem.index === activeTrackIndex}
                     index={vItem.index + 1}
                     onAddToNext={() => addToNext(song)}
                     onAddToPlayList={() => addToPlayList(song)}

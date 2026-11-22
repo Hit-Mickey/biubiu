@@ -80,6 +80,27 @@ export function trackKey(track: PlaylistTrack): string {
   return track.cid && track.totalPage !== 1 ? `${track.bvid}:${track.cid}` : track.bvid;
 }
 
+export function findPlayingTrackIndex(tracks: PlaylistTrack[], item: PlayData): number {
+  if (item.source === "local") return tracks.findIndex(track => track.source === "local" && track.id === item.id);
+  if (item.source === "webdav") {
+    return tracks.findIndex(
+      track =>
+        track.source === "webdav" &&
+        track.id === item.id &&
+        (!item.webDavListId || track.webDavListId === item.webDavListId),
+    );
+  }
+  if (item.type === "audio")
+    return tracks.findIndex(track => !track.source && track.type === "audio" && track.sid === item.sid);
+  let wholeVideo = -1;
+  for (const [index, track] of tracks.entries()) {
+    if (track.type !== "mv" || track.bvid !== item.bvid) continue;
+    if (track.cid === item.cid) return index;
+    if (wholeVideo < 0 && (!track.cid || (!item.cid && track.totalPage === 1))) wholeVideo = index;
+  }
+  return wholeVideo;
+}
+
 export function addUniqueTracks(unique: Map<string, PlaylistTrack>, tracks: readonly PlaylistTrack[]) {
   for (const track of tracks) {
     const key = trackKey(track);

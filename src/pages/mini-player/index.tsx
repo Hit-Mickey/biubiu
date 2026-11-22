@@ -8,9 +8,14 @@ import {
   RiSkipBackFill,
   RiSkipForwardFill,
 } from "@remixicon/react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import clx from "classnames";
 import { useShallow } from "zustand/react/shallow";
 
+import type { NativeAudioStateSnapshot } from "@/bridge/native-audio";
+
+import { isTauriRuntime } from "@/bridge/env";
 import { getPlayModeList } from "@/common/constants/audio";
 import {
   createBroadcastChannel,
@@ -19,9 +24,11 @@ import {
   type MiniPlayerMessageFromMain,
   type MiniPlayerMessageFromMini,
 } from "@/common/utils/mini-player-channel";
-import { getShortcutCommand } from "@/common/utils/shortcut";
+import { listenForAppShortcuts } from "@/common/utils/shortcut";
+import DesktopLyricsButton from "@/components/desktop-lyrics-button";
 import Image from "@/components/image";
 import VolumeControl from "@/components/music-volume/control";
+import { toggleDesktopLyrics, useDesktopLyrics } from "@/store/desktop-lyrics";
 import { usePlayProgress } from "@/store/play-progress";
 
 import { usePlayState } from "./play-state";
@@ -81,6 +88,10 @@ const MiniPlayer = () => {
   const bcRef = useRef<BroadcastChannel>(null);
 
   const postMessage = useCallback<PostCommand>((type, state) => {
+    if (isTauriRuntime()) {
+      void invoke("mini_player_command", { command: type, state: state ?? null }).catch(() => undefined);
+      return;
+    }
     if (!bcRef.current) return;
     bcRef.current.postMessage({
       from: "mini",
@@ -94,11 +105,67 @@ const MiniPlayer = () => {
 
   useStyle();
 
+  useEffect(() => window.electron.onDesktopLyricsState(useDesktopLyrics.setState), []);
+
   const playModeIcon = useMemo(() => {
     return PlayModeList.find(item => item.value === playMode)?.icon;
   }, [playMode]);
 
   useEffect(() => {
+    const removeShortcuts = listenForAppShortcuts(command => {
+      if (command === "toggleMiniMode") void toggleMiniWindow();
+      else if (command === "toggleLyrics") void toggleDesktopLyrics();
+      else postMessage(command);
+    });
+
+    if (isTauriRuntime()) {
+      let active = true;
+      const unlisteners: UnlistenFn[] = [];
+
+      const applySnapshot = (snap: NativeAudioStateSnapshot | null | undefined) => {
+        if (!active || !snap) return;
+        updatePlayState({
+          isSingle: Boolean(snap.isSingle),
+          isPlaying: snap.isPlaying,
+          title: snap.title,
+          cover: snap.cover,
+          duration: Number(snap.duration ?? 0),
+          volume: snap.muted ? 0 : snap.volume,
+          playMode: snap.playMode,
+        });
+        if (typeof snap.currentTime === "number") {
+          setCurrentTime(snap.currentTime);
+        }
+      };
+
+      void invoke<NativeAudioStateSnapshot>("mini_player_get_state")
+        .then(applySnapshot)
+        .catch(() => undefined);
+
+      void listen<NativeAudioStateSnapshot>("audio://state", event => applySnapshot(event.payload)).then(fn => {
+        if (active) unlisteners.push(fn);
+        else fn();
+      });
+
+      void listen<{ currentTime: number; duration: number }>("audio://progress", event => {
+        if (!active) return;
+        const { currentTime, duration } = event.payload;
+        if (typeof currentTime === "number") setCurrentTime(currentTime);
+        if (typeof duration === "number" && duration > 0) {
+          usePlayState.setState({ duration });
+        }
+      }).then(fn => {
+        if (active) unlisteners.push(fn);
+        else fn();
+      });
+
+      return () => {
+        active = false;
+        removeShortcuts();
+        for (const fn of unlisteners) fn();
+      };
+    }
+
     bcRef.current = createBroadcastChannel();
     bcRef.current.onmessage = ev => {
       const { from, state } = (ev.data as MiniPlayerMessageFromMain | undefined) ?? {};
@@ -111,17 +178,8 @@ const MiniPlayer = () => {
     };
     postMessage("init");
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      const command = getShortcutCommand(event);
-      if (!command) return;
-      event.preventDefault();
-      if (command === "toggleMiniMode") void toggleMiniWindow();
-      else if (command !== "toggleLyrics") postMessage(command);
-    };
-    window.addEventListener("keydown", onKeyDown);
-
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
+      removeShortcuts();
       bcRef.current?.close();
       bcRef.current = null;
     };
@@ -182,18 +240,21 @@ const MiniPlayer = () => {
             />
           </div>
           <div className="flex items-center justify-between">
-            <Button
-              isIconOnly
-              size="sm"
-              variant="light"
-              disableAnimation
-              onPress={togglePlayMode}
-              className="hover:text-primary window-no-drag"
-              aria-label="播放模式"
-            >
-              {playModeIcon}
-            </Button>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                disableAnimation
+                onPress={togglePlayMode}
+                className="hover:text-primary window-no-drag h-7 w-7 min-w-7"
+                aria-label="播放模式"
+              >
+                {playModeIcon}
+              </Button>
+              <DesktopLyricsButton compact className="h-7 w-7 min-w-7" />
+            </div>
+            <div className="flex items-center space-x-0.5">
               <Button
                 isDisabled={!title || isSingle}
                 isIconOnly
@@ -201,7 +262,7 @@ const MiniPlayer = () => {
                 variant="light"
                 disableAnimation
                 onPress={prev}
-                className="hover:text-primary window-no-drag"
+                className="hover:text-primary window-no-drag h-7 w-7 min-w-7"
               >
                 <RiSkipBackFill size={18} />
               </Button>
@@ -227,7 +288,7 @@ const MiniPlayer = () => {
                 onPress={() => {
                   next();
                 }}
-                className="hover:text-primary window-no-drag"
+                className="hover:text-primary window-no-drag h-7 w-7 min-w-7"
               >
                 <RiSkipForwardFill size={18} />
               </Button>
@@ -240,7 +301,7 @@ const MiniPlayer = () => {
                 variant="light"
                 disableAnimation
                 onPress={() => void toggleMiniWindow()}
-                className="hover:text-primary window-no-drag"
+                className="hover:text-primary window-no-drag h-7 w-7 min-w-7"
                 aria-label="切换到完整播放器"
               >
                 <RiExpandDiagonalLine size={16} />

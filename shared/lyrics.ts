@@ -8,7 +8,7 @@ export function lyricsCacheKey(item: { source?: string; id: string; bvid?: strin
 }
 
 export function assertLyricsKey(key: string) {
-  // A single electron-store key, never a dot path or an object prototype property.
+  // A single store key, never a dot path or an object prototype property.
   if (typeof key !== "string" || !/^[a-z\d_-]{1,100}-[a-z\d_-]{1,128}$/i.test(key)) {
     throw new Error("无效的歌曲标识");
   }
@@ -45,11 +45,4 @@ export function applyLyricChange(record: MusicLyrics, change: TrackLyricChange):
       throw new Error("无效的歌词操作");
   }
   return next;
-}
-
-export function lyricTimestamp(time: number) {
-  const ms = Math.max(0, Math.round(time));
-  const minutes = Math.floor(ms / 60_000);
-  const seconds = String(Math.floor((ms % 60_000) / 1000)).padStart(2, "0");
-  return `[${minutes}:${seconds}.${String(ms % 1000).padStart(3, "0")}]`;
 }

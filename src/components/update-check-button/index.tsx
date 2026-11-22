@@ -30,6 +30,7 @@ const UpdateCheckButton = () => {
         color: "default",
       });
     } else if (res?.isUpdateAvailable) {
+      useAppUpdateStore.getState().setUpdate(res);
       onOpenReleaseNoteModal();
     } else {
       addToast({

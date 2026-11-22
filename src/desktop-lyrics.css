@@ -13,42 +13,36 @@ body,
   --lyric-size: 26px;
 
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
   box-sizing: border-box;
-  padding-block-start: 36px;
+  padding-block-start: 4px;
   color: var(--lyric-color);
-  font: 700 var(--lyric-size)/1.25 system-ui, sans-serif;
+  font:
+    700 var(--lyric-size)/1.25 system-ui,
+    sans-serif;
   text-align: center;
-  text-shadow: 0 1px 3px black, 0 0 5px black;
+  text-shadow:
+    0 1px 3px black,
+    0 0 5px black;
   user-select: none;
 }
 
 .lyrics {
   -webkit-app-region: drag;
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
   padding-inline: 28px;
 }
 
-.lyrics > div {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#lyric-translation,
-#lyric-romanization {
-  font-size: clamp(12px, calc(var(--lyric-size) * 0.58), 18px);
-  font-weight: 500;
-}
-
 .toolbar {
   -webkit-app-region: no-drag;
-  position: absolute;
-  top: 4px;
-  left: 50%;
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 8px;
   padding: 3px 5px;
@@ -56,12 +50,13 @@ body,
   color: white;
   background: #242424eb;
   color-scheme: dark;
-  font: 500 12px/1 system-ui, sans-serif;
+  font:
+    500 12px/1 system-ui,
+    sans-serif;
   text-shadow: none;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transform: translateX(-50%);
 }
 
 #root[data-hovered] .toolbar,
@@ -79,7 +74,8 @@ body,
 .toolbar button,
 .toolbar input,
 .toolbar select {
-  min-height: 24px;
+  box-sizing: border-box;
+  height: 24px;
   border: 0;
   border-radius: 4px;
   color: inherit;
@@ -92,9 +88,15 @@ body,
   padding-inline: 6px;
 }
 
-.toolbar input {
+.toolbar input[type="color"] {
   width: 32px;
   padding: 1px;
+}
+
+.toolbar input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
 }
 
 #lyric-close {
@@ -105,7 +107,11 @@ body,
   -webkit-app-region: no-drag;
 }
 
-#root[data-locked] .toolbar > :not(#lyric-lock),
-#root[data-locked]:not([data-inline-unlock]) .toolbar {
+#root[data-locked] .toolbar > :not(#lyric-lock) {
   display: none;
+}
+
+#root[data-locked]:not([data-inline-unlock]) .toolbar {
+  visibility: hidden;
+  pointer-events: none;
 }

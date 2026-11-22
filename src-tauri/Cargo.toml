@@ -1,0 +1,86 @@
+[package]
+name = "biubiu"
+version = "2.0.0"
+description = "Cross-platform music player for Bilibili, local files and WebDAV"
+authors = ["Hit-Mickey"]
+edition = "2021"
+
+[lib]
+name = "biubiu_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+embed-resource = "3"
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "image-ico", "macos-private-api"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-process = "2"
+tauri-plugin-single-instance = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "process", "net"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures-util = "0.3"
+parking_lot = "0.12"
+
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "blocking", "json", "stream", "gzip", "brotli", "deflate", "cookies", "socks", "multipart"] }
+reqwest_cookie_store = "0.8"
+cookie_store = "0.21"
+axum = "0.8"
+
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+symphonia = { version = "0.5", features = ["all"] }
+cpal = "0.15"
+rustfft = "6"
+souvlaki = "0.8"
+lofty = "0.22"
+
+quick-xml = "0.37"
+encoding_rs = "0.8"
+md-5 = "0.10"
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+base64 = "0.22"
+url = "2"
+urlencoding = "2"
+tempfile = "3"
+percent-encoding = "2"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5"
+semver = "1"
+image = { version = "0.25", default-features = false, features = ["png", "ico"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Graphics_GdiPlus",
+  "Win32_Security_Cryptography",
+  "Win32_System_Com",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Registry",
+  "Win32_UI_Controls_Dialogs",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

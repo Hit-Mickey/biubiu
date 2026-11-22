@@ -3,8 +3,8 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { addToast, Button, Link, Spinner, Tab, Tabs } from "@heroui/react";
 import { RiPlayFill } from "@remixicon/react";
 import { isAxiosError } from "axios";
-import log from "electron-log/renderer";
 
+import log from "@/common/utils/logger";
 import AsyncButton from "@/components/async-button";
 import Empty from "@/components/empty";
 import ScrollContainer, { type ScrollRefObject } from "@/components/scroll-container";

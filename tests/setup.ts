@@ -1,5 +1,3 @@
-import { vi } from "vitest";
-
 import "@testing-library/jest-dom";
 
 class FakeMediaSession {
@@ -73,15 +71,3 @@ if (typeof g.window.removeEventListener !== "function") {
 }
 g.window.electron = undefined;
 g.Audio = FakeAudio as any;
-
-vi.mock("electron-log/renderer", () => {
-  const logger = {
-    error: vi.fn(),
-    warn: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-    verbose: vi.fn(),
-    log: vi.fn(),
-  };
-  return { default: logger };
-});

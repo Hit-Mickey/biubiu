@@ -1,3 +1,7 @@
+import { invoke } from "@tauri-apps/api/core";
+
+import { isTauriRuntime } from "@/bridge/env";
+
 import type { PlayData } from "./play-list";
 
 export interface ListeningEntry {
@@ -9,7 +13,6 @@ export interface ListeningEntry {
 }
 export const historyLimit = 2000;
 export const historyChanged = "biubiu:listening-history";
-
 export function completedTrack(track: PlayData, seconds: number, at = Date.now()): ListeningEntry | undefined {
   if (!Number.isFinite(seconds) || seconds <= 0) return;
   const source = track.source === "local" ? "本地" : track.source === "webdav" ? "WebDAV" : "B 站";
@@ -76,6 +79,11 @@ async function withHistory<T>(
 }
 
 export async function saveCompletion(entry: ListeningEntry) {
+  if (isTauriRuntime()) {
+    await invoke("sqlite_history_add", { entry, limit: historyLimit });
+    window.dispatchEvent(new Event(historyChanged));
+    return;
+  }
   await withHistory<void>("readwrite", rows => {
     const put = rows.add(entry);
     put.onsuccess = () => {
@@ -87,6 +95,9 @@ export async function saveCompletion(entry: ListeningEntry) {
 }
 
 export function getListeningHistory() {
+  if (isTauriRuntime()) {
+    return invoke<ListeningEntry[]>("sqlite_history_get_all", { limit: historyLimit });
+  }
   return withHistory<ListeningEntry[]>("readonly", (rows, done) => {
     const req = rows.getAll(undefined, historyLimit);
     req.onsuccess = () => done(req.result);
@@ -94,6 +105,11 @@ export function getListeningHistory() {
 }
 
 export async function replaceListeningHistory(entries: ListeningEntry[]) {
+  if (isTauriRuntime()) {
+    await invoke("sqlite_history_replace", { entries, limit: historyLimit });
+    window.dispatchEvent(new Event(historyChanged));
+    return;
+  }
   await withHistory<void>("readwrite", rows => {
     rows.clear();
     for (const entry of entries) rows.add(entry);

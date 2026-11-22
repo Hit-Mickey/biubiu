@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; img-src __GATE__/">
+<img src="__GATE__/hold" alt="">
+<pre id="result"></pre>
+<script type="module">
+  const request = req => new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  async function rows(name, store, available) {
+    if (!available.some(db => db.name === name)) return [];
+    const db = await request(indexedDB.open(name));
+    try {
+      const table = db.transaction(store).objectStore(store);
+      const [keys, values] = await Promise.all([request(table.getAllKeys()), request(table.getAll())]);
+      return keys.map((key, i) => [key, values[i]]);
+    } finally {
+      db.close();
+    }
+  }
+  const available = await indexedDB.databases();
+  const playlists = Object.fromEntries(await rows("biubiu-desktop-playlists", "playlists", available));
+  const history = (await rows("biubiu-listening-history", "entries", available)).map(row => row[1]);
+  const local = {};
+  for (const key of ["play-list-store", "play-current-time", "favorites-order", "search-history", "full-screen-player-settings"]) {
+    const value = localStorage.getItem(key);
+    if (value !== null) local[key] = value;
+  }
+  const payload = new TextEncoder().encode(JSON.stringify({ playlists, history, local }));
+  if (payload.length > 32 * 1024 * 1024) throw new Error("旧版曲库超过迁移大小限制");
+  let binary = "";
+  for (let i = 0; i < payload.length; i += 16384) {
+    binary += String.fromCharCode(...payload.subarray(i, i + 16384));
+  }
+  document.getElementById("result").textContent = btoa(binary);
+  new Image().src = "__GATE__/done";
+</script>

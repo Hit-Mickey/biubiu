@@ -153,6 +153,7 @@ interface DesktopLyricLine {
 interface DesktopLyricsAppearance {
   color: string;
   fontSize: number;
+  splitBilingual: boolean;
 }
 
 interface DesktopLyricsWindowState {

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { addToast, Button, Select, SelectItem, Spinner } from "@heroui/react";
 import { RiAddLine, RiDeleteBinLine, RiEditLine, RiPlayFill, RiPlayListAddLine } from "@remixicon/react";
@@ -6,6 +6,8 @@ import { useRequest } from "ahooks";
 
 import Empty from "@/components/empty";
 import IconButton from "@/components/icon-button";
+import LocatePlayingButton from "@/components/locate-playing-button";
+import { type ScrollRefObject } from "@/components/scroll-container";
 import { VirtualList } from "@/components/virtual-list";
 import {
   addPlaylistItems,
@@ -16,13 +18,20 @@ import {
   savePlaylist,
   type Playlist,
 } from "@/store/desktop-playlists";
-import { compactPlayData, resolvePlaylistTracks, trackKey, type PlaylistTrack } from "@/store/desktop-playlists/tracks";
+import {
+  compactPlayData,
+  findPlayingTrackIndex,
+  resolvePlaylistTracks,
+  trackKey,
+  type PlaylistTrack,
+} from "@/store/desktop-playlists/tracks";
 import { useModalStore } from "@/store/modal";
 import { usePlayList, type PlayItem } from "@/store/play-list";
 import { useUser } from "@/store/user";
 
 import PlaylistEditor from "./playlist-editor";
 
+const RowHeight = 44;
 const ExternalImport = lazy(() => import("./external-import"));
 const FavoriteSync = lazy(() => import("./favorite-sync"));
 const notifyError = (e: unknown) =>
@@ -34,6 +43,7 @@ const queueKey = (item: PlayItem) => {
 
 export default function DesktopPlaylistsPage() {
   const [id, setId] = useState<string>();
+  const scrollRef = useRef<ScrollRefObject | null>(null);
   const { data, error, refresh } = useRequest(() => readPlaylistPage(id), { refreshDeps: [id] });
   useEffect(() => onDesktopPlaylistsChange(refresh), [refresh]);
   const list = data?.selected;
@@ -43,7 +53,13 @@ export default function DesktopPlaylistsPage() {
   const [resolving, setResolving] = useState(false);
   const openConfirm = useModalStore(s => s.onOpenConfirmModal);
   const queueSize = usePlayList(s => s.list.length);
+  const currentPlayItem = usePlayList(s => s.getPlayItem());
   const mid = useUser(s => (s.user?.isLogin ? s.user.mid : undefined));
+
+  const activeTrackIndex = useMemo(
+    () => currentPlayItem && data?.tracks && findPlayingTrackIndex(data.tracks, currentPlayItem),
+    [currentPlayItem, data?.tracks],
+  );
 
   const addQueue = async (all: boolean) => {
     if (!list) return;
@@ -211,6 +227,12 @@ export default function DesktopPlaylistsPage() {
             >
               <RiPlayListAddLine size={17} />
             </IconButton>
+            <LocatePlayingButton
+              currentIndex={activeTrackIndex}
+              missingMessage="未在当前歌单中找到正在播放的歌曲"
+              scrollRef={scrollRef}
+              rowHeight={RowHeight}
+            />
             {list.kind === "normal" ? (
               <>
                 <Button size="sm" variant="flat" isDisabled={!queueSize} onPress={() => addQueue(false)}>
@@ -226,8 +248,9 @@ export default function DesktopPlaylistsPage() {
           </div>
           <VirtualList
             key={list.id}
+            scrollRef={scrollRef}
             className="min-h-0 flex-1"
-            itemHeight={44}
+            itemHeight={RowHeight}
             data={data.tracks}
             empty={
               <Empty
@@ -239,7 +262,10 @@ export default function DesktopPlaylistsPage() {
               />
             }
             renderItem={(track, row) => (
-              <div className="hover:bg-content2 flex h-11 items-center gap-3 rounded-md px-2 text-sm">
+              <div
+                aria-current={row.index === activeTrackIndex || undefined}
+                className="hover:bg-content2 aria-[current=true]:bg-primary/15 aria-[current=true]:text-primary flex h-11 items-center gap-3 rounded-md px-2 text-sm"
+              >
                 <span className="text-default-400 w-7 text-right text-xs">{row.index + 1}</span>
                 <span className="min-w-0 flex-1 truncate" title={track.title}>
                   {track.type === "mv" && track.pageTitle ? `${track.title} · ${track.pageTitle}` : track.title}

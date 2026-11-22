@@ -1,0 +1,8 @@
+{
+  "bundle": {
+    "targets": ["appimage", "deb", "rpm"],
+    "resources": {
+      "resources/ffmpeg/ffmpeg-linux": "resources/ffmpeg/ffmpeg-linux"
+    }
+  }
+}

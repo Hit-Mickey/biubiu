@@ -7,8 +7,6 @@ import { maxBackupBytes, type BackupTarget } from "@shared/desktop-backup";
 
 import type { LibraryBackup } from "./library-backup";
 
-const loadBackupTools = () => import("./library-backup");
-
 export default function BackupPanel() {
   const [targets, setTargets] = useState<BackupTarget[]>([]);
   const [id, setId] = useState("");
@@ -61,7 +59,7 @@ export default function BackupPanel() {
           isDisabled={busy}
           onPress={() =>
             run(async () => {
-              const { createBackup } = await loadBackupTools();
+              const { createBackup } = await import("./library-backup");
               const text = await createBackup();
               const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
               const link = document.createElement("a");
@@ -96,7 +94,7 @@ export default function BackupPanel() {
             if (file)
               void run(async () => {
                 if (file.size > maxBackupBytes) throw new Error("备份超过 8 MiB");
-                const { parseBackup } = await loadBackupTools();
+                const { parseBackup } = await import("./library-backup");
                 setPending(parseBackup(await file.text()));
               });
           }}
@@ -135,7 +133,7 @@ export default function BackupPanel() {
                 confirmText: "确认上传",
                 onConfirm: async () => {
                   await run(async () => {
-                    const { createBackup } = await loadBackupTools();
+                    const { createBackup } = await import("./library-backup");
                     const saved = await window.electron.uploadBackup(id, await createBackup());
                     setMessage(`已保存至 BiuBiu-Backups/${saved}`);
                     setNames(old => [saved, ...old]);
@@ -186,7 +184,7 @@ export default function BackupPanel() {
             onPress={() =>
               run(async () => {
                 setPending(undefined);
-                const { parseBackup } = await loadBackupTools();
+                const { parseBackup } = await import("./library-backup");
                 setPending(parseBackup(await window.electron.downloadBackup(id, name)));
               })
             }
@@ -208,7 +206,7 @@ export default function BackupPanel() {
               isDisabled={busy}
               onPress={() =>
                 run(async () => {
-                  const { restoreBackup } = await loadBackupTools();
+                  const { restoreBackup } = await import("./library-backup");
                   await restoreBackup(pending);
                   setPending(undefined);
                   setMessage("曲库已恢复，点击队列中的曲目即可播放");

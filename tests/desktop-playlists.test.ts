@@ -19,6 +19,7 @@ import {
 } from "@/store/desktop-playlists";
 import {
   compactPlayData,
+  findPlayingTrackIndex,
   resolvePlaylistTracks,
   restorePlayData,
   trackKey,
@@ -133,6 +134,20 @@ describe("desktop playlist repository", () => {
 });
 
 describe("compact playable references", () => {
+  it("locates the playing part before a whole-video entry and distinguishes WebDAV lists", () => {
+    const whole: PlaylistTrack = { type: "mv", bvid: bv, title: "歌曲" };
+    const part = { ...whole, cid: "22" };
+    const other = { ...whole, cid: "11" };
+    const playing = restorePlayData(part)!;
+    expect(findPlayingTrackIndex([other, whole, part], playing)).toBe(2);
+    expect(findPlayingTrackIndex([other, whole], playing)).toBe(1);
+    expect(findPlayingTrackIndex([other], playing)).toBe(-1);
+    expect(findPlayingTrackIndex([whole, part], { ...playing, totalPage: 1 })).toBe(1);
+    expect(findPlayingTrackIndex([other], restorePlayData(whole)!)).toBe(-1);
+    const dav: PlaylistTrack = { type: "audio", source: "webdav", id: "song", webDavListId: "one", title: "歌曲" };
+    const local: PlaylistTrack = { type: "audio", source: "local", id: "song", title: "歌曲" };
+    expect(findPlayingTrackIndex([local, { ...dav, webDavListId: "two" }, dav], restorePlayData(dav)!)).toBe(2);
+  });
   it("preserves exact expanded parts for playback, without transient URLs, queue IDs or cookies", () => {
     const item = {
       type: "mv",

@@ -12,7 +12,7 @@ import { parseLyrics } from "./timeline";
 const emptyText: LyricText = {};
 const emptySheet = { lines: [], plain: "", plainTranslation: "", plainRomanization: "" };
 
-export function useTrackLyrics(item: PlayData | undefined) {
+export function useTrackLyrics(item: PlayData | undefined, visible = true) {
   const key = item ? lyricsCacheKey(item) : undefined;
   const { id, source, cid, bvid, aid, webDavListId } = item ?? {};
   const localUrl = source === "local" ? item?.audioUrl : undefined;
@@ -20,27 +20,32 @@ export function useTrackLyrics(item: PlayData | undefined) {
     () => (id ? { id, source, cid, bvid, aid, webDavListId, audioUrl: localUrl } : undefined),
     [id, source, cid, bvid, aid, webDavListId, localUrl],
   );
-  const [saved, setSaved] = useState<{ key: string; cache: MusicLyrics }>();
+  const [saved, setSaved] = useState<{ key: string; cache?: MusicLyrics }>();
   const [loaded, setLoaded] = useState<{ request: typeof request; native: NativeLyrics }>();
   const cache = saved?.key === key ? saved?.cache : undefined;
   const override = cache?.edited ?? adoptedLyrics(cache);
   const native = loaded?.request === request ? loaded?.native : undefined;
   const needNative = !!cache && !override;
+  const { lyrics, tLyrics, romaLyrics } = override ?? native ?? emptyText;
+  const subtitles = override ? undefined : native?.subtitles;
+  // Keep pending reads and usable lyrics for the current song. An empty result can be retried on the next opening.
+  const keepCurrent = saved?.key === key && (!native || Boolean(lyrics || tLyrics || romaLyrics || subtitles?.length));
+  const readKey = visible || keepCurrent ? key : undefined;
 
   useEffect(() => {
-    setSaved(undefined);
-    if (!key) return;
+    setSaved(readKey ? { key: readKey } : undefined);
+    if (!readKey) return;
     let current = true;
     window.electron
-      .getTrackLyrics(key)
+      .getTrackLyrics(readKey)
       .catch(() => undefined)
       .then(cache => {
-        if (current) setSaved({ key, cache: cache ?? {} });
+        if (current) setSaved({ key: readKey, cache: cache ?? {} });
       });
     return () => {
       current = false;
     };
-  }, [key]);
+  }, [readKey]);
 
   useEffect(() => {
     setLoaded(undefined);
@@ -56,8 +61,6 @@ export function useTrackLyrics(item: PlayData | undefined) {
     };
   }, [needNative, request]);
 
-  const { lyrics, tLyrics, romaLyrics } = override ?? native ?? emptyText;
-  const subtitles = override ? undefined : native?.subtitles;
   const getSheet = useMemo(() => {
     // Parse on the first display, after the opening animation if only the full-screen player is open.
     let sheet: ReturnType<typeof parseLyrics> | undefined;
@@ -67,7 +70,7 @@ export function useTrackLyrics(item: PlayData | undefined) {
 
   const preview = (patch: Pick<MusicLyrics, "offset" | "fontSize">) => {
     setSaved(previous =>
-      previous && previous.key === key ? { key, cache: { ...previous.cache, ...patch } } : previous,
+      previous?.cache && previous.key === key ? { key, cache: { ...previous.cache, ...patch } } : previous,
     );
   };
 
@@ -77,7 +80,7 @@ export function useTrackLyrics(item: PlayData | undefined) {
       await window.electron.updateTrackLyrics(key, change);
       if (change.type !== "preferences") {
         setSaved(previous =>
-          previous?.key === key ? { key, cache: applyLyricChange(previous.cache, change) } : previous,
+          previous?.cache && previous.key === key ? { key, cache: applyLyricChange(previous.cache, change) } : previous,
         );
       }
       return true;
@@ -92,7 +95,7 @@ export function useTrackLyrics(item: PlayData | undefined) {
     preview,
     commit,
     hasCache: !!cache,
-    isLoading: !!item && (!cache || (needNative && !native)),
+    isLoading: !!readKey && (!cache || (needNative && !native)),
     offset: cache?.offset ?? 0,
     fontSize: cache?.fontSize || 20,
   };

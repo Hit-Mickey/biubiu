@@ -19,7 +19,7 @@ export interface ExternalPlaylist {
   tracks: (ExternalTrack | null)[];
 }
 
-export const isPlaylistId = (id: unknown): id is string => typeof id === "string" && /^[1-9]\d{0,15}$/.test(id);
+const isPlaylistId = (id: unknown): id is string => typeof id === "string" && /^[1-9]\d{0,15}$/.test(id);
 
 /** Interpret the pasted link locally. Never visit it (including share/redirect links). */
 export function parseExternalPlaylist(input: string): ExternalPlaylistRef | null {

@@ -1,5 +1,4 @@
-import log from "electron-log/renderer";
-
+import log from "@/common/utils/logger";
 import { getAudioWebStreamUrl } from "@/service/audio-web-url";
 import { getPlayerPlayurl, type DashAudio } from "@/service/player-playurl";
 import { useSettings } from "@/store/settings";

@@ -6,6 +6,8 @@ import { useShallow } from "zustand/react/shallow";
 import AsyncButton from "@/components/async-button";
 import ShortcutKeyInput from "@/components/shortcut-key-input";
 import { useShortcutSettings } from "@/store/shortcuts";
+import { defaultShortcutSettings } from "@shared/settings/shortcut-settings";
+import { StoreNameMap } from "@shared/store";
 
 const ShortcutSettingsPage = () => {
   const { shortcuts, globalShortcuts, enableGlobalShortcuts, refresh, update, reset } = useShortcutSettings(
@@ -71,9 +73,16 @@ const ShortcutSettingsPage = () => {
   };
 
   const handleToggleEnableGlobalShortcut = async (enabled: boolean) => {
+    const nextState: ShortcutSettings = {
+      defaultsVersion: useShortcutSettings.getState().defaultsVersion,
+      shortcuts,
+      globalShortcuts,
+      enableGlobalShortcuts: enabled,
+    };
     update({
       enableGlobalShortcuts: enabled,
     });
+    await window.electron.setStore(StoreNameMap.ShortcutSettings, nextState);
 
     if (enabled) {
       await window.electron.registerAllShortcuts();
@@ -86,6 +95,7 @@ const ShortcutSettingsPage = () => {
 
   const handleReset = async () => {
     reset();
+    await window.electron.setStore(StoreNameMap.ShortcutSettings, defaultShortcutSettings);
     await window.electron.registerAllShortcuts();
     await refresh();
   };

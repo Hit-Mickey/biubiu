@@ -6,6 +6,7 @@ import { useShallow } from "zustand/shallow";
 
 import { isHex } from "@/common/utils/color";
 import ColorPicker from "@/components/color-picker";
+import BilingualLyricsSwitch from "@/components/lyrics/bilingual-switch";
 import { useFullScreenPlayerSettings } from "@/store/full-screen-player-settings";
 import { usePlayList } from "@/store/play-list";
 
@@ -149,6 +150,7 @@ const FullScreenPlayerSettingsPanel = ({ isUiVisible = true }: { isUiVisible?: b
           />
         </div>
       )}
+      {values?.showLyrics && <BilingualLyricsSwitch />}
 
       <div className="flex items-center justify-between">
         <div className="text-medium mr-6">显示频谱图</div>

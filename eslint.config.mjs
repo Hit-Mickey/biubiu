@@ -14,7 +14,7 @@ import unusedImports from "eslint-plugin-unused-imports";
 import eslintReact from "@eslint-react/eslint-plugin";
 
 export default defineConfig([
-  globalIgnores(["dist", ".electron"]),
+  globalIgnores(["dist", "src-tauri", ".cache", ".reference"]),
   {
     files: ["**/*.{ts,tsx}"],
     extends: [
@@ -56,6 +56,7 @@ export default defineConfig([
           internalPattern: ["^~/.+", "^@/.+", "^@shared/.+"],
           sortSideEffects: false,
           groups: [
+            "bridge",
             "react",
             "typescript",
             "eslint",
@@ -74,6 +75,7 @@ export default defineConfig([
           ],
           customGroups: {
             value: {
+              bridge: ["^\\./bridge$"],
               react: ["^react", "^react-dom"],
               typescript: ["^typescript"],
               eslint: ["^@eslint/.+", "^eslint/.+", "^globals"],

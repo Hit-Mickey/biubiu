@@ -1,5 +1,6 @@
 import { shallow } from "zustand/shallow";
 
+import { isTauriRuntime } from "@/bridge/env";
 import { usePlayList } from "@/store/play-list";
 import { usePlayProgress } from "@/store/play-progress";
 
@@ -174,6 +175,11 @@ export function stopMiniPlayerMainSync() {
  * 切换mini/完整播放模式
  */
 export async function toggleMiniMode() {
+  if (isTauriRuntime()) {
+    usePlayProgress.getState().saveCurrentTime();
+    await toggleMiniWindow();
+    return;
+  }
   startMiniPlayerMainSync();
   if (!(await toggleMiniWindow())) stopMiniPlayerMainSync();
 }

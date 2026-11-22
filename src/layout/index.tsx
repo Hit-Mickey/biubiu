@@ -2,14 +2,13 @@ import { lazy, Suspense, useEffect } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Outlet, useLocation } from "react-router";
 
-import log from "electron-log/renderer";
 import { useShallow } from "zustand/shallow";
 
+import log from "@/common/utils/logger";
 import ConfirmModal from "@/components/confirm-modal";
 import Fallback from "@/components/error-fallback";
 import FullScreenPlayer from "@/components/full-screen-player";
 import LoadOnOpen from "@/components/load-on-open";
-import DesktopLyricsOutput from "@/components/lyrics/desktop-output";
 import { useTrackLyrics } from "@/components/lyrics/use-track-lyrics";
 import PlayBar from "@/layout/playbar";
 import { useDesktopLyrics } from "@/store/desktop-lyrics";
@@ -38,10 +37,9 @@ function PlayerOverlays() {
       state.isPlaybackLinesOpen,
     ]),
   );
-  const desktopLyrics = useDesktopLyrics(s => s.open);
   const showFullScreenLyrics = useFullScreenPlayerSettings(s => s.showLyrics);
-  const track = usePlayList(s => (desktopLyrics || (fullScreen && showFullScreenLyrics) ? s.getPlayItem() : undefined));
-  const lyrics = useTrackLyrics(track);
+  const track = usePlayList(s => s.getPlayItem());
+  const lyrics = useTrackLyrics(track, fullScreen && showFullScreenLyrics);
   useEffect(() => window.electron.onDesktopLyricsState(useDesktopLyrics.setState), []);
 
   return (
@@ -67,7 +65,6 @@ function PlayerOverlays() {
           <PlaybackLinesPanel />
         </Suspense>
       )}
-      {desktopLyrics && <DesktopLyricsOutput lyrics={lyrics} />}
     </>
   );
 }

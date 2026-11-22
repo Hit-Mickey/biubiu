@@ -24,12 +24,24 @@ export const mapKeyToElectronAccelerator = (e: KeyboardEvent | React.KeyboardEve
   return [...modifiers, k].join("+");
 };
 
-export function getShortcutCommand(event: KeyboardEvent) {
-  const target = event.target;
-  if (target instanceof HTMLElement && (target.matches("input, textarea, select") || target.isContentEditable)) return;
-  const accelerator = mapKeyToElectronAccelerator(event);
-  if (!accelerator) return;
-  return useShortcutSettings.getState().shortcuts.find(item => item.shortcut === accelerator)?.id;
+export function listenForAppShortcuts(run: (command: ShortcutCommand) => void) {
+  const handleKeyDown = (event: KeyboardEvent) => {
+    const target = event.target;
+    if (event.isComposing || event.defaultPrevented) return;
+    if (target instanceof HTMLElement && (target.matches("input, textarea, select") || target.isContentEditable))
+      return;
+    const accelerator = mapKeyToElectronAccelerator(event);
+    if (!accelerator) return;
+    const command = useShortcutSettings.getState().shortcuts.find(item => item.shortcut === accelerator)?.id;
+    if (!command) return;
+    event.preventDefault();
+    if (event.repeat && (command === "toggleLyrics" || command === "toggleMiniMode" || command === "togglePlay"))
+      return;
+    run(command);
+  };
+  // Focused player controls can stop keydown before it bubbles back to the window.
+  window.addEventListener("keydown", handleKeyDown, true);
+  return () => window.removeEventListener("keydown", handleKeyDown, true);
 }
 
 export type ShortcutDisplayPlatform = "macos" | "windows" | "linux";

@@ -2,8 +2,6 @@ import { defineConfig } from "@rsbuild/core";
 import { pluginReact } from "@rsbuild/plugin-react";
 import { pluginSvgr } from "@rsbuild/plugin-svgr";
 
-import { pluginElectron } from "./plugins/rsbuild-plugin-electron";
-
 export default defineConfig({
   source: {
     entry: { index: "./src/index.tsx", mini: "./src/mini.tsx", "desktop-lyrics": "./src/desktop-lyrics.ts" },
@@ -12,7 +10,6 @@ export default defineConfig({
     distPath: {
       root: "./dist/web",
     },
-    // 生产环境相对路径，保证通过 file:// 加载时静态资源能正确引用
     assetPrefix: "./",
     cleanDistPath: true,
   },
@@ -39,19 +36,15 @@ export default defineConfig({
         },
       },
     }),
-    pluginElectron(),
   ],
   dev: {
-    writeToDisk: true,
     lazyCompilation: false,
     cliShortcuts: false,
-    // 开发环境相对路径，保证通过 file:// 加载时静态资源能正确引用
-    assetPrefix: "./",
   },
   server: {
     port: 5678,
-    strictPort: false,
-    printUrls: false,
+    strictPort: true,
+    printUrls: true,
     open: false,
     compress: false,
   },

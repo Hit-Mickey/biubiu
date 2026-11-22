@@ -55,7 +55,9 @@ declare global {
     getQQLyrics: (mid: string) => Promise<LyricText>;
     getTrackLyrics: (key: string) => Promise<MusicLyrics | undefined>;
     updateTrackLyrics: (key: string, change: TrackLyricChange) => Promise<void>;
-    readLocalLyrics: (audioUrl: string) => Promise<string | undefined>;
+    readLocalLyrics: (audioUrl: string, trackId: string) => Promise<string | undefined>;
+    getPlaybackSubtitles: (trackId: string, sourceKey: string) => Promise<[number, LyricLine[] | null]>;
+    savePlaybackSubtitles: (revision: number, lines: LyricLine[]) => Promise<void>;
     /** 获取当前应用平台：macos | windows | linux */
     getPlatform: () => AppPlatForm;
     /** 更新网络代理设置 */

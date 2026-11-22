@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PlayData } from "@/store/play-list";
 
+import { listenForAppShortcuts } from "@/common/utils/shortcut";
 import DesktopLyricsButton from "@/components/desktop-lyrics-button";
 import LyricsView from "@/components/lyrics";
 import LyricsSearchModal from "@/components/lyrics-search-modal";
@@ -16,6 +17,7 @@ import { getWebPlayerInfo } from "@/service/web-player";
 import { useDesktopLyrics } from "@/store/desktop-lyrics";
 import { usePlayProgress } from "@/store/play-progress";
 import { useSettings } from "@/store/settings";
+import { defaultShortcutSettings, mergeShortcutSettings } from "@shared/settings/shortcut-settings";
 
 let media: HTMLAudioElement;
 vi.mock("@/store/play-list", () => ({ usePlayList: { getState: () => ({ getAudio: () => media }) } }));
@@ -32,13 +34,17 @@ const track = (id: string, source: PlayData["source"] = "local"): PlayData => ({
   audioUrl: `file:///music/${id}.mp3`,
   webDavListId: source === "webdav" ? "list" : undefined,
 });
-function Lyrics(props: Omit<ComponentProps<typeof LyricsView>, "lyrics">) {
-  return <LyricsView {...props} lyrics={useTrackLyrics(props.item)} />;
+function Lyrics({
+  visible = true,
+  ...props
+}: Omit<ComponentProps<typeof LyricsView>, "lyrics"> & { visible?: boolean }) {
+  const lyrics = useTrackLyrics(props.item, visible);
+  return visible ? <LyricsView key={props.item.id} {...props} lyrics={lyrics} /> : null;
 }
 
-const render = (item: PlayData) =>
+const render = (item: PlayData, visible = true) =>
   act(async () => {
-    root.render(<Lyrics key={item.id} item={item} />);
+    root.render(<Lyrics item={item} visible={visible} />);
   });
 const setBridge = (api: Partial<ElectronAPI>) => {
   window.electron = api as ElectronAPI;
@@ -69,6 +75,89 @@ afterEach(async () => {
 });
 
 describe("current-track lyric view", () => {
+  it("uses the shared bilingual setting in the playback page without rereading the current song", async () => {
+    const getWebDavLyrics = vi.fn().mockResolvedValue("[00:00]We ride all night 我们一路前行\n[00:05]Next");
+    setBridge({ getTrackLyrics: vi.fn().mockResolvedValue({}), getWebDavLyrics });
+    await render(track("mixed", "webdav"));
+    const strips = () => Array.from(host.querySelectorAll(".lyric-strip"), el => el.textContent);
+    expect(strips()).toEqual(["We ride all night", "我们一路前行"]);
+    const { appearance } = useDesktopLyrics.getState();
+    try {
+      await act(async () => useDesktopLyrics.setState({ appearance: { ...appearance, splitBilingual: false } }));
+      expect(strips()).toEqual(["We ride all night 我们一路前行"]);
+      expect(getWebDavLyrics).toHaveBeenCalledTimes(1);
+    } finally {
+      await act(async () => useDesktopLyrics.setState({ appearance }));
+    }
+  });
+  it("reopens at the current line without rereading lyrics and releases them when the hidden player changes songs", async () => {
+    const getTrackLyrics = vi
+      .fn()
+      .mockImplementation(async (key: string) => (key === "local-next" ? { lyrics: "采用的歌词" } : {}));
+    const getWebDavLyrics = vi.fn().mockResolvedValue("[00:00]第一行\n[00:05]第二行");
+    setBridge({ getTrackLyrics, getWebDavLyrics });
+    const remote = track("current", "webdav");
+    const next = track("next");
+    await render(remote, false);
+    expect(getTrackLyrics).not.toHaveBeenCalled();
+    await render(remote);
+    expect(host.querySelector(".font-extrabold")?.textContent).toBe("第一行");
+    await render(remote, false);
+    expect(host.childElementCount).toBe(0);
+    usePlayProgress.getState().setCurrentTime(6);
+    await render({ ...remote, title: "Updated title" });
+    expect(host.querySelector(".font-extrabold")?.textContent).toBe("第二行");
+    expect(getWebDavLyrics).toHaveBeenCalledTimes(1);
+
+    await render(next, false);
+    expect(getTrackLyrics).toHaveBeenCalledTimes(1);
+    await render(next);
+    await render(next, false);
+    await render(next);
+    expect(host.textContent).toBe("采用的歌词");
+    expect(getTrackLyrics).toHaveBeenCalledTimes(2);
+    await render(remote);
+    expect(getWebDavLyrics).toHaveBeenCalledTimes(2);
+  });
+  it("finishes an in-flight lookup for the same song across visibility changes", async () => {
+    let finishRecord!: (record: MusicLyrics) => void;
+    let finishWebDav!: (text: string) => void;
+    const getTrackLyrics = vi.fn(
+      () =>
+        new Promise<MusicLyrics>(resolve => {
+          finishRecord = resolve;
+        }),
+    );
+    const getWebDavLyrics = vi.fn(
+      () =>
+        new Promise<string>(resolve => {
+          finishWebDav = resolve;
+        }),
+    );
+    setBridge({ getTrackLyrics, getWebDavLyrics });
+    const remote = track("pending", "webdav");
+    await render(remote);
+    await render(remote, false);
+    await render(remote);
+    expect(getTrackLyrics).toHaveBeenCalledTimes(1);
+    await act(async () => finishRecord({}));
+    await render(remote, false);
+    await act(async () => finishWebDav("加载完成"));
+    await render(remote);
+    expect(host.textContent).toBe("加载完成");
+    expect(getWebDavLyrics).toHaveBeenCalledTimes(1);
+  });
+  it("retries a failed WebDAV lyric read the next time the player opens", async () => {
+    const getWebDavLyrics = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue("恢复后的歌词");
+    setBridge({ getTrackLyrics: vi.fn().mockResolvedValue({}), getWebDavLyrics });
+    const remote = track("retry", "webdav");
+    await render(remote);
+    expect(host.textContent).toBe("暂无歌词");
+    await render(remote, false);
+    await render(remote);
+    expect(host.textContent).toBe("恢复后的歌词");
+    expect(getWebDavLyrics).toHaveBeenCalledTimes(2);
+  });
   it("does not run online search on playback, reuses adopted/edited text and discards a stale native read", async () => {
     let finish!: (s: string) => void;
     const delayed = new Promise<string>(resolve => {
@@ -102,7 +191,7 @@ describe("current-track lyric view", () => {
     setBridge({ getTrackLyrics, readLocalLyrics });
     const item = track("deferred");
     await act(async () => root.render(<Lyrics item={item} deferRendering />));
-    expect(readLocalLyrics).toHaveBeenCalledWith(item.audioUrl);
+    expect(readLocalLyrics).toHaveBeenCalledWith(item.audioUrl, item.id);
     expect(host.childElementCount).toBe(0);
     await act(async () => root.render(<Lyrics item={item} />));
     expect(host.textContent).toBe("ready before the animation ends");
@@ -236,6 +325,87 @@ describe("current-track lyric view", () => {
     expect(findMenu()).toBeNull();
     expect(menuChanged).toHaveBeenLastCalledWith(false);
   });
+  it("supports compact desktop lyrics controls and merges default toggleLyrics shortcuts", async () => {
+    const setDesktopLyricsVisible = vi.fn().mockResolvedValue(undefined);
+    const setDesktopLyricsLocked = vi.fn().mockResolvedValue(undefined);
+    const setDesktopLyricsAppearance = vi.fn().mockResolvedValue(undefined);
+    setBridge({ setDesktopLyricsVisible, setDesktopLyricsLocked, setDesktopLyricsAppearance });
+    document.body.append(host);
+    await act(async () => useDesktopLyrics.setState({ open: true, locked: false }));
+    await act(async () => root.render(<DesktopLyricsButton compact />));
+    const trigger = host.querySelector<HTMLButtonElement>('button[aria-label="桌面歌词"]')!;
+    await act(async () => trigger.click());
+    const menu = document.querySelector('[aria-label="桌面歌词设置"]');
+    expect(menu?.textContent).toContain("锁定歌词");
+    expect(menu?.querySelector('input[type="color"]')).toHaveValue("#ffffff");
+    expect(menu?.querySelector("select")).toHaveValue("26");
+    const closeBtn = menu?.querySelector<HTMLButtonElement>('button[aria-label="关闭桌面歌词"]');
+    expect(closeBtn).not.toBeNull();
+    await act(async () => closeBtn!.click());
+    expect(setDesktopLyricsVisible).toHaveBeenCalledWith(false);
+
+    const legacy = {
+      enableGlobalShortcuts: true,
+      shortcuts: defaultShortcutSettings.shortcuts.filter(item => item.id !== "toggleLyrics"),
+      globalShortcuts: defaultShortcutSettings.globalShortcuts.filter(item => item.id !== "toggleLyrics"),
+    };
+    const merged = mergeShortcutSettings(legacy);
+    expect(merged.shortcuts.find(item => item.id === "toggleLyrics")?.shortcut).toBe("CommandOrControl+G");
+    expect(merged.globalShortcuts.find(item => item.id === "toggleLyrics")?.shortcut).toBe("CommandOrControl+Alt+G");
+
+    const v1Defaults = {
+      enableGlobalShortcuts: true,
+      shortcuts: defaultShortcutSettings.shortcuts.map(item =>
+        item.id === "toggleLyrics" ? { ...item, shortcut: "CommandOrControl+L" } : item,
+      ),
+      globalShortcuts: defaultShortcutSettings.globalShortcuts.map(item =>
+        item.id === "toggleLyrics" ? { ...item, shortcut: "CommandOrControl+Alt+L" } : item,
+      ),
+    };
+    const migrated = mergeShortcutSettings(v1Defaults);
+    expect(migrated.shortcuts.find(item => item.id === "toggleLyrics")?.shortcut).toBe("CommandOrControl+G");
+    expect(migrated.globalShortcuts.find(item => item.id === "toggleLyrics")?.shortcut).toBe("CommandOrControl+Alt+G");
+
+    const occupied = mergeShortcutSettings({
+      ...v1Defaults,
+      shortcuts: v1Defaults.shortcuts.map(item =>
+        item.id === "next" ? { ...item, shortcut: "CommandOrControl+G" } : item,
+      ),
+    });
+    expect(occupied.shortcuts.find(item => item.id === "toggleLyrics")?.shortcut).toBe("CommandOrControl+L");
+    expect(occupied.shortcuts.find(item => item.id === "next")?.shortcut).toBe("CommandOrControl+G");
+
+    const customV2 = mergeShortcutSettings({
+      ...migrated,
+      shortcuts: migrated.shortcuts.map(item =>
+        item.id === "toggleLyrics" ? { ...item, shortcut: "CommandOrControl+L" } : item,
+      ),
+    });
+    expect(customV2.shortcuts.find(item => item.id === "toggleLyrics")?.shortcut).toBe("CommandOrControl+L");
+  });
+  it("toggles lyrics once from focused controls and leaves editable fields to handle their own keys", () => {
+    const button = document.createElement("button");
+    const input = document.createElement("input");
+    host.append(button, input);
+    document.body.append(host);
+    button.addEventListener("keydown", event => event.stopPropagation());
+    const run = vi.fn();
+    const stop = listenForAppShortcuts(run);
+    function press(target: HTMLElement, repeat = false) {
+      return target.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "g", ctrlKey: true, repeat, bubbles: true, cancelable: true }),
+      );
+    }
+    try {
+      expect(press(button)).toBe(false);
+      expect(press(button, true)).toBe(false);
+      expect(press(input)).toBe(true);
+      expect(run.mock.calls).toEqual([["toggleLyrics"]]);
+    } finally {
+      stop();
+    }
+    expect(press(button)).toBe(true);
+  });
   it("offers search and lyric preferences without a text editor", async () => {
     setBridge({ getTrackLyrics: vi.fn().mockResolvedValue({ lyrics: "original" }) });
     await act(async () => root.render(<Lyrics item={track("controls")} showControls />));
@@ -245,6 +415,9 @@ describe("current-track lyric view", () => {
     expect(host.querySelector('button[aria-label="编辑歌词"]')).toBeNull();
   });
   it("leaves cleaned Bilibili subtitles as literal text rather than interpreting timing-like subtitle content", async () => {
+    const getPlaybackSubtitles = vi.fn().mockResolvedValue([8, null]);
+    const savePlaybackSubtitles = vi.fn().mockResolvedValue(undefined);
+    setBridge({ getPlaybackSubtitles, savePlaybackSubtitles });
     vi.mocked(getWebPlayerInfo).mockResolvedValue({
       data: { subtitle: { subtitles: [{ subtitle_url: "//subtitle.test/a" }] } },
     } as Awaited<ReturnType<typeof getWebPlayerInfo>>);
@@ -256,10 +429,15 @@ describe("current-track lyric view", () => {
     });
     const native = await getNativeLyrics({ id: "mv", bvid: "BV1", cid: "10", aid: "20" });
     expect(getWebPlayerInfo).toHaveBeenCalledWith({ bvid: "BV1", cid: 10, aid: 20 });
-    expect(getLyric).toHaveBeenCalledWith("//subtitle.test/a");
+    expect(getLyric).toHaveBeenCalledWith("https://subtitle.test/a");
     expect(native.subtitles).toEqual([
       { time: 1000, text: "first" },
       { time: 2000, text: "line [00:42]" },
     ]);
+    expect(savePlaybackSubtitles).toHaveBeenCalledWith(8, native.subtitles);
+    getPlaybackSubtitles.mockResolvedValue([8, native.subtitles]);
+    expect(await getNativeLyrics({ id: "mv", bvid: "BV1", cid: "10", aid: "20" })).toEqual(native);
+    expect(getLyric).toHaveBeenCalledTimes(1);
+    expect(getWebPlayerInfo).toHaveBeenCalledTimes(1);
   });
 });

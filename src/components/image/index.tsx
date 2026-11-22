@@ -4,6 +4,7 @@ import { Image as HeroImage, type ImageProps } from "@heroui/react";
 import { RiFileImageLine } from "@remixicon/react";
 import { twMerge } from "tailwind-merge";
 
+import { resolveMediaUrl } from "@/bridge/media-url";
 import { formatUrlProtocol } from "@/common/utils/url";
 
 interface Props extends ImageProps {
@@ -18,6 +19,7 @@ const Image = ({ params, width, height, src, className, emptyPlaceholder, ...res
     params && formatSrc && formatSrc.includes("/bfs/") && !formatSrc.includes("@")
       ? `${formatSrc}@${params}`
       : formatSrc;
+  const resolvedSrc = resolveMediaUrl(finalSrc);
 
   if (!src || failedSrc === src) {
     return (
@@ -34,7 +36,8 @@ const Image = ({ params, width, height, src, className, emptyPlaceholder, ...res
     <HeroImage
       width={width}
       height={height}
-      src={finalSrc}
+      src={resolvedSrc}
+      referrerPolicy="no-referrer"
       onError={() => {
         setFailedSrc(src);
       }}
