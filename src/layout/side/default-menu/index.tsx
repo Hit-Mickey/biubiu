@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 
 import { RiApps2AddFill, RiApps2AddLine } from "@remixicon/react";
 
+import { detectPlatform } from "@/bridge/env";
 import { DefaultMenuList } from "@/common/constants/menus";
 import MenuGroup from "@/components/menu/menu-group";
 import { useSettings } from "@/store/settings";
@@ -13,6 +14,7 @@ interface Props {
 }
 
 const DefaultMenus = ({ isCollapsed, onOpenAddFavorite }: Props) => {
+  const android = (window.electron?.getPlatform?.() ?? detectPlatform()) === "android";
   const user = useUser(state => state.user);
   const hiddenMenuKeys = useSettings(state => state.hiddenMenuKeys);
 
@@ -21,7 +23,7 @@ const DefaultMenus = ({ isCollapsed, onOpenAddFavorite }: Props) => {
       item => item.href && !hiddenMenuKeys.includes(item.href),
     );
 
-    if (isCollapsed) {
+    if (isCollapsed && (user?.isLogin || !android)) {
       return [
         ...filtered,
         {
@@ -34,7 +36,7 @@ const DefaultMenus = ({ isCollapsed, onOpenAddFavorite }: Props) => {
     }
 
     return filtered;
-  }, [user?.isLogin, hiddenMenuKeys, isCollapsed, onOpenAddFavorite]);
+  }, [android, user?.isLogin, hiddenMenuKeys, isCollapsed, onOpenAddFavorite]);
 
   return <MenuGroup items={items} collapsed={isCollapsed} />;
 };

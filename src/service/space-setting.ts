@@ -1,4 +1,4 @@
-import { apiRequest } from "./request";
+import { apiRequest, type BiliLookupOptions } from "./request";
 
 export interface GetSpaceSettingsParams {
   mid: string | number;
@@ -51,6 +51,6 @@ export interface IndexOrder {
   name: string;
 }
 
-export const getXSpaceSettings = (params: GetSpaceSettingsParams) => {
-  return apiRequest.get<GetSpaceSettingsResponse>("/x/space/setting", { params });
+export const getXSpaceSettings = (params: GetSpaceSettingsParams, options: BiliLookupOptions = {}) => {
+  return apiRequest.get<GetSpaceSettingsResponse>("/x/space/setting", { ...options, params });
 };

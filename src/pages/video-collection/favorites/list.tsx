@@ -58,7 +58,7 @@ const FavoriteList: React.FC<FavoriteListProps> = ({
               cover={item.cover}
               upName={item.upper?.name}
               upMid={item.upper?.mid}
-              playCount={item.cnt_info.play}
+              playCount={item.cnt_info?.play}
               duration={item.duration}
               pubTime={formatSecondsToDate(item.fav_time)}
               onPress={canPlay ? () => onItemPress(item) : undefined}

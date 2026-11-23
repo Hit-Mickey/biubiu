@@ -3,10 +3,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Card, Spinner, addToast } from "@heroui/react";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiMusic2Line, RiPlayFill } from "@remixicon/react";
 
+import { detectPlatform } from "@/bridge/env";
 import log from "@/common/utils/logger";
 import { formatNumber } from "@/common/utils/number";
+import { trackPressProps } from "@/common/utils/track-press";
 import IconButton from "@/components/icon-button";
 import Image from "@/components/image";
+import { MobileTrackMenu } from "@/components/music-list-item/operation";
 import { getNewMusic } from "@/service/web-interface-new-music";
 import { getNewMusicBanner } from "@/service/web-interface-new-music-banner";
 import { usePlayList } from "@/store/play-list";
@@ -28,6 +31,7 @@ type NewMusicTopProps = {
 };
 
 const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
+  const android = detectPlatform() === "android";
   const [items, setItems] = useState<UnifiedItem[]>([]);
   const [newLoading, setNewLoading] = useState(true);
   const [newPage, setNewPage] = useState(1);
@@ -43,6 +47,7 @@ const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
         bvid: item.bvid,
         title: item.title,
         cover: item.cover,
+        playCount: item.total_vv,
         ownerName: item.author,
       })
       .catch(error => {
@@ -219,7 +224,7 @@ const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
                   key={item.key}
                   role="button"
                   tabIndex={0}
-                  onClick={() => handlePlay(item)}
+                  {...trackPressProps(() => handlePlay(item), "click")}
                   className="group w-full cursor-pointer select-none"
                 >
                   <div className="relative aspect-square w-full">
@@ -233,28 +238,33 @@ const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
                       removeWrapper
                       className="rounded-medium shadow-md"
                     />
-                    {typeof item.total_vv === "number" && (
+                    {(android || typeof item.total_vv === "number") && (
                       <div className="absolute inset-x-0 bottom-0 z-10 bg-linear-to-t from-black/80 via-black/40 to-transparent p-2 text-white">
-                        <div className="line-clamp-1 text-xs">{`${formatNumber(item.total_vv ?? 0)}播放`}</div>
+                        <div className="line-clamp-1 text-xs">{`${formatNumber(item.total_vv) ?? "—"}播放`}</div>
                       </div>
                     )}
-                    <div className="pointer-events-none absolute right-2 bottom-8 z-40 opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100">
-                      <div className="bg-primary rounded-full shadow-2xl">
-                        <div className="flex h-10 w-10 items-center justify-center">
-                          <RiPlayFill className="text-black" size={26} />
+                    {!android && (
+                      <div className="pointer-events-none absolute right-2 bottom-8 z-40 opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100">
+                        <div className="bg-primary rounded-full shadow-2xl">
+                          <div className="flex h-10 w-10 items-center justify-center">
+                            <RiPlayFill className="text-black" size={26} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-left">
-                    <div className="group-hover:text-primary line-clamp-1 text-base font-medium transition-colors">
-                      {item.title}
-                    </div>
-                    {(item.author || item.date) && (
-                      <div className="text-foreground-500 group-hover:text-primary mt-1 text-xs transition-colors">
-                        {`${item.author ?? ""}${item.author && item.date ? " · " : ""}${item.date ?? ""}`}
-                      </div>
                     )}
+                  </div>
+                  <div className="mt-2 flex items-start justify-between">
+                    <div className="min-w-0 text-left">
+                      <div className="group-hover:text-primary line-clamp-1 text-base font-medium transition-colors">
+                        {item.title}
+                      </div>
+                      {(item.author || item.date) && (
+                        <div className="text-foreground-500 group-hover:text-primary mt-1 text-xs transition-colors">
+                          {`${item.author ?? ""}${item.author && item.date ? " · " : ""}${item.date ?? ""}`}
+                        </div>
+                      )}
+                    </div>
+                    {android && item.bvid && <MobileTrackMenu items={[]} owner={{ bvid: item.bvid }} />}
                   </div>
                 </div>
               );

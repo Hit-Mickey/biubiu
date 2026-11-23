@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { invoke } from "@tauri-apps/api/core";
 import { readableColor } from "color2k";
 import { useShallow } from "zustand/react/shallow";
 
@@ -78,6 +79,9 @@ const Theme = ({ children }: Props) => {
       rootStyle.setProperty("--heroui-background", hexToHsl(_backgroundColor));
       const fgHex = readableColor(_backgroundColor);
       rootStyle.setProperty("--heroui-foreground", hexToHsl(fgHex));
+      if (root.dataset.platform === "android") {
+        void invoke("android_system_bars", { color: _backgroundColor }).catch(console.warn);
+      }
     }
     rootStyle.setProperty("--heroui-radius-medium", `${borderRadius}px`);
 

@@ -5,7 +5,9 @@ import {
   type DragEndEvent,
   closestCenter,
   KeyboardSensor,
+  MouseSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -22,6 +24,7 @@ import {
   RiStarOffLine,
 } from "@remixicon/react";
 
+import { detectPlatform } from "@/bridge/env";
 import { CollectionType } from "@/common/constants/collection";
 import { getAllFavMedia } from "@/common/utils/fav";
 import { type ContextMenuItem } from "@/components/context-menu";
@@ -53,6 +56,7 @@ interface CollectionMenuItem {
 }
 
 const Collection = ({ isCollapsed, onOpenAddFavorite, onOpenEditFavorite }: Props) => {
+  const android = (window.electron?.getPlatform?.() ?? detectPlatform()) === "android";
   const user = useUser(state => state.user);
   const createdFavorites = useFavoritesStore(state => state.createdFavorites);
   const collectedFavorites = useFavoritesStore(state => state.collectedFavorites);
@@ -115,20 +119,23 @@ const Collection = ({ isCollapsed, onOpenAddFavorite, onOpenEditFavorite }: Prop
     [],
   );
 
-  const filteredCollectedFavorites = collectedFavorites.filter(item => !hiddenMenuKeys.includes(String(item.id)));
-  const filteredCreatedFavorites = createdFavorites.filter(item => !hiddenMenuKeys.includes(String(item.id)));
   const isDragEnabled = !isCollapsed;
   const isCreatedDragEnabled = isDragEnabled && !createdFolded;
   const isCollectedDragEnabled = isDragEnabled && !collectedFolded;
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        delay: 150,
-        tolerance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const pointerSensor = useSensor(android ? MouseSensor : PointerSensor, {
+    activationConstraint: {
+      delay: 150,
+      tolerance: 5,
+    },
+  });
+  const touchSensor = useSensor(TouchSensor, {
+    activationConstraint: {
+      delay: 250,
+      tolerance: 5,
+    },
+  });
+  const keyboardSensor = useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates });
+  const sensors = useSensors(pointerSensor, android ? touchSensor : null, keyboardSensor);
 
   useEffect(() => {
     if (!user?.mid) {
@@ -388,6 +395,13 @@ const Collection = ({ isCollapsed, onOpenAddFavorite, onOpenEditFavorite }: Prop
 
     reorderCollectedFavorites(Number(active.id), Number(over.id));
   };
+
+  if (android && isCollapsed) {
+    return null;
+  }
+
+  const filteredCollectedFavorites = collectedFavorites.filter(item => !hiddenMenuKeys.includes(String(item.id)));
+  const filteredCreatedFavorites = createdFavorites.filter(item => !hiddenMenuKeys.includes(String(item.id)));
 
   const renderFavoriteGroup = ({
     title,

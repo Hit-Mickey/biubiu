@@ -92,6 +92,7 @@ export default function SearchVideo({ keyword, getScrollElement }: SearchVideoPr
       bvid: item.bvid,
       title: item.title,
       cover: formatUrlProtocol(item.pic),
+      playCount: item.play,
       ownerName: item.author,
       ownerMid: item.mid,
     }));
@@ -106,6 +107,7 @@ export default function SearchVideo({ keyword, getScrollElement }: SearchVideoPr
       bvid: item.bvid,
       title: item.title,
       cover: formatUrlProtocol(item.pic),
+      playCount: item.play,
       ownerName: item.author,
       ownerMid: item.mid,
     };

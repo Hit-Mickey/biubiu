@@ -34,10 +34,12 @@ const FavoriteGridList: React.FC<FavoriteGridListProps> = ({
 
       return (
         <MusicCard
+          bvid={item.type === 2 ? item.bvid : undefined}
+          sid={item.type === 12 ? item.id : undefined}
           key={item.id}
           title={item.title}
           cover={item.cover}
-          playCount={item.cnt_info.play}
+          playCount={item.cnt_info?.play}
           duration={item.duration}
           ownerName={item.upper?.name}
           ownerMid={item.upper?.mid}

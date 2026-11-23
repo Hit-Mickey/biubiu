@@ -2,7 +2,7 @@ import type { ExternalPlaylist, ExternalPlaylistRef } from "../external-playlist
 import type { WebDavLibrary, WebDavListInput, WebDavPreferences, WebDavRemoveResult, WebDavTrack } from "../webdav";
 
 declare global {
-  type AppPlatForm = "macos" | "windows" | "linux";
+  type AppPlatForm = "macos" | "windows" | "linux" | "android";
 
   type StoreName = keyof StoreDataMap;
   interface LocalMusicItem {

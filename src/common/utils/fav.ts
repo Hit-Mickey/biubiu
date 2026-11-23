@@ -61,6 +61,7 @@ export const getAllFavMedia = async ({ id: favFolderId }: { id: string }) => {
           title: item.title,
           cover: item.cover,
           ownerMid: item.upper?.mid,
+          playCount: item.cnt_info?.play,
           ownerName: item.upper?.name,
         };
       }
@@ -70,6 +71,7 @@ export const getAllFavMedia = async ({ id: favFolderId }: { id: string }) => {
         title: item.title,
         cover: item.cover,
         ownerMid: item.upper?.mid,
+        playCount: item.cnt_info?.play,
         ownerName: item.upper?.name,
       };
     });

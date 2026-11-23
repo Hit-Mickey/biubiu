@@ -15,6 +15,7 @@ interface Props {
 }
 
 export default function VolumeControl({ volume, onChange, onStep, onMute, portalContainer, compact }: Props) {
+  const android = window.electron.getPlatform() === "android";
   const muted = volume === 0;
   const [open, setOpen] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -79,14 +80,15 @@ export default function VolumeControl({ volume, onChange, onStep, onMute, portal
       <IconButton
         ref={buttonRef}
         className={compact ? "window-no-drag h-7 w-7 min-w-7" : undefined}
-        aria-label={muted ? "取消静音" : "静音"}
+        aria-label={android ? "音量调节" : muted ? "取消静音" : "静音"}
         aria-haspopup="dialog"
         aria-expanded={open}
         onMouseEnter={() => {
+          if (android) return;
           if (open) cancelTimer();
           else schedule(true, 300);
         }}
-        onMouseLeave={() => schedule(false, 400)}
+        onMouseLeave={android ? undefined : () => schedule(false, 400)}
         onKeyDown={event => {
           if (event.key === "ArrowUp" || event.key === "ArrowDown") {
             event.preventDefault();
@@ -96,8 +98,11 @@ export default function VolumeControl({ volume, onChange, onStep, onMute, portal
         }}
         onPress={() => {
           cancelTimer();
-          setOpen(false);
-          onMute();
+          if (android) setOpen(!open);
+          else {
+            setOpen(false);
+            onMute();
+          }
         }}
       >
         {muted ? (
@@ -112,19 +117,30 @@ export default function VolumeControl({ volume, onChange, onStep, onMute, portal
         aria-label="音量调节"
         className="p-0"
         onMouseEnter={cancelTimer}
-        onMouseLeave={() => schedule(false, 400)}
+        onMouseLeave={android ? undefined : () => schedule(false, 400)}
       >
         <div
           ref={setSliderRef}
-          className={compact ? "window-no-drag w-36 p-2" : "flex items-center justify-center p-3"}
+          className={
+            android
+              ? "flex w-48 items-center gap-2 p-2"
+              : compact
+                ? "window-no-drag w-36 p-2"
+                : "flex items-center justify-center p-3"
+          }
         >
+          {android && (
+            <IconButton aria-label={muted ? "取消静音" : "静音"} onPress={onMute}>
+              {muted ? <RiVolumeMuteLine size={18} /> : <RiVolumeUpLine size={18} />}
+            </IconButton>
+          )}
           <Slider
             disableAnimation
             aria-label="音量"
             color="primary"
             radius="full"
             size="sm"
-            orientation={compact ? "horizontal" : "vertical"}
+            orientation={android || compact ? "horizontal" : "vertical"}
             value={volume}
             minValue={0}
             maxValue={1}
@@ -133,7 +149,7 @@ export default function VolumeControl({ volume, onChange, onStep, onMute, portal
               if (typeof value === "number") onChange(value);
             }}
             classNames={{
-              trackWrapper: compact ? undefined : "h-40 w-[32px]",
+              trackWrapper: android || compact ? undefined : "h-40 w-[32px]",
               thumb: "after:hidden",
             }}
             endContent={

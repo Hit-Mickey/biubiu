@@ -87,6 +87,7 @@ async function verifyRelease(dir) {
   const expected = ["win32", "darwin", "linux"].flatMap(platform =>
     ["x64", "arm64"].flatMap(arch => Object.values(releaseFiles(platform, arch))),
   );
+  if (process.argv.includes("--android")) expected.push(productName + "_" + version + "_android.apk");
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     if (!entry.isFile() || !expected.includes(entry.name)) throw new Error("Unexpected release asset: " + entry.name);
   }

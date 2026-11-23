@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router";
 
 import {
   Button,
@@ -11,13 +12,16 @@ import {
   DropdownTrigger,
   User,
 } from "@heroui/react";
-import { RiExternalLinkLine, RiMoreLine, RiPlayFill, RiThumbUpFill, RiThumbUpLine } from "@remixicon/react";
+import { RiExternalLinkLine, RiMoreLine, RiPlayFill, RiThumbUpFill, RiThumbUpLine, RiUserLine } from "@remixicon/react";
 import moment from "moment";
 
 import type { WebDynamicItem } from "@/service/web-dynamic";
 
+import { detectPlatform } from "@/bridge/env";
 import { formatNumber } from "@/common/utils/number";
+import { trackPressProps } from "@/common/utils/track-press";
 import { openBiliVideoLink } from "@/common/utils/url";
+import { userProfileOptions } from "@/common/utils/user-profile";
 import IconButton from "@/components/icon-button";
 import Image from "@/components/image";
 import { postDynamicFeedThumb } from "@/service/web-dynamic-feed-thumb";
@@ -31,6 +35,8 @@ interface DynamicItemProps {
 }
 
 const DynamicItem = ({ item }: DynamicItemProps) => {
+  const android = detectPlatform() === "android";
+  const navigate = useNavigate();
   const author = item.modules.module_author;
   const dynamic = item.modules.module_dynamic;
   const stat = item.modules.module_stat;
@@ -87,11 +93,11 @@ const DynamicItem = ({ item }: DynamicItemProps) => {
     }
   };
 
-  return (
+  const card = (
     <Card className="border-default-100 mb-2 w-full rounded-none border-b bg-transparent pb-4 shadow-none">
       <CardHeader className="flex items-start justify-between px-0 py-2">
         <User
-          isFocusable
+          isFocusable={!android}
           avatarProps={{
             src: author.face,
           }}
@@ -124,13 +130,24 @@ const DynamicItem = ({ item }: DynamicItemProps) => {
           </Button>
           <Dropdown>
             <DropdownTrigger>
-              <IconButton>
+              <IconButton aria-label="动态操作">
                 <RiMoreLine size={16} />
               </IconButton>
             </DropdownTrigger>
             <DropdownMenu
               aria-label="用户动态操作"
               items={[
+                ...(android && author.mid
+                  ? [
+                      {
+                        key: "open-owner",
+                        label: "打开 UP 主主页",
+                        icon: <RiUserLine size={18} />,
+                        onPress: () =>
+                          navigate(`/user/${author.mid}`, userProfileOptions(author.mid, author.name, author.face)),
+                      },
+                    ]
+                  : []),
                 {
                   key: "open",
                   label: "打开B站链接",
@@ -160,7 +177,7 @@ const DynamicItem = ({ item }: DynamicItemProps) => {
         {Boolean(archive) && (
           <div
             className="group border-default-200 dark:border-default-100 bg-default-50 hover:bg-default-100 relative mt-2 cursor-pointer overflow-hidden rounded-xl border"
-            onClick={handlePlay}
+            onClick={android ? undefined : handlePlay}
           >
             <div className="flex flex-row">
               <div className="relative h-32 w-48 shrink-0">
@@ -176,9 +193,11 @@ const DynamicItem = ({ item }: DynamicItemProps) => {
                     img: "w-full h-full",
                   }}
                 />
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-[rgba(0,0,0,0.4)] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  <RiPlayFill size={32} className="text-white" />
-                </div>
+                {!android && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-[rgba(0,0,0,0.4)] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <RiPlayFill size={32} className="text-white" />
+                  </div>
+                )}
                 <div className="absolute right-1 bottom-1 z-20 rounded bg-black/70 px-1 text-xs text-white">
                   {archive.duration_text || ""}
                 </div>
@@ -190,7 +209,7 @@ const DynamicItem = ({ item }: DynamicItemProps) => {
                   </h3>
                   <div className="text-default-500 line-clamp-1 text-xs">{archive.desc || ""}</div>
                 </div>
-                <span className="text-default-400 mt-1 text-xs">{archive.stat?.play || 0}观看</span>
+                <span className="text-default-400 mt-1 text-xs">{archive.stat?.play ?? "—"} 观看</span>
               </div>
             </div>
           </div>
@@ -198,6 +217,7 @@ const DynamicItem = ({ item }: DynamicItemProps) => {
       </CardBody>
     </Card>
   );
+  return android && archive?.bvid ? <article {...trackPressProps(handlePlay)}>{card}</article> : card;
 };
 
 export default DynamicItem;

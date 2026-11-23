@@ -194,6 +194,11 @@ fn select_platform_asset<'a>(
     os: &str,
     arch: &str,
 ) -> Option<&'a GithubAsset> {
+    if os == "android" {
+        return assets
+            .iter()
+            .find(|asset| asset.name.to_ascii_lowercase().ends_with("_android.apk"));
+    }
     let suffixes: &[&str] = match os {
         "windows" if is_portable() => &["-portable.zip"],
         "windows" => &["-setup.exe", ".msi"],
@@ -303,6 +308,9 @@ async fn stream_installer(
     asset: &GithubAsset,
 ) -> Result<PathBuf, String> {
     let expected = verified_digest(asset)?;
+    #[cfg(target_os = "android")]
+    let update_dir = state.data_dir.join("files").join("updates");
+    #[cfg(desktop)]
     let update_dir = state.data_dir.join("updates");
     tokio::fs::create_dir_all(&update_dir)
         .await
@@ -400,6 +408,10 @@ pub fn install_update(app: &AppHandle, state: &AppState) -> Result<(), String> {
         return Err("安装包校验失败".into());
     }
     drop(source);
+    #[cfg(target_os = "android")]
+    {
+        crate::android::open_file(&file, "application/vnd.android.package-archive")?;
+    }
 
     #[cfg(target_os = "windows")]
     {
@@ -450,11 +462,16 @@ pub fn install_update(app: &AppHandle, state: &AppState) -> Result<(), String> {
         }
     }
 
-    state
-        .is_quitting
-        .store(true, std::sync::atomic::Ordering::SeqCst);
-    state.downloads.quit_and_save();
-    app.exit(0);
+    #[cfg(desktop)]
+    {
+        state
+            .is_quitting
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        state.downloads.quit_and_save();
+        app.exit(0);
+    }
+    #[cfg(target_os = "android")]
+    let _ = app;
     Ok(())
 }
 
@@ -496,6 +513,8 @@ mod tests {
             asset("BiuBiu_arm64-setup.exe"),
             asset("BiuBiu_x64-setup.exe"),
             asset("BiuBiu_arm64.dmg"),
+            asset("BiuBiu_2.0.0_android-test.apk"),
+            asset("BiuBiu_2.0.0_android.apk"),
         ];
         assert_eq!(
             select_platform_asset(&assets, "windows", "x86_64"),
@@ -505,6 +524,15 @@ mod tests {
             select_platform_asset(&assets, "macos", "aarch64"),
             Some(&assets[2])
         );
+        assert_eq!(
+            select_platform_asset(&assets, "android", "aarch64"),
+            Some(&assets[4])
+        );
+        assert_eq!(
+            select_platform_asset(&assets, "android", "x86_64"),
+            Some(&assets[4])
+        );
+        assert!(select_platform_asset(&assets[..4], "android", "aarch64").is_none());
         assert!(select_platform_asset(&assets, "macos", "x86_64").is_none());
         assert!(verified_digest(&assets[1]).is_ok());
         let mut invalid = assets[1].clone();

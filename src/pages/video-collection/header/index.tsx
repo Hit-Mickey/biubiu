@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { Link as RouterLink } from "react-router";
 
 import { Link, Skeleton, User } from "@heroui/react";
 import { RiEdit2Line } from "@remixicon/react";
@@ -7,6 +8,7 @@ import clx from "classnames";
 
 import { CollectionType } from "@/common/constants/collection";
 import { isPrivateFav } from "@/common/utils/fav";
+import { userProfileOptions } from "@/common/utils/user-profile";
 import Image from "@/components/image";
 import { getWebInterfaceCard } from "@/service/user-account";
 
@@ -101,7 +103,13 @@ const Header = memo(({ loading, type, attr, cover, title, desc, upMid, mediaCoun
               src: upInfo?.card?.face,
             }}
             name={
-              <Link color="foreground" href={`/user/${upMid}`} className="hover:underline">
+              <Link
+                color="foreground"
+                as={RouterLink}
+                to={`/user/${upMid}`}
+                state={userProfileOptions(upMid, upInfo?.card?.name, upInfo?.card?.face).state}
+                className="hover:underline"
+              >
                 {upInfo?.card?.name}
               </Link>
             }

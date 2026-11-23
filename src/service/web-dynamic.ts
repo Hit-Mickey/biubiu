@@ -1,4 +1,4 @@
-import { apiRequest } from "./request";
+import { apiRequest, type BiliLookupOptions } from "./request";
 
 /**
  * 获取全部动态列表 - 请求参数
@@ -52,6 +52,7 @@ export interface WebDynamicResponse<T> {
  * 动态列表数据
  */
 export interface WebDynamicFeedData {
+  v_voucher?: string;
   has_more: boolean;
   items: WebDynamicItem[];
   offset: string; // 下一页偏移量
@@ -347,8 +348,9 @@ export const getWebDynamicFeedAllUpdate = (params: WebDynamicFeedAllUpdateParams
 /**
  * 获取用户空间动态
  */
-export const getWebDynamicFeedSpace = (params: WebDynamicFeedSpaceParams) => {
+export const getWebDynamicFeedSpace = (params: WebDynamicFeedSpaceParams, options: BiliLookupOptions = {}) => {
   return apiRequest.get<WebDynamicResponse<WebDynamicFeedData>>("/x/polymer/web-dynamic/v1/feed/space", {
+    ...options,
     params,
     useWbi: true,
   });

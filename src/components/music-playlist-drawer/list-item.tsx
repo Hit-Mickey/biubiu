@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
 
 import { Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/react";
 import { RiMoreFill, RiMusic2Line, RiPlayFill } from "@remixicon/react";
 import clx from "classnames";
 
+import { detectPlatform } from "@/bridge/env";
+import { formatNumber } from "@/common/utils/number";
+import { trackPressProps } from "@/common/utils/track-press";
 import Image from "@/components/image";
+import { useTrackMenu } from "@/components/music-list-item/use-track-menu";
 import { isBilibiliSource, type PlayData } from "@/store/play-list";
 
 import { getMenus } from "./menu";
@@ -20,7 +23,14 @@ interface Props {
 }
 
 const ListItem = ({ data, isLogin, isPlaying, onAction, onClose, onPress }: Props) => {
-  const navigate = useNavigate();
+  const android = detectPlatform() === "android";
+  const isBilibili = isBilibiliSource(data.source);
+  const menu = useTrackMenu(
+    getMenus({ isLogin, isBilibili }),
+    onAction,
+    isBilibili ? { mid: data.ownerMid, name: data.ownerName, bvid: data.bvid, sid: data.sid } : undefined,
+    onClose,
+  );
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -31,7 +41,7 @@ const ListItem = ({ data, isLogin, isPlaying, onAction, onClose, onPress }: Prop
       disableAnimation
       variant={isPlaying ? "flat" : "light"}
       color={isPlaying ? "primary" : "default"}
-      onPress={onPress}
+      {...trackPressProps(onPress, "press")}
       className="group flex h-auto min-h-auto w-full min-w-auto items-center justify-between space-y-2 rounded-md p-2"
     >
       <div className="m-0 flex min-w-0 flex-1 items-center">
@@ -45,7 +55,7 @@ const ListItem = ({ data, isLogin, isPlaying, onAction, onClose, onPress }: Prop
             height={48}
             emptyPlaceholder={<RiMusic2Line className="text-default-500" />}
           />
-          {!isPlaying && (
+          {!android && !isPlaying && (
             <div className="absolute inset-0 z-20 flex items-center justify-center rounded-md bg-[rgba(0,0,0,0.35)] opacity-0 group-hover:opacity-100">
               <RiPlayFill size={20} className="text-white transition-transform duration-200 group-hover:scale-110" />
             </div>
@@ -55,18 +65,25 @@ const ListItem = ({ data, isLogin, isPlaying, onAction, onClose, onPress }: Prop
           <span className="w-full min-w-0 truncate text-base">{data.title}</span>
           <span
             className={clx("text-foreground-500 w-fit truncate text-sm", {
-              "cursor-pointer hover:underline": Boolean(data?.ownerMid),
+              "cursor-pointer hover:underline": !android && Boolean(data.ownerMid),
             })}
-            onClick={e => {
-              e.stopPropagation();
-              if (!data?.ownerMid) return;
-              navigate(`/user/${data?.ownerMid}`);
-              onClose();
-            }}
+            onClick={
+              android || !data.ownerMid
+                ? undefined
+                : e => {
+                    e.stopPropagation();
+                    menu.openProfile();
+                  }
+            }
           >
             {data.source === "local" ? "本地音乐" : data.ownerName || (data.source === "webdav" ? "WebDAV" : "未知")}
           </span>
         </div>
+        {android && isBilibili && (
+          <span className="text-default-500 shrink-0 px-1 text-xs tabular-nums" aria-label="播放量">
+            {formatNumber(data.playCount) ?? "—"} 播放
+          </span>
+        )}
         <Dropdown
           disableAnimation
           isOpen={isOpen}
@@ -78,20 +95,16 @@ const ListItem = ({ data, isLogin, isPlaying, onAction, onClose, onPress }: Prop
           <DropdownTrigger>
             <Button
               isIconOnly
+              aria-label="歌曲操作"
               variant="light"
               size="sm"
-              className={`flex-none transition-opacity duration-200 ${isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"} group-hover:pointer-events-auto group-hover:opacity-100`}
+              className={`flex-none transition-opacity duration-200 ${android || isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"} group-hover:pointer-events-auto group-hover:opacity-100`}
             >
               <RiMoreFill size={16} />
             </Button>
           </DropdownTrigger>
 
-          <DropdownMenu
-            aria-label="播放列表操作菜单"
-            items={getMenus({ isLogin, isBilibili: isBilibiliSource(data.source) })}
-            // @ts-ignore 忽略onAction类型问题
-            onAction={onAction}
-          >
+          <DropdownMenu aria-label="播放列表操作菜单" items={menu.items} onAction={key => menu.onAction?.(String(key))}>
             {item => (
               <DropdownItem key={item.key} color={item.color} startContent={item.icon}>
                 {item.label}

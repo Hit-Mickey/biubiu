@@ -34,6 +34,7 @@ const SeriesGridList = ({
     (item: Media) => {
       return (
         <MusicCard
+          bvid={item.bvid}
           key={item.bvid}
           title={item.title}
           cover={item.cover}
@@ -52,6 +53,7 @@ const SeriesGridList = ({
               bvid: item.bvid,
               title: item.title,
               cover: item.cover,
+              playCount: item.cnt_info?.play,
               ownerName: item.upper?.name,
               ownerMid: item.upper?.mid,
             });

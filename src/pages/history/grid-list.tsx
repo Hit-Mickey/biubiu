@@ -21,6 +21,7 @@ const GridList: React.FC<GridListProps> = ({ items, hasMore, loading, onLoadMore
     (item: HistoryListItem) => {
       return (
         <MusicCard
+          bvid={item.history.bvid}
           key={`${item.history.oid}-${item.view_at}`}
           title={item.title}
           cover={item.cover}

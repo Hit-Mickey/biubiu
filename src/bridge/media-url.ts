@@ -32,6 +32,13 @@ export function resolveMediaUrl(url?: string): string | undefined {
   if (!url) return url;
   if (!isTauriRuntime()) return url;
 
+  if (
+    window.__BIUBIU_RUNTIME__?.platform === "android" &&
+    /^http:\/\/(?:[a-z0-9-]+\.)*(?:hdslb\.com|biliimg\.com)\//i.test(url)
+  ) {
+    return "https:" + url.slice(5);
+  }
+
   const prefix = `${webDavScheme}://`;
   if (url.startsWith(prefix)) {
     const { base, token } = getMediaServerConfig();

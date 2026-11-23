@@ -6,6 +6,7 @@ import { RiAddLine, RiFlashlightFill, RiUserFollowLine } from "@remixicon/react"
 
 import { formatNumber } from "@/common/utils/number";
 import { formatUrlProtocol } from "@/common/utils/url";
+import { userProfileOptions } from "@/common/utils/user-profile";
 import AsyncButton from "@/components/async-button";
 import { postRelationModify, UserRelationAction } from "@/service/relation-modify";
 
@@ -48,7 +49,12 @@ const UserCard: React.FC<UserCardProps> = ({ u }) => {
   };
 
   return (
-    <Card isHoverable isPressable as="div" onPress={() => navigate(`/user/${u.mid}`)}>
+    <Card
+      isHoverable
+      isPressable
+      as="div"
+      onPress={() => navigate(`/user/${u.mid}`, userProfileOptions(u.mid, u.uname, u.upic))}
+    >
       <CardBody className="flex flex-col items-center gap-y-2">
         {/* Avatar Section */}
         <div className="relative flex-none">

@@ -178,18 +178,23 @@ impl StorageManager {
             val.get_or_insert_with(|| serde_json::json!({ "appSettings": {} }));
             if let Some(Value::Object(ref mut root)) = val {
                 if let Some(Value::Object(ref mut settings)) = root.get_mut("appSettings") {
+                    #[cfg(desktop)]
                     let needs_download_path = settings
                         .get("downloadPath")
                         .and_then(|v| v.as_str())
                         .map(|s| s.trim().is_empty())
                         .unwrap_or(true);
+                    #[cfg(target_os = "android")]
+                    let needs_download_path = !settings
+                        .get("downloadPath")
+                        .and_then(Value::as_str)
+                        .is_some_and(|path| path.starts_with("content://"));
                     if needs_download_path {
-                        settings.insert(
-                            "downloadPath".to_string(),
-                            Value::String(
-                                self.default_download_dir().to_string_lossy().to_string(),
-                            ),
-                        );
+                        #[cfg(desktop)]
+                        let path = self.default_download_dir().to_string_lossy().to_string();
+                        #[cfg(target_os = "android")]
+                        let path = "系统默认目录".to_owned();
+                        settings.insert("downloadPath".to_string(), Value::String(path));
                     }
                 }
             }
@@ -219,6 +224,7 @@ impl StorageManager {
         }
 
         if name == "app-settings" {
+            #[cfg(desktop)]
             if let Some(auto_start) = value
                 .get("appSettings")
                 .and_then(|s| s.get("autoStart"))
@@ -288,12 +294,16 @@ impl StorageManager {
     }
 
     pub fn default_download_dir(&self) -> PathBuf {
+        #[cfg(target_os = "android")]
+        return self.data_dir.join("files").join("downloads").join("BiuBiu");
+        #[cfg(desktop)]
         dirs::download_dir()
             .unwrap_or_else(|| self.data_dir.join("downloads"))
             .join("BiuBiu")
     }
 
     pub fn get_download_dir(&self) -> PathBuf {
+        #[cfg(desktop)]
         if let Some(custom) = self.get_app_setting_string("downloadPath") {
             let trimmed = custom.trim();
             if !trimmed.is_empty() {
@@ -528,7 +538,7 @@ pub fn apply_auto_start(enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub fn apply_auto_start(enabled: bool) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let dest = dirs::home_dir()

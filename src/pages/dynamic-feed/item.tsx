@@ -8,7 +8,10 @@ import { twMerge } from "tailwind-merge";
 
 import type { WebDynamicItem } from "@/service/web-dynamic";
 
+import { detectPlatform } from "@/bridge/env";
 import { formatNumber } from "@/common/utils/number";
+import { trackPressProps } from "@/common/utils/track-press";
+import { userProfileOptions } from "@/common/utils/user-profile";
 import Image from "@/components/image";
 import { postDynamicFeedThumb } from "@/service/web-dynamic-feed-thumb";
 import { useMusicFavStore } from "@/store/music-fav";
@@ -33,6 +36,20 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
   const navigate = useNavigate();
   const [isLike, setIsLike] = useState(() => stat?.like?.status === true);
   const [likeCount, setLikeCount] = useState(() => stat?.like?.count || 0);
+
+  const android = detectPlatform() === "android";
+  const openProfile = () => navigate(`/user/${author.mid}`, userProfileOptions(author.mid, author.name, author.face));
+  const handlePlay = () => {
+    if (archive?.bvid)
+      void play({
+        type: "mv",
+        bvid: archive.bvid,
+        title: archive.title,
+        cover: archive.cover,
+        ownerName: author.name,
+        ownerMid: author.mid,
+      });
+  };
 
   const timeDisplay =
     author.pub_time ||
@@ -82,11 +99,11 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
     }
   };
 
-  return (
+  const card = (
     <Card className="border-default-100 mb-2 w-full rounded-none border-b bg-transparent pb-4 shadow-none">
       <CardHeader className={twMerge("flex items-start justify-between px-0 pt-4 pb-2", className)}>
         <User
-          isFocusable
+          isFocusable={!android}
           avatarProps={{
             src: author.face,
           }}
@@ -102,13 +119,11 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
             </div>
           }
           name={author.name}
-          className="cursor-pointer"
+          className={android ? undefined : "cursor-pointer"}
           classNames={{
-            name: "hover:underline",
+            name: android ? undefined : "hover:underline",
           }}
-          onClick={() => {
-            navigate(`/user/${author.mid}`);
-          }}
+          onClick={android ? undefined : openProfile}
         />
         <div className="flex items-center">
           <Button
@@ -121,6 +136,7 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
             <span>{likeCount > 0 ? formatNumber(likeCount) : "点赞"}</span>
           </Button>
           <MoreMenu
+            onOpenProfile={android && author.mid ? openProfile : undefined}
             onAddToNext={() => {
               if (archive) {
                 addToNext({
@@ -147,16 +163,7 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
         {Boolean(textContent) && <p className="mb-2 leading-relaxed">{textContent}</p>}
         <div
           className="group border-default-200 dark:border-default-100 bg-default-50 hover:bg-default-100 relative mt-2 cursor-pointer overflow-hidden rounded-xl border"
-          onClick={async () => {
-            await play({
-              bvid: archive?.bvid || "",
-              title: archive?.title || "",
-              cover: archive?.cover || "",
-              ownerName: author?.name || "",
-              ownerMid: author?.mid || 0,
-              type: "mv",
-            });
-          }}
+          onClick={android ? undefined : handlePlay}
         >
           <div className="flex flex-row">
             <div className="relative h-32 w-48 shrink-0">
@@ -172,9 +179,11 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
                   img: "w-full h-full",
                 }}
               />
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-[rgba(0,0,0,0.4)] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                <RiPlayFill size={32} className="text-white" />
-              </div>
+              {!android && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-[rgba(0,0,0,0.4)] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                  <RiPlayFill size={32} className="text-white" />
+                </div>
+              )}
               <div className="absolute right-1 bottom-1 z-20 rounded bg-black/70 px-1 text-xs text-white">
                 {archive?.duration_text || ""}
               </div>
@@ -186,13 +195,14 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
                 </h3>
                 <div className="text-default-500 line-clamp-1 text-xs">{archive?.desc || ""}</div>
               </div>
-              <span className="text-default-400 mt-1 text-xs">{archive?.stat?.play || 0}观看</span>
+              <span className="text-default-400 mt-1 text-xs">{archive?.stat?.play ?? "—"} 观看</span>
             </div>
           </div>
         </div>
       </CardBody>
     </Card>
   );
+  return android && archive?.bvid ? <article {...trackPressProps(handlePlay)}>{card}</article> : card;
 };
 
 export default DynamicItem;

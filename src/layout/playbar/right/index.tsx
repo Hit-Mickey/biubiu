@@ -11,21 +11,23 @@ import { isBilibiliSource, usePlayList } from "@/store/play-list";
 
 const MusicDownloadButton = lazy(() => import("@/components/music-download-button"));
 
-const RightControl = () => {
-  const playId = usePlayList(s => s.playId);
-  const getPlayItem = usePlayList(s => s.getPlayItem);
+export function CurrentDownload() {
+  const available = usePlayList(s => Boolean(s.playId) && isBilibiliSource(s.getPlayItem()?.source));
+  return available ? (
+    <Suspense fallback={null}>
+      <MusicDownloadButton />
+    </Suspense>
+  ) : null;
+}
 
+const RightControl = () => {
   return (
     <div className="flex h-full items-center justify-end space-x-2">
       <DesktopLyricsButton />
       <PlaybackLinesButton />
       <SleepTimer />
       <MusicPlayMode />
-      {Boolean(playId) && isBilibiliSource(getPlayItem()?.source) && (
-        <Suspense fallback={null}>
-          <MusicDownloadButton />
-        </Suspense>
-      )}
+      <CurrentDownload />
       <OpenPlaylistDrawerButton />
       <MusicVolume />
       <MusicRate />

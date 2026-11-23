@@ -7,14 +7,16 @@ import { filesize } from "filesize";
 
 import type { WebDavTrack } from "@shared/webdav";
 
+import { detectPlatform } from "@/bridge/env";
 import { formatDuration, formatMillisecond } from "@/common/utils/time";
+import { trackPressProps } from "@/common/utils/track-press";
 import ContextMenu from "@/components/context-menu";
 import IconButton from "@/components/icon-button";
 
 import OperationMenu, { type LocalOperationItem } from "../local-music/operation";
 
 const grid =
-  "grid w-full grid-cols-[32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_54px_64px_54px_86px_36px] items-center gap-3 px-2";
+  "remote-track grid w-full grid-cols-[32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_54px_64px_54px_86px_36px] items-center gap-3 px-2";
 
 interface HeaderProps {
   selecting: boolean;
@@ -79,7 +81,7 @@ export function RemoteTrackRow({ track, number, active, selecting, selected, onS
           "group h-11 rounded-md text-sm",
           active ? "bg-primary/15 text-primary" : "hover:bg-default-100",
         )}
-        onDoubleClick={() => onAction("play")}
+        {...trackPressProps(selecting && detectPlatform() === "android" ? undefined : () => onAction("play"))}
       >
         {selecting ? (
           <Checkbox
@@ -89,6 +91,8 @@ export function RemoteTrackRow({ track, number, active, selecting, selected, onS
             onValueChange={onSelect}
             onDoubleClick={event => event.stopPropagation()}
           />
+        ) : detectPlatform() === "android" ? (
+          <span className="text-center text-xs tabular-nums">{number}</span>
         ) : (
           <IconButton
             aria-label={`播放 ${track.title}`}

@@ -39,6 +39,7 @@ const MusicRecommendList: React.FC<MusicRecommendListProps> = ({
       bvid: item.bvid,
       title: item.title,
       cover: item.cover,
+      playCount: item.playCount,
       ownerName: item.author,
       ownerMid: item.authorMid,
     });

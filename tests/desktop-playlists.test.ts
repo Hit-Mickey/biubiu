@@ -190,6 +190,15 @@ describe("compact playable references", () => {
       expect(compactPlayData(value)).toBeUndefined();
   });
 
+  it("keeps the public play count from the source and accepts older entries without it", () => {
+    const track = { type: "mv", bvid: bv, title: "同一首歌" };
+    expect(compactPlayData({ ...track, playCount: 0 })).toMatchObject({ playCount: 0 });
+    expect(compactPlayData({ ...track, playCount: 1234 })).toMatchObject({ playCount: 1234 });
+    for (const value of [undefined, null, -1, "unknown"]) {
+      expect(compactPlayData({ ...track, playCount: value })).not.toHaveProperty("playCount");
+    }
+  });
+
   it("resolves trusted local IDs only on demand, skips missing files and regenerates internal WebDAV URLs", async () => {
     const local = compactPlayData({
       type: "audio",

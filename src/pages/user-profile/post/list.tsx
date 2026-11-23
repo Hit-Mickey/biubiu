@@ -30,6 +30,7 @@ const PostList: React.FC<PostListProps> = ({ items, hasMore, loading, onLoadMore
       bvid: item.bvid,
       title: item.title,
       cover: item.pic,
+      playCount: item.play,
       ownerName: item.author,
       ownerMid: item.mid,
     });

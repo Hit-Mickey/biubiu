@@ -5,7 +5,14 @@ node_modules/
 
 # Tauri、Rust 和 Rsbuild 产物
 /src-tauri/target/
-/src-tauri/gen/
+/src-tauri/gen/*
+!/src-tauri/gen/android/
+# Android 安装包和本地签名文件
+*.apk
+*.aab
+*.apk.idsig
+*.jks
+*.keystore
 /src-tauri/resources/ffmpeg/ffmpeg-linux
 /src-tauri/resources/ffmpeg/ffmpeg-mac
 /dist/

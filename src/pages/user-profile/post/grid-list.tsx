@@ -29,6 +29,7 @@ const PostGridList: React.FC<PostGridListProps> = ({
     (item: SpaceArcVListItem) => {
       return (
         <MusicCard
+          bvid={item.bvid}
           key={item.bvid}
           title={item.title}
           cover={item.pic}
@@ -47,6 +48,7 @@ const PostGridList: React.FC<PostGridListProps> = ({
               bvid: item.bvid,
               title: item.title,
               cover: item.pic,
+              playCount: item.play,
               ownerName: item.author,
               ownerMid: item.mid,
             });

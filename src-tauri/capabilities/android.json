@@ -1,0 +1,7 @@
+{
+  "identifier": "android",
+  "description": "Android application window",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": ["core:default", "core:event:default", "dialog:default", "opener:default"]
+}

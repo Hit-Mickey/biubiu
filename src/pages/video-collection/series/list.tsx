@@ -42,6 +42,7 @@ const SeriesList = ({
       bvid: item.bvid,
       title: item.title,
       cover: item.cover,
+      playCount: item.cnt_info?.play,
       ownerName: item.upper?.name,
       ownerMid: item.upper?.mid,
     });
@@ -79,6 +80,8 @@ const SeriesList = ({
               sid={item.id}
               title={item.title}
               cover={item.cover}
+              upMid={item.upper?.mid}
+              upName={item.upper?.name}
               playCount={item.cnt_info?.play}
               duration={item.duration}
               pubTime={formatSecondsToDate(item.pubtime)}

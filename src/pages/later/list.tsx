@@ -10,6 +10,7 @@ import { usePlayList } from "@/store/play-list";
 import { useSettings } from "@/store/settings";
 
 import { getContextMenus } from "./menu";
+import { toPlayItem } from "./play-item";
 
 interface LaterListProps {
   items: ToViewVideoItem[];
@@ -32,14 +33,7 @@ const LaterList: React.FC<LaterListProps> = ({
   const isCompact = displayMode === "compact";
 
   const handlePress = useCallback((item: ToViewVideoItem) => {
-    usePlayList.getState().play({
-      type: "mv",
-      bvid: item.bvid,
-      title: item.title,
-      cover: item.pic,
-      ownerName: item.owner?.name,
-      ownerMid: item.owner?.mid,
-    });
+    usePlayList.getState().play(toPlayItem(item));
   }, []);
 
   return (

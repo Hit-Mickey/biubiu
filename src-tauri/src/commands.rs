@@ -1,27 +1,35 @@
+#[cfg(desktop)]
 use std::path::Path;
 use std::sync::Arc;
 
 use serde_json::Value;
-use tauri::{AppHandle, State, WebviewWindow};
+#[cfg(desktop)]
+use tauri::WebviewWindow;
+use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tokio_util::sync::CancellationToken;
 
+#[cfg(desktop)]
+use crate::audio_engine::MiniCommandPayload;
 use crate::audio_engine::{
-    MiniCommandPayload, NativeAudioStateSnapshot, NativeQueueSnapshot, NativeTrackMetadata,
-    PlayRequest,
+    NativeAudioStateSnapshot, NativeQueueSnapshot, NativeTrackMetadata, PlayRequest,
 };
 use crate::bili_http::{RustHttpRequest, RustHttpResponse};
+#[cfg(desktop)]
 use crate::desktop_lyrics::{
     DesktopLyricLine, DesktopLyricsAppearancePatch, DesktopLyricsWindowState,
 };
 use crate::download::{MediaDownloadTask, MediaDownloadTaskInput};
 use crate::external_playlist::{self, ExternalPlaylist, ExternalPlaylistRef};
 use crate::font::{self, FontInfo};
-use crate::local_music::{self, LocalMusicItem, ResolvedLocalMusic};
+use crate::local_music;
+#[cfg(desktop)]
+use crate::local_music::{LocalMusicItem, ResolvedLocalMusic};
 use crate::lyrics::{
     self, GetNeteaseLyricsParams, LyricText, QQLyricSong, SearchLrclibParams, SearchNeteaseParams,
 };
+#[cfg(desktop)]
 use crate::shortcut;
 use crate::state::{AppState, ProxySettings};
 use crate::storage::{ListeningEntry, PlaylistOp};
@@ -31,6 +39,7 @@ use crate::webdav::library::{
     BackupTarget, SaveWebDavListResult, WebDavLibraryPublic, WebDavListInput, WebDavPreferences,
     WebDavRemoveResult, WebDavTrackPublic,
 };
+#[cfg(desktop)]
 use crate::window_mgr;
 
 // ======================== Store & SQLite ========================
@@ -115,6 +124,7 @@ pub fn sqlite_history_replace(
 
 // ======================== Dialog, Shell, Font, Log ========================
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn dialog_select_directory(
     app: AppHandle,
@@ -152,6 +162,7 @@ pub async fn dialog_select_file(app: AppHandle) -> Result<Option<String>, String
     .map_err(|e| e.to_string())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn shell_show_file_in_folder(app: AppHandle, file_path: String) -> Result<bool, String> {
     if file_path.trim().is_empty() || !Path::new(&file_path).exists() {
@@ -163,6 +174,7 @@ pub fn shell_show_file_in_folder(app: AppHandle, file_path: String) -> Result<bo
         .map_err(|e| e.to_string())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn shell_open_directory(
     app: AppHandle,
@@ -348,12 +360,18 @@ pub fn lyrics_update_track(
     key: String,
     change: Value,
 ) -> Result<(), String> {
-    use tauri::Emitter;
+    #[cfg(desktop)]
     let adopted = change["type"] == "adopt";
     let record = lyrics::update_track_lyrics(&state.storage, &key, change)?;
-    let _ = app.emit_to("desktop-lyrics", "lyrics://updated", serde_json::json!({
-        "key": key, "offset": record["offset"].as_f64().unwrap_or(0.0), "text": adopted.then_some(&record)
-    }));
+    #[cfg(desktop)]
+    {
+        use tauri::Emitter;
+        let _ = app.emit_to("desktop-lyrics", "lyrics://updated", serde_json::json!({
+            "key": key, "offset": record["offset"].as_f64().unwrap_or(0.0), "text": adopted.then_some(&record)
+        }));
+    }
+    #[cfg(mobile)]
+    let _ = (app, record);
     Ok(())
 }
 
@@ -370,6 +388,29 @@ pub async fn lyrics_read_local(
             &track_id,
             lyrics::LyricSource::Local(audio_url.clone()),
             async {
+                #[cfg(target_os = "android")]
+                if audio_url.starts_with("content://") {
+                    let sidecars = crate::android::call::<Vec<String>>(
+                        "documentLyrics",
+                        serde_json::json!({"uri":audio_url}),
+                    )
+                    .await?;
+                    return tokio::task::spawn_blocking(move || {
+                        let sidecar = sidecars
+                            .into_iter()
+                            .filter_map(|uri| crate::android::open_document(&uri).ok())
+                            .find_map(local_music::read_sidecar);
+                        sidecar
+                            .or_else(|| {
+                                crate::android::open_document(&audio_url)
+                                    .ok()
+                                    .and_then(local_music::read_embedded_lyrics)
+                            })
+                            .map(Value::String)
+                    })
+                    .await
+                    .map_err(|e| e.to_string());
+                }
                 let dirs = state.storage.get_local_music_dirs();
                 tokio::task::spawn_blocking(move || {
                     local_music::read_local_lyrics(&audio_url, &dirs)
@@ -412,6 +453,7 @@ pub async fn lyrics_save_playback_subtitles(
 
 // ======================== Shortcuts ========================
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn shortcut_register(
     app: AppHandle,
@@ -422,16 +464,19 @@ pub fn shortcut_register(
     shortcut::register_shortcut(&app, state.inner(), &id, &accelerator)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn shortcut_unregister(app: AppHandle, state: State<'_, Arc<AppState>>, id: String) {
     shortcut::unregister_shortcut(&app, state.inner(), &id);
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn shortcut_register_all(app: AppHandle, state: State<'_, Arc<AppState>>) {
     shortcut::register_all_shortcuts(&app, state.inner());
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn shortcut_unregister_all(app: AppHandle, state: State<'_, Arc<AppState>>) {
     shortcut::unregister_all_shortcuts(&app, state.inner());
@@ -461,11 +506,13 @@ pub fn updater_install(app: AppHandle, state: State<'_, Arc<AppState>>) -> Resul
 
 // ======================== Window, Mini Player, Desktop Lyrics ========================
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn window_minimize(window: WebviewWindow) {
     let _ = window.minimize();
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn window_toggle_maximize(window: WebviewWindow) {
     if window.is_maximized().unwrap_or(false) {
@@ -475,21 +522,25 @@ pub fn window_toggle_maximize(window: WebviewWindow) {
     }
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn window_close(app: AppHandle, state: State<'_, Arc<AppState>>, window: WebviewWindow) {
     window_mgr::handle_close_request(&app, state.inner(), window.label());
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn window_is_maximized(window: WebviewWindow) -> bool {
     window.is_maximized().unwrap_or(false)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn window_is_fullscreen(window: WebviewWindow) -> bool {
     window.is_fullscreen().unwrap_or(false)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn mini_player_toggle(
     app: AppHandle,
@@ -498,11 +549,13 @@ pub async fn mini_player_toggle(
     window_mgr::toggle_mini_player_async(&app, state.inner()).await
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn mini_player_get_state(state: State<'_, Arc<AppState>>) -> NativeAudioStateSnapshot {
     state.audio.get_state()
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn mini_player_command(
     app_state: State<'_, Arc<AppState>>,
@@ -512,6 +565,7 @@ pub fn mini_player_command(
     app_state.audio.handle_mini_command(&command, state);
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn desktop_lyrics_set_visible(
     app: AppHandle,
@@ -524,6 +578,7 @@ pub async fn desktop_lyrics_set_visible(
         .await
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn desktop_lyrics_set_locked(
     app: AppHandle,
@@ -533,6 +588,7 @@ pub fn desktop_lyrics_set_locked(
     state.desktop_lyrics.set_locked(&app, locked)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn desktop_lyrics_set_unlock_hovered(
     app: AppHandle,
@@ -542,6 +598,7 @@ pub fn desktop_lyrics_set_unlock_hovered(
     state.desktop_lyrics.set_unlock_hovered(&app, hovered);
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn desktop_lyrics_set_appearance(
     app: AppHandle,
@@ -551,11 +608,13 @@ pub fn desktop_lyrics_set_appearance(
     state.desktop_lyrics.set_appearance(&app, appearance)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn desktop_lyrics_get_state(state: State<'_, Arc<AppState>>) -> DesktopLyricsWindowState {
     state.desktop_lyrics.get_state()
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn desktop_lyrics_show_line(
     app: AppHandle,
@@ -724,6 +783,7 @@ pub async fn download_clear_list(state: State<'_, Arc<AppState>>) -> Result<(), 
 
 // ======================== Local Music ========================
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn local_music_scan(dirs: Vec<String>) -> Result<Vec<LocalMusicItem>, String> {
     tokio::task::spawn_blocking(move || local_music::scan_local_music(dirs))
@@ -731,6 +791,7 @@ pub async fn local_music_scan(dirs: Vec<String>) -> Result<Vec<LocalMusicItem>, 
         .map_err(|e| e.to_string())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn local_music_resolve(
     state: State<'_, Arc<AppState>>,
@@ -742,6 +803,7 @@ pub async fn local_music_resolve(
         .map_err(|e| e.to_string())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub fn local_music_delete_file(state: State<'_, Arc<AppState>>, file_path: String) -> bool {
     local_music::delete_local_music_file(&file_path, &state.storage.get_local_music_dirs())

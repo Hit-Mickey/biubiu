@@ -115,7 +115,7 @@ const FullScreenPlayerSettingsPanel = ({ isUiVisible = true }: { isUiVisible?: b
   }, [values?.spectrumColor, values?.lyricsColor, values?.backgroundColor, update]);
 
   return (
-    <div className="min-w-[320px] space-y-4">
+    <div className="full-player-settings-form min-w-[320px] space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-medium mr-6">显示歌词</div>
         <Controller

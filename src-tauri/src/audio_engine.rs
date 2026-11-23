@@ -126,6 +126,7 @@ impl Default for NativeQueueSnapshot {
     }
 }
 
+#[cfg(desktop)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MiniCommandPayload {
@@ -229,9 +230,11 @@ pub struct AudioEngineHandle {
     app_handle: RwLock<Option<AppHandle>>,
     play_request: Mutex<u64>,
     output_started: AtomicBool,
+    #[cfg(desktop)]
     smtc_tx: Mutex<Option<std::sync::mpsc::Sender<SmtcUpdate>>>,
 }
 
+#[cfg(desktop)]
 enum SmtcUpdate {
     Metadata {
         title: String,
@@ -268,6 +271,7 @@ impl AudioEngineHandle {
             app_handle: RwLock::new(None),
             play_request: Mutex::new(0),
             output_started: AtomicBool::new(false),
+            #[cfg(desktop)]
             smtc_tx: Mutex::new(None),
         });
         engine.spawn_progress_and_fft_worker();
@@ -276,6 +280,7 @@ impl AudioEngineHandle {
 
     pub fn set_app_handle(self: &Arc<Self>, app: AppHandle) {
         *self.app_handle.write() = Some(app);
+        #[cfg(desktop)]
         self.start_os_media_controls();
     }
 
@@ -412,6 +417,7 @@ impl AudioEngineHandle {
             .ok();
     }
 
+    #[cfg(desktop)]
     fn start_os_media_controls(self: &Arc<Self>) {
         let engine = self.clone();
         let (tx, rx) = std::sync::mpsc::channel::<SmtcUpdate>();
@@ -540,9 +546,12 @@ impl AudioEngineHandle {
         let snap = self.get_state();
         if let Some(app) = self.app_handle.read().as_ref() {
             let _ = app.emit("audio://state", &snap);
+            #[cfg(target_os = "android")]
+            crate::android::sync_media(&snap);
             #[cfg(target_os = "windows")]
             crate::thumbar::update_thumbar_state(app, snap.is_playing);
         }
+        #[cfg(desktop)]
         if let Some(tx) = self.smtc_tx.lock().as_ref() {
             let _ = tx.send(SmtcUpdate::Playback {
                 is_playing: snap.is_playing,
@@ -552,19 +561,16 @@ impl AudioEngineHandle {
     }
 
     pub fn set_metadata(&self, meta: NativeTrackMetadata) {
-        let title = meta.title.clone().unwrap_or_else(|| "BiuBiu".to_string());
-        let artist = meta.artist.clone();
-        let cover = meta.cover.clone();
-        let dur = meta.duration;
-        *self.metadata.write() = meta;
+        #[cfg(desktop)]
         if let Some(tx) = self.smtc_tx.lock().as_ref() {
             let _ = tx.send(SmtcUpdate::Metadata {
-                title,
-                artist,
-                cover,
-                duration_secs: dur,
+                title: meta.title.clone().unwrap_or_else(|| "BiuBiu".into()),
+                artist: meta.artist.clone(),
+                cover: meta.cover.clone(),
+                duration_secs: meta.duration,
             });
         }
+        *self.metadata.write() = meta;
         self.emit_state();
     }
 
@@ -664,6 +670,7 @@ impl AudioEngineHandle {
             pcm.clear();
             self.core.pcm_cv.notify_all();
         }
+        #[cfg(desktop)]
         if let Some(tx) = self.smtc_tx.lock().as_ref() {
             let _ = tx.send(SmtcUpdate::Stopped);
         }
@@ -792,6 +799,8 @@ impl AudioEngineHandle {
             .and_then(|app| app.get_webview_window("main"))
             .is_some();
 
+        #[cfg(target_os = "android")]
+        let has_main = has_main && crate::android::foreground();
         if has_main {
             if let Some(app) = self.app_handle.read().as_ref() {
                 match command {
@@ -851,6 +860,7 @@ impl AudioEngineHandle {
         }
     }
 
+    #[cfg(desktop)]
     pub fn handle_mini_command(
         self: &Arc<Self>,
         command: &str,
@@ -1002,6 +1012,8 @@ impl AudioEngineHandle {
             .and_then(|app| app.get_webview_window("main"))
             .is_some();
 
+        #[cfg(target_os = "android")]
+        let has_main = has_main && crate::android::foreground();
         if has_main {
             if let Some(app) = self.app_handle.read().as_ref() {
                 let _ = app.emit("audio://ended", serde_json::json!({ "looped": false }));
@@ -1536,6 +1548,12 @@ fn open_media_source(engine: &AudioEngineHandle, src: &str) -> Result<OpenedMedi
         return Ok((Box::new(reader), hint, Some(url)));
     }
 
+    #[cfg(target_os = "android")]
+    if src.starts_with("content://") {
+        let file = crate::android::open_document(src)?;
+        return Ok((Box::new(file), hint, Some(src.to_owned())));
+    }
+
     if src.starts_with("file://") {
         for p in file_url_to_path_candidates(src) {
             if p.is_file() {
@@ -1866,13 +1884,28 @@ fn run_ffmpeg_fallback_decoder(
             if position > 0.0 {
                 cmd.args(["-ss", &format!("{position:.3}")]);
             }
+            #[cfg(target_os = "android")]
+            let stream_source = if input.starts_with("content://") || input.starts_with("https://")
+            {
+                Some(open_media_source(&engine, &input)?.0)
+            } else {
+                None
+            };
+            #[cfg(target_os = "android")]
+            let (ffmpeg_input, stdin) = if stream_source.is_some() {
+                ("pipe:0", Stdio::piped())
+            } else {
+                (input.as_str(), Stdio::null())
+            };
+            #[cfg(desktop)]
+            let (ffmpeg_input, stdin) = (input.as_str(), Stdio::null());
             let mut child = cmd
                 .args([
                     "-nostdin",
                     "-loglevel",
                     "error",
                     "-i",
-                    &input,
+                    ffmpeg_input,
                     "-vn",
                     "-f",
                     "f32le",
@@ -1884,11 +1917,17 @@ fn run_ffmpeg_fallback_decoder(
                     "48000",
                     "pipe:1",
                 ])
-                .stdin(Stdio::null())
+                .stdin(stdin)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::null())
                 .spawn()
                 .map_err(|e| format!("FFmpeg 启动失败: {e}"))?;
+            #[cfg(target_os = "android")]
+            if let (Some(mut source), Some(mut stream)) = (stream_source, child.stdin.take()) {
+                std::thread::spawn(move || {
+                    let _ = std::io::copy(&mut source, &mut stream);
+                });
+            }
             let mut stdout = child.stdout.take().unwrap();
             let mut raw = [0u8; 16384];
             let mut tail = 0;

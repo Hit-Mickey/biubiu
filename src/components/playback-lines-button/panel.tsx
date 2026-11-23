@@ -22,7 +22,7 @@ export default function PlaybackLinesPanel() {
       !track ||
       track.source === "webdav" ||
       track.source === "local" ||
-      (!track.sid && (!track.bvid || !track.cid))
+      (track.type === "audio" ? !track.sid : !track.bvid || !track.cid)
     ) {
       setMessage("请先播放一首 B 站歌曲，再测试其可用线路。");
       return;
@@ -34,7 +34,7 @@ export default function PlaybackLinesPanel() {
     setMessage("");
     setRows([]);
     try {
-      const stream = track.sid ? await getAudioUrl(track.sid) : await getDashUrl(track.bvid!, track.cid!);
+      const stream = track.type === "audio" ? await getAudioUrl(track.sid!) : await getDashUrl(track.bvid!, track.cid!);
       const nodes = new Map<string, string>();
       for (const url of stream.mirrors ?? []) {
         const host = mediaHost(url);

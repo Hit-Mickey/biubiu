@@ -7,11 +7,12 @@ import { webDavMediaUrl } from "@shared/webdav";
 export type PlaylistTrack = { title: string } & (
   | { source: "local"; type: "audio"; id: string }
   | { source: "webdav"; type: "audio"; id: string; webDavListId: string }
-  | { source?: undefined; type: "audio"; sid: number }
+  | { source?: undefined; type: "audio"; sid: number; playCount?: number }
   | {
       source?: undefined;
       type: "mv";
       bvid: string;
+      playCount?: number;
       aid?: string;
       cid?: string;
       pageIndex?: number;
@@ -55,13 +56,18 @@ export function compactPlayData(value: unknown): PlaylistTrack | undefined {
     return;
   }
   if (value.source !== undefined && value.source !== "online") return;
+  const views =
+    typeof value.playCount === "number" && Number.isSafeInteger(value.playCount) && value.playCount >= 0
+      ? { playCount: value.playCount }
+      : {};
   if (value.type === "audio" && positiveInt(value.sid))
-    return { type: "audio", sid: value.sid, title: title || `au${value.sid}` };
+    return { ...views, type: "audio", sid: value.sid, title: title || `au${value.sid}` };
   if (value.type !== "mv" || !isBvid(value.bvid)) return;
   if (value.cid !== undefined && !numericId(value.cid)) return; // never turn a malformed part into a whole video
   const pageTitle = displayName(value.pageTitle);
   return {
     type: "mv",
+    ...views,
     bvid: value.bvid,
     title: title || value.bvid,
     ...(numericId(value.aid) && { aid: value.aid }),

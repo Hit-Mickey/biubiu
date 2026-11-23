@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Tooltip, Switch } from "@heroui/react";
+import { Tooltip, Switch, Popover, PopoverContent } from "@heroui/react";
 
 import { getPlayModeList, PlayMode } from "@/common/constants/audio";
 import IconButton from "@/components/icon-button";
@@ -9,6 +9,8 @@ import { usePlayList } from "@/store/play-list";
 const PlayModeList = getPlayModeList(18);
 
 const MusicPlayMode = () => {
+  const android = window.electron.getPlatform() === "android";
+  const triggerRef = React.useRef<HTMLButtonElement>(null!);
   const playMode = usePlayList(s => s.playMode);
   const togglePlayMode = usePlayList(s => s.togglePlayMode);
   const shouldKeepPagesOrderInRandomPlayMode = usePlayList(s => s.shouldKeepPagesOrderInRandomPlayMode);
@@ -34,6 +36,39 @@ const MusicPlayMode = () => {
     }, 150);
   };
 
+  const orderSwitch = (
+    <Switch
+      size="sm"
+      disableAnimation
+      isSelected={shouldKeepPagesOrderInRandomPlayMode}
+      onValueChange={setShouldKeepPagesOrderInRandomPlayMode}
+    >
+      保持分集顺序
+    </Switch>
+  );
+  if (android) {
+    return (
+      <Popover
+        triggerRef={triggerRef}
+        placement="top"
+        isOpen={playMode === PlayMode.Random && isOpen}
+        onOpenChange={setIsOpen}
+      >
+        <IconButton
+          ref={triggerRef}
+          className="flex-none"
+          aria-label="播放模式"
+          onPress={() => {
+            togglePlayMode();
+            setIsOpen(usePlayList.getState().playMode === PlayMode.Random);
+          }}
+        >
+          {PlayModeList.find(item => item.value === playMode)?.icon}
+        </IconButton>
+        <PopoverContent aria-label="随机播放设置">{orderSwitch}</PopoverContent>
+      </Popover>
+    );
+  }
   if (playMode === PlayMode.Random) {
     return (
       <Tooltip
@@ -43,14 +78,7 @@ const MusicPlayMode = () => {
         closeDelay={150}
         content={
           <div onMouseEnter={openPopover} onMouseLeave={closePopoverWithDelay}>
-            <Switch
-              size="sm"
-              disableAnimation
-              isSelected={shouldKeepPagesOrderInRandomPlayMode}
-              onValueChange={setShouldKeepPagesOrderInRandomPlayMode}
-            >
-              保持分集顺序
-            </Switch>
+            {orderSwitch}
           </div>
         }
       >

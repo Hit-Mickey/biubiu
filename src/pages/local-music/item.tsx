@@ -5,7 +5,9 @@ import { RiDeleteBinLine, RiFileMusicLine, RiPlayCircleLine, RiPlayFill, RiPlayL
 import clsx from "classnames";
 import { filesize } from "filesize";
 
+import { detectPlatform } from "@/bridge/env";
 import { formatDuration, formatMillisecond } from "@/common/utils/time";
+import { trackPressProps } from "@/common/utils/track-press";
 import ContextMenu from "@/components/context-menu";
 
 import OperationMenu, { type LocalOperationItem } from "./operation";
@@ -38,6 +40,7 @@ const LocalMusicItemRow = ({
   onOpen,
   onDelete,
 }: Props) => {
+  const android = detectPlatform() === "android";
   const [isOpOpen, setIsOpOpen] = React.useState(false);
   const items = isPlaying ? menus.filter(m => m.key !== "delete") : menus;
 
@@ -57,19 +60,19 @@ const LocalMusicItemRow = ({
         disableAnimation
         color={isPlaying ? "primary" : "default"}
         variant={isPlaying ? "flat" : "light"}
-        onDoubleClick={() => onPlay()}
+        {...trackPressProps(onPlay)}
         className="group flex w-full items-center justify-between rounded-md p-2"
       >
-        <div className="grid w-full grid-cols-[40px_minmax(0,1fr)_100px_100px_100px_100px_40px] items-center gap-4">
+        <div className="local-track grid w-full grid-cols-[40px_minmax(0,1fr)_100px_100px_100px_100px_40px] items-center gap-4">
           <div className="text-foreground-500 min-w-8 text-center text-xs tabular-nums">
             <span
               className={clsx({
-                "group-hover:hidden": !isPlaying,
+                "group-hover:hidden": !isPlaying && !android,
               })}
             >
               {index}
             </span>
-            {!isPlaying && <RiPlayFill size={16} className="hidden align-middle group-hover:inline" />}
+            {!android && !isPlaying && <RiPlayFill size={16} className="hidden align-middle group-hover:inline" />}
           </div>
           <div className="min-w-0 truncate">{data.title}</div>
           <div className="text-foreground-500 flex justify-end text-xs tabular-nums">{filesize(data.size)}</div>

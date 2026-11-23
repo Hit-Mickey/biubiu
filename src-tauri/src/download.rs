@@ -295,11 +295,18 @@ impl DownloadManager {
     }
 
     pub fn add_tasks(self: &Arc<Self>, inputs: Vec<MediaDownloadTaskInput>) {
+        #[cfg(desktop)]
         let default_dir = self
             .storage
             .get_download_dir()
             .to_string_lossy()
             .to_string();
+        #[cfg(target_os = "android")]
+        let default_dir = self
+            .storage
+            .get_app_setting_string("downloadPath")
+            .filter(|dir| dir.starts_with("content://"))
+            .unwrap_or_default();
         let mut to_schedule = Vec::new();
         {
             let mut order = self.order.write();
@@ -440,7 +447,7 @@ impl DownloadManager {
             self.tasks.write().remove(id)
         };
         if let Some(task) = removed {
-            cleanup_temp_dir(task.temp_dir.as_deref()).await;
+            cleanup_temp_dir(task.temp_dir.as_deref(), &self.storage).await;
         }
         self.broadcast_full();
         self.save_tasks_snapshot();
@@ -456,7 +463,7 @@ impl DownloadManager {
             self.tasks.write().drain().map(|(_, t)| t).collect()
         };
         for task in removed {
-            cleanup_temp_dir(task.temp_dir.as_deref()).await;
+            cleanup_temp_dir(task.temp_dir.as_deref(), &self.storage).await;
         }
         let _ = self.storage.clear_json("media-downloads");
         self.broadcast_full();
@@ -621,9 +628,7 @@ impl DownloadManager {
 
             self.resolve_content_lengths(&mut task).await?;
 
-            let temp_dir = std::env::temp_dir()
-                .join("biu-temp-downloader")
-                .join(&task.id);
+            let temp_dir = download_temp_root(&self.storage).join(&task.id);
             tokio::fs::create_dir_all(&temp_dir)
                 .await
                 .map_err(|e| format!("创建临时目录失败: {e}"))?;
@@ -672,7 +677,7 @@ impl DownloadManager {
             return Ok(());
         }
 
-        cleanup_temp_dir(task.temp_dir.as_deref()).await;
+        cleanup_temp_dir(task.temp_dir.as_deref(), &self.storage).await;
         task.chunks.clear();
         task.download_progress = 100;
         task.merge_progress = 100;
@@ -1262,6 +1267,9 @@ impl DownloadManager {
         task: &mut FullMediaDownloadTask,
         cancel: &CancellationToken,
     ) -> Result<(), String> {
+        #[cfg(target_os = "android")]
+        let save_dir = self.storage.get_download_dir();
+        #[cfg(desktop)]
         let save_dir = task
             .save_dir
             .as_deref()
@@ -1345,7 +1353,30 @@ impl DownloadManager {
             return Err(format!("FFmpeg 转换失败: {tail}"));
         }
 
-        task.save_path = Some(final_output.to_string_lossy().to_string());
+        #[cfg(desktop)]
+        let saved = final_output.to_string_lossy().into_owned();
+        #[cfg(target_os = "android")]
+        let saved = {
+            // Older tasks stored their private staging path instead of a document tree URI.
+            let directory = match task.save_dir.as_deref() {
+                Some(path) if Path::new(path).is_absolute() => {
+                    self.storage.get_app_setting_string("downloadPath")
+                }
+                value => value.map(str::to_owned),
+            };
+            let published = crate::android::call::<String>(
+                "publishDownload",
+                serde_json::json!({
+                    "path":final_output,"directory":directory
+                }),
+            )
+            .await;
+            if !matches!(&published, Ok(path) if Path::new(path) == final_output) {
+                let _ = tokio::fs::remove_file(&final_output).await;
+            }
+            published?
+        };
+        task.save_path = Some(saved);
         task.file_name = final_output
             .file_name()
             .and_then(|n| n.to_str())
@@ -1496,10 +1527,18 @@ fn safe_component(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
 }
 
-async fn cleanup_temp_dir(dir: Option<&str>) {
+fn download_temp_root(_storage: &StorageManager) -> PathBuf {
+    #[cfg(target_os = "android")]
+    let base = _storage.data_dir().to_path_buf();
+    #[cfg(desktop)]
+    let base = std::env::temp_dir();
+    base.join("biu-temp-downloader")
+}
+
+async fn cleanup_temp_dir(dir: Option<&str>, storage: &StorageManager) {
     if let Some(d) = dir {
         let path = Path::new(d);
-        let root = std::env::temp_dir().join("biu-temp-downloader");
+        let root = download_temp_root(storage);
         if path.parent() == Some(root.as_path())
             && path
                 .file_name()

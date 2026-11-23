@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@heroui/react";
 
+import { saveBlob } from "@/common/utils/save-blob";
 import { useModalStore } from "@/store/modal";
 import { maxBackupBytes, type BackupTarget } from "@shared/desktop-backup";
 
@@ -61,12 +62,13 @@ export default function BackupPanel() {
             run(async () => {
               const { createBackup } = await import("./library-backup");
               const text = await createBackup();
-              const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = `biubiu-library-${new Date().toISOString().slice(0, 10)}.json`;
-              link.click();
-              setTimeout(() => URL.revokeObjectURL(url), 0);
+              if (
+                !(await saveBlob(
+                  new Blob([text], { type: "application/json" }),
+                  `biubiu-library-${new Date().toISOString().slice(0, 10)}.json`,
+                ))
+              )
+                return;
               setMessage("已生成曲库备份");
             })
           }

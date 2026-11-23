@@ -186,7 +186,7 @@ const LocalMusicPage = () => {
 
   return (
     <ScrollContainer ref={scrollRef} enableBackToTop className="h-full w-full px-4">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="library-actions mb-2 flex items-center justify-between">
         <h1 className="flex items-center space-x-1">本地音乐</h1>
         <div className="flex items-center space-x-1">
           <Button size="sm" variant="flat" startContent={<RiFolderAddLine size={18} />} onPress={addDirectory}>
@@ -194,7 +194,7 @@ const LocalMusicPage = () => {
           </Button>
         </div>
       </div>
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="library-actions mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {Boolean(list.length) && (
             <Button
@@ -267,7 +267,7 @@ const LocalMusicPage = () => {
           </IconButton>
         </div>
       </div>
-      <div className="text-foreground-500 grid w-full grid-cols-[40px_minmax(0,1fr)_100px_100px_100px_100px_40px] items-center gap-4 rounded-md px-2 py-1 text-xs">
+      <div className="text-foreground-500 local-track grid w-full grid-cols-[40px_minmax(0,1fr)_100px_100px_100px_100px_40px] items-center gap-4 rounded-md px-2 py-1 text-xs">
         <div className="text-center">#</div>
         <div>标题</div>
         <div className="text-right">大小</div>

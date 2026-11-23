@@ -123,7 +123,7 @@ const SettingsPage = () => {
 
   return (
     <ScrollContainer enableBackToTop className="h-full w-full">
-      <div className="m-auto mb-6 max-w-[900px] px-8 py-4">
+      <div className="settings-page m-auto mb-6 max-w-[900px] px-8 py-4">
         <div className="space-y-6">
           <h1>设置</h1>
           <Tabs aria-label="设置选项" classNames={{ panel: "px-1 py-0", cursor: "rounded-medium" }}>

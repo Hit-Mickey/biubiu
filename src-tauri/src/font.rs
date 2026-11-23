@@ -1,3 +1,4 @@
+#[cfg(any(windows, target_os = "linux"))]
 use std::collections::BTreeSet;
 
 use serde::Serialize;
@@ -192,4 +193,17 @@ fn collect_font_families() -> Vec<String> {
         }
     }
     set.into_iter().collect()
+}
+
+#[cfg(target_os = "android")]
+fn collect_font_families() -> Vec<String> {
+    [
+        "sans-serif",
+        "sans-serif-medium",
+        "sans-serif-condensed",
+        "serif",
+        "monospace",
+    ]
+    .map(str::to_owned)
+    .to_vec()
 }

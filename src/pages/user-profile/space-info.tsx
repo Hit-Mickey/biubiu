@@ -4,6 +4,7 @@ import { useParams } from "react-router";
 import { Avatar, Divider, Image, Tooltip } from "@heroui/react";
 import { RiAddLine, RiCheckLine, RiFlashlightFill } from "@remixicon/react";
 
+import { resolveMediaUrl } from "@/bridge/media-url";
 import { UserRelation } from "@/common/constants/relation";
 import { formatNumber } from "@/common/utils/number";
 import AsyncButton from "@/components/async-button";
@@ -14,7 +15,7 @@ import { useSettings } from "@/store/settings";
 import { useUser } from "@/store/user";
 
 interface Props {
-  spaceInfo?: SpaceAccInfoData;
+  spaceInfo?: Pick<SpaceAccInfoData, "mid" | "face" | "name"> & Partial<SpaceAccInfoData>;
   relationStats?: RelationStatData;
   relationWithMe?: number;
   refreshRelation: () => Promise<number>;
@@ -40,7 +41,8 @@ const SpaceInfo = ({ spaceInfo, relationStats, relationWithMe, refreshRelation }
     },
     {
       title: "等  级",
-      value: `Lv${spaceInfo?.level ?? 0}`,
+      value: `Lv${spaceInfo?.level}`,
+      hidden: spaceInfo?.level == null,
     },
   ].filter(item => !item.hidden);
 
@@ -67,12 +69,14 @@ const SpaceInfo = ({ spaceInfo, relationStats, relationWithMe, refreshRelation }
 
   const isDarkTheme =
     themeMode === "dark" || (themeMode === "system" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const banner = resolveMediaUrl(spaceInfo?.top_photo_v2?.l_200h_img);
+  const face = resolveMediaUrl(spaceInfo?.face);
   const overlayOpacity = isDarkTheme ? 0.5 : 0.3;
 
   if (relationWithMe === UserRelation.Blocked) {
     return (
       <div className="flex h-[480px] w-full flex-col items-center justify-center space-y-6">
-        <Avatar src={spaceInfo?.face} alt={spaceInfo?.name} className="h-[120px] w-[120px] shadow-lg" />
+        <Avatar src={face} alt={spaceInfo?.name} className="h-[120px] w-[120px] shadow-lg" />
         <p className="text-lg">已拉黑</p>
       </div>
     );
@@ -80,13 +84,13 @@ const SpaceInfo = ({ spaceInfo, relationStats, relationWithMe, refreshRelation }
 
   return (
     <div
-      className="flex h-[200px] items-end justify-between space-x-8 bg-cover bg-center px-8 py-4 text-white bg-blend-multiply"
+      className="profile-banner flex h-[200px] items-end justify-between space-x-8 bg-cover bg-center px-8 py-4 text-white bg-blend-multiply"
       style={{
-        background: `linear-gradient(rgba(0,0,0,${overlayOpacity}), rgba(0,0,0,${overlayOpacity})), url(${spaceInfo?.top_photo_v2?.l_200h_img}) center/cover no-repeat`,
+        backgroundImage: `linear-gradient(rgba(0,0,0,${overlayOpacity}), rgba(0,0,0,${overlayOpacity}))${banner ? `, url("${banner}")` : ""}`,
       }}
     >
       <div className="flex min-w-0 grow items-end space-x-4">
-        <Avatar src={spaceInfo?.face} alt={spaceInfo?.name} className="h-[140px] w-[140px] flex-none shadow-lg" />
+        <Avatar src={face} alt={spaceInfo?.name} className="h-[140px] w-[140px] flex-none shadow-lg" />
         <div className="flex min-w-0 flex-1 flex-col space-y-2">
           <div className="flex items-center space-x-2">
             <div className="flex items-center space-x-2">
@@ -97,7 +101,9 @@ const SpaceInfo = ({ spaceInfo, relationStats, relationWithMe, refreshRelation }
                   </div>
                 </Tooltip>
               )}
-              <h1 className="text-xl font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{spaceInfo?.name}</h1>
+              <h1 className="text-xl font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                {spaceInfo?.name || `UID ${id}`}
+              </h1>
             </div>
             {Boolean(spaceInfo?.vip?.status) && (
               <Image
@@ -112,32 +118,32 @@ const SpaceInfo = ({ spaceInfo, relationStats, relationWithMe, refreshRelation }
           </p>
         </div>
       </div>
-      <div className="flex flex-none items-center space-x-4">
-        {Boolean(user?.isLogin) && !isSelf && (
-          <AsyncButton
-            variant="shadow"
-            color={isFollow ? "success" : "default"}
-            startContent={isFollow ? <RiCheckLine size={18} /> : <RiAddLine size={18} />}
-            onPress={toggleFollow}
-            className="mt-2"
-          >
-            {isFollow ? "已关注" : "关注"}
-          </AsyncButton>
-        )}
-        {user?.isLogin
-          ? stats.map((item, idx) => (
-              <Fragment key={idx}>
-                <div className="flex flex-col items-center justify-center">
-                  <span className="text-lg font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{item.value}</span>
-                  <span className="text-sm whitespace-nowrap text-white/80 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
-                    {item.title}
-                  </span>
-                </div>
-                {idx !== stats.length - 1 && <Divider orientation="vertical" className="h-4" />}
-              </Fragment>
-            ))
-          : null}
-      </div>
+      {user?.isLogin && (
+        <div className="flex flex-none items-center space-x-4">
+          {!isSelf && (
+            <AsyncButton
+              variant="shadow"
+              color={isFollow ? "success" : "default"}
+              startContent={isFollow ? <RiCheckLine size={18} /> : <RiAddLine size={18} />}
+              onPress={toggleFollow}
+              className="mt-2"
+            >
+              {isFollow ? "已关注" : "关注"}
+            </AsyncButton>
+          )}
+          {stats.map((item, idx) => (
+            <Fragment key={idx}>
+              <div className="flex flex-col items-center justify-center">
+                <span className="text-lg font-semibold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{item.value}</span>
+                <span className="text-sm whitespace-nowrap text-white/80 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                  {item.title}
+                </span>
+              </div>
+              {idx !== stats.length - 1 && <Divider orientation="vertical" className="h-4" />}
+            </Fragment>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

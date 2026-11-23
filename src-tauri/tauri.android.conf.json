@@ -1,0 +1,7 @@
+{
+  "build": {
+    "beforeDevCommand": "node scripts/prepare-android.mjs && pnpm dev:web",
+    "beforeBuildCommand": "node scripts/prepare-android.mjs && pnpm build:web"
+  },
+  "bundle": { "android": { "minSdkVersion": 26 } }
+}

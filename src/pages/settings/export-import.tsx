@@ -4,6 +4,7 @@ import { Button, addToast } from "@heroui/react";
 import { RiExportFill, RiImportFill } from "@remixicon/react";
 import { merge } from "es-toolkit/object";
 
+import { saveBlob } from "@/common/utils/save-blob";
 import { useSettings } from "@/store/settings";
 import { appName } from "@shared/app";
 import { defaultAppSettings } from "@shared/settings/app-settings";
@@ -20,14 +21,13 @@ const ImportExport = () => {
       const blob = new Blob([JSON.stringify(settingStore?.appSettings ?? defaultAppSettings, null, 2)], {
         type: "application/json",
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${appName}-settings-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      if (
+        !(await saveBlob(
+          blob,
+          `${appName}-settings-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.json`,
+        ))
+      )
+        return;
       addToast({ title: "已导出配置", description: "JSON 文件已下载", color: "success" });
     } catch (e) {
       addToast({ title: "导出失败", description: String(e), color: "danger" });

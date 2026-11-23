@@ -1,16 +1,16 @@
 import { addToast, Switch } from "@heroui/react";
 
-import { useDesktopLyrics } from "@/store/desktop-lyrics";
+import { setSplitBilingual, useSplitBilingual } from "./bilingual-preference";
 
 export default function BilingualLyricsSwitch({ compact = false }: { compact?: boolean }) {
-  const split = useDesktopLyrics(s => s.appearance.splitBilingual);
+  const split = useSplitBilingual();
   return (
     <Switch
       aria-label="双语歌词分行"
       size={compact ? "sm" : "md"}
       isSelected={split}
       onValueChange={splitBilingual => {
-        void window.electron.setDesktopLyricsAppearance({ splitBilingual }).catch(() => {
+        void setSplitBilingual(splitBilingual).catch(() => {
           addToast({ title: "歌词显示设置保存失败", color: "danger" });
         });
       }}

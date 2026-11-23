@@ -32,6 +32,7 @@ const SeriesList = ({ data, loading, className, getScrollElement, onMenuAction }
       bvid: item.bvid,
       title: item.title,
       cover: item.cover,
+      playCount: item.cnt_info?.play,
       ownerName: item.upper?.name,
       ownerMid: item.upper?.mid,
     });

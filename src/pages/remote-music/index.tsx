@@ -232,7 +232,7 @@ const RemoteMusicPage = () => {
 
   return (
     <section className="flex h-full min-h-0 flex-col px-4" aria-label="WebDAV 远程列表">
-      <div className="flex min-h-10 shrink-0 items-center justify-between gap-3">
+      <div className="library-actions flex min-h-10 shrink-0 items-center justify-between gap-3">
         <h1 className="font-medium">远程列表</h1>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="flat" startContent={<RiAddLine size={18} />} onPress={() => setEditor({})}>
@@ -310,7 +310,7 @@ const RemoteMusicPage = () => {
               {list.error}
             </p>
           )}
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-2">
+          <div className="library-actions flex shrink-0 flex-wrap items-center justify-between gap-2 py-2">
             <div className="flex items-center gap-2">
               <Button
                 size="sm"

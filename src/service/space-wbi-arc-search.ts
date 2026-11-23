@@ -1,4 +1,4 @@
-import { apiRequest } from "./request";
+import { apiRequest, type BiliLookupOptions } from "./request";
 
 /**
  * 查询用户投稿视频明细（WBI签名）请求参数
@@ -86,7 +86,8 @@ export interface SpaceArcSearchPage {
  * 数据本体
  */
 export interface SpaceWbiArcSearchData {
-  list: SpaceArcSearchList;
+  v_voucher?: string;
+  list?: SpaceArcSearchList;
   page: SpaceArcSearchPage;
 }
 
@@ -107,8 +108,12 @@ export interface SpaceWbiArcSearchResponse {
 /**
  * 查询用户投稿视频明细（WBI签名）
  */
-export function getSpaceWbiArcSearch(params: SpaceWbiArcSearchRequestParams): Promise<SpaceWbiArcSearchResponse> {
+export function getSpaceWbiArcSearch(
+  params: SpaceWbiArcSearchRequestParams,
+  options: BiliLookupOptions = {},
+): Promise<SpaceWbiArcSearchResponse> {
   return apiRequest.get<SpaceWbiArcSearchResponse>("/x/space/wbi/arc/search", {
+    ...options,
     params,
     useWbi: true,
   });

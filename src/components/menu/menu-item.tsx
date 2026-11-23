@@ -5,6 +5,8 @@ import { Avatar, Button, Link as HeroLink, Tooltip } from "@heroui/react";
 import clx from "classnames";
 import { twMerge } from "tailwind-merge";
 
+import { detectPlatform } from "@/bridge/env";
+
 export interface MenuItemProps {
   /** 菜单项标签 */
   title: string;
@@ -36,6 +38,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
   collapsed,
   dndProps,
 }) => {
+  const android = (window.electron?.getPlatform?.() ?? detectPlatform()) === "android";
   const location = useLocation();
   const { id } = useParams();
 
@@ -51,7 +54,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
         <Icon size={18} />
       ) : undefined;
 
-    if (!collapsed && icon) {
+    if (icon && (android || !collapsed)) {
       return icon;
     }
 
@@ -66,7 +69,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
         className="h-10 w-10 flex-none"
       />
     );
-  }, [cover, isActive, Icon, ActiveIcon, title, collapsed]);
+  }, [android, cover, isActive, Icon, ActiveIcon, title, collapsed]);
 
   const { className: dndClassName, ...dndRest } = (dndProps ?? {}) as {
     className?: string;
@@ -78,12 +81,14 @@ const MenuItem: React.FC<MenuItemProps> = ({
         <Button
           as={href ? HeroLink : "button"}
           href={href}
+          aria-label={title}
           fullWidth
           variant={isActive ? "flat" : "light"}
           color={isActive ? "primary" : "default"}
           onPress={onPress}
           className={clx("w-full min-w-0 justify-center rounded-md px-0 py-1", className, dndClassName, {
-            "h-auto": collapsed,
+            "h-10": android,
+            "h-auto": !android,
             "text-primary": isActive,
           })}
           {...(dndRest as any)}
@@ -107,7 +112,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
       className={twMerge("justify-start px-2 text-inherit", className, dndClassName)}
       {...(dndRest as any)}
     >
-      <span className="pointer-events-none truncate">{title}</span>
+      <span className="side-menu-label pointer-events-none truncate">{title}</span>
     </Button>
   );
 };

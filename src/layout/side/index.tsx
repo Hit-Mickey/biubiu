@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 
 import { Button, useDisclosure } from "@heroui/react";
-import { RiArrowLeftDoubleLine, RiArrowRightDoubleLine } from "@remixicon/react";
+import { RiArrowLeftDoubleLine, RiArrowRightDoubleLine, RiMenuFoldLine, RiMenuUnfoldLine } from "@remixicon/react";
 import clx from "classnames";
 
+import { detectPlatform } from "@/bridge/env";
 import LoadOnOpen from "@/components/load-on-open";
 import ScrollContainer from "@/components/scroll-container";
 import { useSettings } from "@/store/settings";
@@ -20,6 +21,7 @@ const MIN_WIDTH = 160;
 const MAX_WIDTH = 480;
 
 const SideNav = () => {
+  const android = (window.electron?.getPlatform?.() ?? detectPlatform()) === "android";
   const isLoggedIn = useUser(state => Boolean(state.user?.isLogin));
   const sideMenuCollapsed = useSettings(state => state.sideMenuCollapsed);
   const sideMenuWidth = useSettings(state => state.sideMenuWidth);
@@ -106,6 +108,7 @@ const SideNav = () => {
   }, [isDragging]);
 
   useEffect(() => {
+    if (android) return;
     const onMouseMove = (event: MouseEvent) => {
       if (!isDraggingRef.current) return;
 
@@ -141,7 +144,35 @@ const SideNav = () => {
         document.body.style.userSelect = prevUserSelectRef.current;
       }
     };
-  }, [updateSettings]);
+  }, [android, updateSettings]);
+
+  const ToggleIcon = android
+    ? isCollapsedVisual
+      ? RiMenuUnfoldLine
+      : RiMenuFoldLine
+    : isCollapsedVisual
+      ? RiArrowRightDoubleLine
+      : RiArrowLeftDoubleLine;
+  const toggleButton = (
+    <Button
+      size="sm"
+      isIconOnly
+      fullWidth={!android}
+      variant={android ? "light" : "solid"}
+      radius={android ? "md" : "none"}
+      aria-label={isCollapsedVisual ? "展开侧栏文字" : "收起侧栏文字"}
+      aria-expanded={!isCollapsedVisual}
+      aria-controls="sidebar-navigation"
+      onPress={onToggleCollapsed}
+      className={
+        android
+          ? "sidebar-toggle h-11 w-11 flex-none self-start"
+          : "bg-background border-divider/30 h-auto w-full flex-none border-y py-1"
+      }
+    >
+      <ToggleIcon size={android ? 22 : 16} />
+    </Button>
+  );
 
   return (
     <>
@@ -150,10 +181,14 @@ const SideNav = () => {
           "transition-[width] duration-200": !isDragging,
           "transition-none": isDragging,
         })}
-        style={{ width: `${renderWidth}px` }}
+        id="main-sidebar"
+        data-collapsed={isCollapsedVisual}
+        style={android ? undefined : { width: renderWidth }}
       >
+        {android && toggleButton}
         <Logo isCollapsed={isCollapsedVisual} />
         <ScrollContainer
+          id="sidebar-navigation"
           className={clx("min-h-0 flex-1 pb-2", {
             "px-4": !isCollapsedVisual,
             "overflow-hidden": isDragging,
@@ -170,20 +205,13 @@ const SideNav = () => {
             </Suspense>
           )}
         </ScrollContainer>
-        <Button
-          size="sm"
-          isIconOnly
-          fullWidth
-          radius="none"
-          onPress={onToggleCollapsed}
-          className="bg-background border-divider/30 h-auto w-full flex-none border-y py-1"
-        >
-          {isCollapsedVisual ? <RiArrowRightDoubleLine size={16} /> : <RiArrowLeftDoubleLine size={16} />}
-        </Button>
-        <div
-          className="hover:bg-foreground/10 absolute top-0 right-0 h-full w-2 cursor-col-resize bg-transparent"
-          onMouseDown={onStartResize}
-        />
+        {!android && toggleButton}
+        {!android && (
+          <div
+            className="hover:bg-foreground/10 absolute top-0 right-0 h-full w-2 cursor-col-resize bg-transparent"
+            onMouseDown={onStartResize}
+          />
+        )}
       </div>
       <LoadOnOpen isOpen={isFavoritesEditModalOpen}>
         <FavoritesEditModal

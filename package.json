@@ -33,6 +33,8 @@
     "dev:web": "rsbuild dev",
     "build": "tauri build",
     "build:web": "rsbuild build",
+    "dev:android": "tauri android dev",
+    "build:android": "tauri android build --apk --target aarch64 x86_64",
     "tauri": "tauri",
     "test": "vitest",
     "knip": "knip --no-exit-code --max-show-issues 5 --reporter github-actions",

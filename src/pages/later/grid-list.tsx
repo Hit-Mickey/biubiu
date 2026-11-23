@@ -6,6 +6,7 @@ import { type ToViewVideoItem } from "@/service/history-toview-list";
 import { usePlayList } from "@/store/play-list";
 
 import { getContextMenus } from "./menu";
+import { toPlayItem } from "./play-item";
 
 interface GridListProps {
   items: ToViewVideoItem[];
@@ -21,6 +22,7 @@ const GridList: React.FC<GridListProps> = ({ items, hasMore, loading, onLoadMore
     (item: ToViewVideoItem) => {
       return (
         <MusicCard
+          bvid={item.bvid}
           key={item.aid}
           title={item.title}
           cover={item.pic}
@@ -39,14 +41,7 @@ const GridList: React.FC<GridListProps> = ({ items, hasMore, loading, onLoadMore
             item.is_pgc
               ? undefined
               : () => {
-                  usePlayList.getState().play({
-                    type: "mv",
-                    bvid: item.bvid,
-                    title: item.title,
-                    cover: item.pic,
-                    ownerName: item.owner?.name,
-                    ownerMid: item.owner?.mid,
-                  });
+                  usePlayList.getState().play(toPlayItem(item));
                 }
           }
         />

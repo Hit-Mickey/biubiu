@@ -134,6 +134,7 @@ const DownloadList = () => {
                 </div>
               }
               classNames={{
+                table: "download-table",
                 th: "first:rounded-s-medium last:rounded-e-medium",
               }}
             >
@@ -182,6 +183,14 @@ const DownloadList = () => {
                               </Chip>
                             )}
                           </div>
+                        </div>
+                        <div className="download-file-details text-default-500 hidden text-xs">
+                          {[
+                            item.totalBytes ? filesize(item.totalBytes) : "",
+                            item.createdTime ? formatMillisecond(item.createdTime) : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </div>
                       </TableCell>
                       <TableCell>

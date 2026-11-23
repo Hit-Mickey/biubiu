@@ -68,7 +68,7 @@ pub fn decrypt_secret(encoded: &str) -> Result<String, String> {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub fn encrypt_secret(plain: &str) -> Result<String, String> {
     let reference = format!("keyring:{}", uuid::Uuid::new_v4());
     credential(&reference)?
@@ -77,7 +77,7 @@ pub fn encrypt_secret(plain: &str) -> Result<String, String> {
     Ok(reference)
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn credential(reference: &str) -> Result<keyring::Entry, String> {
     let id = reference
         .strip_prefix("keyring:")
@@ -86,7 +86,7 @@ fn credential(reference: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new("com.hitmickey.biubiu.webdav", &id.to_string()).map_err(|e| e.to_string())
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub fn decrypt_secret(reference: &str) -> Result<String, String> {
     credential(reference)?
         .get_password()
@@ -94,8 +94,17 @@ pub fn decrypt_secret(reference: &str) -> Result<String, String> {
 }
 
 pub fn forget_secret(_reference: &str) {
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     if let Ok(entry) = credential(_reference) {
         let _ = entry.delete_credential();
     }
+}
+
+#[cfg(target_os = "android")]
+pub fn encrypt_secret(plain: &str) -> Result<String, String> {
+    crate::android::secret("encrypt", plain)
+}
+#[cfg(target_os = "android")]
+pub fn decrypt_secret(encoded: &str) -> Result<String, String> {
+    crate::android::secret("decrypt", encoded)
 }

@@ -8,11 +8,13 @@ use tokio_util::sync::CancellationToken;
 
 use crate::audio_engine::AudioEngineHandle;
 use crate::bili_http::BiliHttpClient;
+#[cfg(desktop)]
 use crate::desktop_lyrics::DesktopLyricsManager;
 use crate::download::DownloadManager;
 use crate::storage::StorageManager;
 use crate::updater::UpdaterState;
 use crate::webdav::library::WebDavManager;
+#[cfg(desktop)]
 use crate::window_mgr::WindowLifecycle;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -40,10 +42,12 @@ pub struct AppState {
     pub webdav: Arc<WebDavManager>,
     pub audio: Arc<AudioEngineHandle>,
     pub downloads: Arc<DownloadManager>,
+    #[cfg(desktop)]
     pub desktop_lyrics: Arc<DesktopLyricsManager>,
     pub updater: Arc<Mutex<UpdaterState>>,
     pub external_playlist_cancels: Arc<Mutex<HashMap<String, CancellationToken>>>,
     pub registered_shortcuts: Arc<Mutex<HashMap<String, String>>>,
+    #[cfg(desktop)]
     pub window_lifecycle: Arc<WindowLifecycle>,
     pub migration_notice: Mutex<Option<&'static str>>,
     pub is_quitting: Arc<std::sync::atomic::AtomicBool>,
@@ -74,7 +78,9 @@ impl AppState {
     }
 
     pub fn runtime_init_script(&self, window_label: &str) -> String {
-        let platform = if cfg!(target_os = "windows") {
+        let platform = if cfg!(target_os = "android") {
+            "android"
+        } else if cfg!(target_os = "windows") {
             "windows"
         } else if cfg!(target_os = "macos") {
             "macos"
@@ -109,6 +115,10 @@ impl AppState {
     }
 
     pub fn resolve_ffmpeg_path(&self) -> PathBuf {
+        #[cfg(target_os = "android")]
+        if let Some(dir) = crate::android::BINARY_DIR.get() {
+            return dir.join("libbiubiu_ffmpeg.so");
+        }
         if let Some(custom) = self.storage.get_app_setting_string("ffmpegPath") {
             let trimmed = custom.trim();
             if !trimmed.is_empty() {

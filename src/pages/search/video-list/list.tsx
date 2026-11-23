@@ -30,6 +30,7 @@ const List: React.FC<ListProps> = ({ items, getScrollElement, onMenuAction, load
       bvid: item.bvid,
       title: item.title,
       cover: formatUrlProtocol(item.pic),
+      playCount: item.play,
       ownerName: item.author,
       ownerMid: item.mid,
     });

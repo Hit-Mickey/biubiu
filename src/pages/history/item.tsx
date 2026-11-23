@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router";
 
 import { Button } from "@heroui/react";
 import clx from "classnames";
 
+import { detectPlatform } from "@/bridge/env";
 import { formatDuration } from "@/common/utils/time";
+import { trackPressProps } from "@/common/utils/track-press";
 import ContextMenu, { type ContextMenuItem } from "@/components/context-menu";
 import Image from "@/components/image";
 import OperationMenu from "@/components/music-list-item/operation";
+import { useTrackMenu } from "@/components/music-list-item/use-track-menu";
 import { isSame, usePlayList } from "@/store/play-list";
 
 interface Props {
@@ -43,7 +45,25 @@ const HistoryListItem = ({
   onMenuAction,
   isCompact,
 }: Props) => {
-  const navigate = useNavigate();
+  const android = detectPlatform() === "android";
+  const menu = useTrackMenu(menus, onMenuAction, { mid: upMid, name: upName, bvid });
+  const author = (
+    <span
+      className={clx("text-foreground-500 max-w-full truncate", isCompact ? "text-sm" : "text-xs", {
+        "cursor-pointer hover:underline": !android && upMid,
+      })}
+      onClick={
+        android || !upMid
+          ? undefined
+          : event => {
+              event.stopPropagation();
+              menu.openProfile();
+            }
+      }
+    >
+      {upName || "未知"}
+    </span>
+  );
   const playId = usePlayList(state => state.playId);
   const list = usePlayList(state => state.list);
   const playItem = list.find(item => item.id === playId);
@@ -58,20 +78,20 @@ const HistoryListItem = ({
   };
 
   return (
-    <ContextMenu items={menus} onAction={onMenuAction}>
+    <ContextMenu items={menu.items} onAction={menu.onAction}>
       <Button
         as="div"
         fullWidth
         disableAnimation
         variant={isPlay ? "flat" : "light"}
         color={isPlay ? "primary" : "default"}
-        onDoubleClick={onPress}
+        {...trackPressProps(onPress)}
         className={clx(
           "group flex w-full items-center justify-between rounded-md",
           isCompact ? "h-9 min-h-9 min-w-0 px-0 text-sm" : "h-auto min-h-auto min-w-auto space-y-2 p-2",
         )}
       >
-        <div className={clx("grid w-full items-center gap-4", gridCols)}>
+        <div className={clx("browse-track grid w-full items-center gap-4", gridCols)}>
           {/* 1. # */}
           <div className="text-foreground-500 text-center text-xs tabular-nums">{index}</div>
 
@@ -99,40 +119,12 @@ const HistoryListItem = ({
               >
                 {title}
               </span>
-              {!isCompact && (
-                <span
-                  className={clx("text-foreground-500 w-fit truncate text-xs", {
-                    "cursor-pointer hover:underline": Boolean(upMid),
-                  })}
-                  onClick={e => {
-                    e.stopPropagation();
-                    if (!upMid) return;
-                    navigate(`/user/${upMid}`);
-                  }}
-                >
-                  {upName || "未知"}
-                </span>
-              )}
+              {!isCompact && author}
             </div>
           </div>
 
           {/* 3. UP (Compact only) */}
-          {isCompact && (
-            <div className="min-w-0 truncate text-left">
-              <span
-                className={clx("text-foreground-500 w-fit truncate text-sm", {
-                  "cursor-pointer hover:underline": Boolean(upMid),
-                })}
-                onClick={e => {
-                  e.stopPropagation();
-                  if (!upMid) return;
-                  navigate(`/user/${upMid}`);
-                }}
-              >
-                {upName || "未知"}
-              </span>
-            </div>
-          )}
+          {isCompact && <div className="min-w-0 truncate text-left">{author}</div>}
 
           {/* 4. Progress/Duration */}
           <div className="text-foreground-500 text-right text-xs tabular-nums">
@@ -144,7 +136,7 @@ const HistoryListItem = ({
 
           {/* 6. Actions */}
           <div className="flex h-full items-center justify-end">
-            <OperationMenu items={menus} onAction={onMenuAction} />
+            <OperationMenu items={menu.items} onAction={menu.onAction} />
           </div>
         </div>
       </Button>

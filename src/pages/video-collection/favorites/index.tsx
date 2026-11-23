@@ -199,6 +199,7 @@ const Favorites = () => {
       sid: item.type === 12 ? item.id : undefined,
       title: item.title,
       cover: item.cover,
+      playCount: item.cnt_info?.play,
       ownerName: item.upper?.name,
       ownerMid: item.upper?.mid,
     });
@@ -376,6 +377,7 @@ const Favorites = () => {
             cover: item.cover,
             bvid: item.bvid,
             sid: item.id,
+            playCount: item.cnt_info?.play,
             ownerName: item.upper?.name,
             ownerMid: item.upper?.mid,
           });
@@ -388,6 +390,7 @@ const Favorites = () => {
               cover: item.cover,
               bvid: item.bvid,
               sid: item.id,
+              playCount: item.cnt_info?.play,
               ownerName: item.upper?.name,
               ownerMid: item.upper?.mid,
             },

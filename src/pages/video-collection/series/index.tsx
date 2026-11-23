@@ -79,7 +79,7 @@ const Series = () => {
         pubtime: a.pubdate,
         bvid: a.bvid,
         upper: { mid: Number(meta.mid), name: "" },
-        cnt_info: { collect: 0, play: a.stat?.view ?? 0, danmaku: 0, vt: a.stat?.vt ?? 0 },
+        cnt_info: { collect: 0, play: a.stat?.view, danmaku: 0, vt: a.stat?.vt ?? 0 },
         enable_vt: Number(a.enable_vt ?? 0),
         vt_display: a.vt_display,
         is_self_view: false,
@@ -127,6 +127,7 @@ const Series = () => {
           title: item.title,
           cover: item.cover,
           ownerMid: item.upper?.mid,
+          playCount: item.cnt_info?.play,
           ownerName: item.upper?.name,
         })),
       );
@@ -142,6 +143,7 @@ const Series = () => {
           title: item.title,
           cover: item.cover,
           ownerMid: item.upper?.mid,
+          playCount: item.cnt_info?.play,
           ownerName: item.upper?.name,
         })),
       );
@@ -157,6 +159,7 @@ const Series = () => {
           cover: item.cover,
           bvid: item.bvid,
           sid: item.id,
+          playCount: item.cnt_info?.play,
           ownerName: item.upper?.name,
           ownerMid: item.upper?.mid,
         });
@@ -169,6 +172,7 @@ const Series = () => {
             cover: item.cover,
             bvid: item.bvid,
             sid: item.id,
+            playCount: item.cnt_info?.play,
             ownerName: item.upper?.name,
             ownerMid: item.upper?.mid,
           },

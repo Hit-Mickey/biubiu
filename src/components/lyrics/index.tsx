@@ -5,7 +5,6 @@ import clsx from "classnames";
 
 import type { PlayData } from "@/store/play-list";
 
-import { useDesktopLyrics } from "@/store/desktop-lyrics";
 import { usePlayList } from "@/store/play-list";
 import { usePlayProgress } from "@/store/play-progress";
 
@@ -14,6 +13,7 @@ import type { TrackLyrics } from "./use-track-lyrics";
 
 import IconButton from "../icon-button";
 import ActiveWords from "./active-words";
+import { useSplitBilingual } from "./bilingual-preference";
 import FontSizeControl from "./font-size-control";
 import { displayLyricLine, plainLyricText, translationSuffix } from "./line-layout";
 import OffsetControl from "./offset-control";
@@ -53,7 +53,7 @@ export default function Lyrics({ item, lyrics, color, centered, showControls, de
   const wrapperRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
   const sheet = deferRendering ? emptySheet : getSheet();
-  const split = useDesktopLyrics(s => s.appearance.splitBilingual);
+  const split = useSplitBilingual();
   const lines = useMemo<DisplayLyricLine[]>(
     () => (split ? sheet.lines.map(line => displayLyricLine(line, true)) : sheet.lines),
     [sheet.lines, split],

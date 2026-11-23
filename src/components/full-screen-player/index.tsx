@@ -1,4 +1,4 @@
-import { lazy, startTransition, Suspense, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { lazy, startTransition, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 
 import { Drawer, DrawerBody, DrawerContent, Image, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import { RiArrowDownSLine, RiArrowLeftSLine, RiSettings3Line } from "@remixicon/react";
@@ -33,9 +33,9 @@ import OpenPlaylistDrawerButton from "../open-playlist-drawer-button";
 import WindowAction from "../window-action";
 import GlassBackground from "./background";
 import { useGlassmorphism } from "./glassmorphism";
+import FullScreenPlayerSettingsPanel from "./settings-panel";
 
 const PageList = lazy(() => import("./page-list"));
-const FullScreenPlayerSettingsPanel = lazy(() => import("./settings-panel"));
 const platform = window.electron.getPlatform();
 
 // A single transform can run in the compositor without updating y in JavaScript each frame.
@@ -134,7 +134,7 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
   };
 
   const scheduleHideUi = (delay: number) => {
-    if (isSettingsOpen || isDesktopLyricsMenuOpen) return;
+    if (platform === "android" || isSettingsOpen || isDesktopLyricsMenuOpen) return;
     if (hideUiTimeoutRef.current) {
       window.clearTimeout(hideUiTimeoutRef.current);
     }
@@ -198,13 +198,15 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
   const lyricTools = (
     <>
       <PlaybackLinesButton className={toolClass} />
-      <DesktopLyricsButton
-        className={toolClass}
-        onOpenChange={open => {
-          setIsDesktopLyricsMenuOpen(open);
-          if (open) handleMouseEnter();
-        }}
-      />
+      {platform !== "android" && (
+        <DesktopLyricsButton
+          className={toolClass}
+          onOpenChange={open => {
+            setIsDesktopLyricsMenuOpen(open);
+            if (open) handleMouseEnter();
+          }}
+        />
+      )}
     </>
   );
 
@@ -229,7 +231,7 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
       }}
     >
       <DrawerContent
-        className={clsx("bg-background text-foreground relative h-full overflow-hidden", {
+        className={clsx("full-player bg-background text-foreground relative h-full overflow-hidden", {
           dark: showBlurredBackground || appTheme === "dark",
           light: !showBlurredBackground && appTheme === "light",
         })}
@@ -266,6 +268,7 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
                   </IconButton>
                   <h2 className="truncate text-xl select-none">{playItem.pageTitle || playItem.title}</h2>
                   <Popover
+                    data-full-player-settings-overlay
                     isOpen={isSettingsOpen && isUiVisible}
                     onOpenChange={open => {
                       setIsSettingsOpen(open);
@@ -284,10 +287,8 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
                         <RiSettings3Line size={22} />
                       </IconButton>
                     </PopoverTrigger>
-                    <PopoverContent className="p-4">
-                      <Suspense fallback={<span role="status">加载中…</span>}>
-                        <FullScreenPlayerSettingsPanel isUiVisible={isUiVisible} />
-                      </Suspense>
+                    <PopoverContent className="full-player-settings-popover p-4">
+                      <FullScreenPlayerSettingsPanel isUiVisible={isUiVisible} />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -296,11 +297,11 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
                 </div>
               </div>
 
-              <div ref={setPlayerContent} className="flex h-full w-full items-center justify-center">
+              <div ref={setPlayerContent} className="player-content flex h-full w-full items-center justify-center">
                 {showMedia && !isLocal && showCover && (
                   <div
                     className={clsx(
-                      "flex h-full w-full items-center px-12",
+                      "player-cover flex h-full w-full items-center px-12",
                       showLyrics ? "justify-end" : "justify-center",
                     )}
                   >
@@ -327,7 +328,7 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
                 {showLyrics && (
                   <div
                     className={clsx(
-                      "h-full w-full overflow-hidden px-12 py-24",
+                      "player-lyrics h-full w-full overflow-hidden px-12 py-24",
                       !showCover || isLocal ? "flex items-center justify-center" : "",
                     )}
                   >

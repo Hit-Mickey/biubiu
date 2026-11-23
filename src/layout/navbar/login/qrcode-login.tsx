@@ -54,16 +54,31 @@ const QrcodeLogin = ({ onClose, updateUserData }: QrcodeLoginProps) => {
   const isOvertime = pollData?.code === 86038;
   const isPendingConfirm = pollData?.code === 86090 || pollData?.code === 0;
 
+  const mobile = window.electron.getPlatform() === "android";
   return (
-    <div className="flex flex-col items-center p-6">
+    <div className={clx("flex max-w-full flex-col items-center", !mobile && "p-6")}>
       <div className="mb-4 text-lg font-medium">扫码登录</div>
-      <div className="border-divider relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-lg border">
-        {genLoading || !qrcodeData?.url ? (
+      <div
+        className={clx(
+          "border-divider relative flex aspect-square max-w-full shrink-0 items-center justify-center rounded-lg border bg-white",
+          mobile ? "w-52" : "w-40",
+        )}
+      >
+        {genLoading ? (
           <Skeleton className="rounded-lg">
             <div className="bg-default-300 h-[144px] w-[144px] rounded-lg" />
           </Skeleton>
+        ) : qrcodeData?.url ? (
+          <QRCodeCanvas
+            value={qrcodeData.url}
+            size={mobile ? 200 : 144}
+            marginSize={mobile ? 4 : 0}
+            style={{ maxWidth: "100%", height: "auto" }}
+          />
         ) : (
-          <QRCodeCanvas value={qrcodeData?.url} size={144} className="rounded-md" />
+          <Button variant="flat" onPress={refreshCode}>
+            重新获取二维码
+          </Button>
         )}
         <div
           className={clx(
@@ -81,7 +96,7 @@ const QrcodeLogin = ({ onClose, updateUserData }: QrcodeLoginProps) => {
         </div>
       </div>
       <p
-        className={clx("text-default-500 dark:text-default-400 mt-2 text-sm whitespace-nowrap", {
+        className={clx("text-default-500 dark:text-default-400 mt-2 text-center text-sm", {
           "text-warning-500 dark:text-warning-400": isPendingConfirm,
         })}
       >

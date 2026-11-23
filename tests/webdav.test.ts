@@ -20,6 +20,13 @@ describe("WebDAV shared helpers and media URL rewriting", () => {
     expect(resolveMediaUrl("https://example.com/cover.jpg")).toBe("https://example.com/cover.jpg");
   });
 
+  test("upgrades Bilibili cover URLs on Android and preserves private HTTP servers", () => {
+    window.__TAURI_INTERNALS__ = {};
+    window.__BIUBIU_RUNTIME__ = { platform: "android" };
+    expect(resolveMediaUrl("http://i0.hdslb.com/bfs/a.jpg")).toBe("https://i0.hdslb.com/bfs/a.jpg");
+    expect(resolveMediaUrl("http://nas.example/music/a.jpg")).toBe("http://nas.example/music/a.jpg");
+  });
+
   test("rewrites biu-webdav URLs to loopback HTTP endpoints under Tauri runtime", () => {
     window.__TAURI_INTERNALS__ = {};
     setMediaServerConfig("http://127.0.0.1:45678/", "secret+token");

@@ -22,13 +22,13 @@ const LayoutNavbar = () => {
 
   return (
     <div
-      className={clx("flex h-full items-center justify-between pr-2 pl-4", {
+      className={clx("app-navbar flex h-full items-center justify-between pr-2 pl-4", {
         "window-drag": !isNoDrag,
         "window-no-drag": isNoDrag,
       })}
     >
       <div className="window-no-drag flex items-center justify-start space-x-2">
-        <Navigation />
+        {platform !== "android" && <Navigation />}
         <Search onFocusChange={setIsSearchFocused} />
       </div>
       <div className="window-no-drag flex items-center justify-center space-x-4">

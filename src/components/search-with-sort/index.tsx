@@ -15,6 +15,7 @@ const SearchWithSort = ({ onKeywordSearch, orderOptions, order, onOrderChange }:
       <SearchButton onSearch={onKeywordSearch} />
       {Boolean(orderOptions?.length) && (
         <Select
+          aria-label="排序方式"
           radius="md"
           selectionMode="single"
           disallowEmptySelection

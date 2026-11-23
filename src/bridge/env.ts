@@ -22,12 +22,13 @@ export function isTauriRuntime(): boolean {
 export function detectPlatform(): AppPlatForm {
   if (typeof window !== "undefined") {
     const injected = window.__BIUBIU_RUNTIME__?.platform;
-    if (injected === "windows" || injected === "macos" || injected === "linux") {
+    if (injected === "android" || injected === "windows" || injected === "macos" || injected === "linux") {
       return injected;
     }
   }
   if (typeof navigator !== "undefined") {
     const ua = navigator.userAgent || navigator.platform || "";
+    if (/Android/i.test(ua)) return "android";
     if (/Mac|Darwin/i.test(ua)) return "macos";
     if (/Win/i.test(ua)) return "windows";
   }

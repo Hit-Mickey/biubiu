@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-
 import { Progress } from "@heroui/react";
 import { RiCheckboxCircleLine } from "@remixicon/react";
 
@@ -23,17 +21,9 @@ const StageProgress = ({ data }: Props) => {
     );
   }
 
-  const progressValue = useMemo(() => {
-    if (data.status === "merging" || data.status === "mergePaused") {
-      return data.mergeProgress;
-    }
-
-    if (data.status === "converting" || data.status === "convertPaused") {
-      return data.convertProgress;
-    }
-
-    return data.downloadProgress;
-  }, [data.downloadProgress, data.status, data.mergeProgress, data.convertProgress]);
+  let progressValue = data.downloadProgress;
+  if (data.status === "merging" || data.status === "mergePaused") progressValue = data.mergeProgress;
+  if (data.status === "converting" || data.status === "convertPaused") progressValue = data.convertProgress;
 
   return (
     <div className="flex h-full flex-col justify-center space-y-1">

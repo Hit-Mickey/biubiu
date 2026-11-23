@@ -23,28 +23,34 @@ export const loadGeetestScript = () => {
 interface GetCaptchaParamsResponse {
   code: number;
   message: string;
-  data: {
-    type: string;
-    token: string;
-    geetest: {
-      gt: string;
-      challenge: string;
+  data?: {
+    token?: string;
+    geetest?: {
+      gt?: string;
+      challenge?: string;
     };
-  };
+  } | null;
 }
 
 export const verifyGeetest = async (
   getCaptchaParams: () => Promise<GetCaptchaParamsResponse>,
 ): Promise<GeetestResult | null> => {
   try {
-    await loadGeetestScript();
-
     const res = await getCaptchaParams();
-    if (res.code !== 0 || !res.data.geetest) {
-      addToast({ title: res.message || "获取验证码失败", color: "danger" });
+    if (res.code !== 0) {
+      const message = res.message?.trim();
+      addToast({
+        title: message && !/^(ok|success|0)$/i.test(message) ? message : "获取验证码失败，请重试",
+        color: "danger",
+      });
+      return null;
+    }
+    if (!res.data?.geetest?.gt || !res.data.geetest.challenge || !res.data.token) {
+      addToast({ title: "当前验证方式不可用，请在哔哩哔哩完成验证后重试", color: "warning" });
       return null;
     }
 
+    await loadGeetestScript();
     const { gt, challenge } = res.data.geetest;
     const { token } = res.data;
 

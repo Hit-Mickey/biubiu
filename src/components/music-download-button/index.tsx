@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 
-import { addToast, Tooltip, Listbox, ListboxItem } from "@heroui/react";
+import { addToast, Listbox, ListboxItem } from "@heroui/react";
 import { RiDownload2Fill, RiFileImageLine, RiFileMusicLine, RiFileVideoLine } from "@remixicon/react";
 
+import { resolveMediaUrl } from "@/bridge/media-url";
+import { saveBlob } from "@/common/utils/save-blob";
 import AsyncButton from "@/components/async-button";
 import IconButton from "@/components/icon-button";
+import PlaybackOptions from "@/components/playback-options";
 import { usePlayList } from "@/store/play-list";
 
 const MusicDownloadButton = () => {
@@ -45,7 +48,7 @@ const MusicDownloadButton = () => {
   };
 
   const downloadCover = async () => {
-    const coverUrl = playItem?.pageCover || playItem?.cover;
+    const coverUrl = resolveMediaUrl(playItem?.pageCover || playItem?.cover);
 
     if (!coverUrl) {
       addToast({
@@ -66,14 +69,7 @@ const MusicDownloadButton = () => {
       const ext = blob.type?.split("/")?.[1] || "jpg";
       const name = (playItem?.pageTitle || playItem?.title || "cover").replace(/[\\/:*?"<>|]/g, "_");
 
-      const link = document.createElement("a");
-      const objectUrl = URL.createObjectURL(blob);
-      link.href = objectUrl;
-      link.download = `${name}-cover.${ext}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(objectUrl);
+      await saveBlob(blob, `${name}-cover.${ext}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "未知错误";
       addToast({
@@ -86,25 +82,25 @@ const MusicDownloadButton = () => {
 
   if (playItem?.sid) {
     return (
-      <AsyncButton isIconOnly size="sm" variant="light" className="hover:text-primary" onPress={downloadAudio}>
+      <AsyncButton
+        aria-label="下载音频"
+        isIconOnly
+        size="sm"
+        variant="light"
+        className="hover:text-primary"
+        onPress={downloadAudio}
+      >
         <RiDownload2Fill size={18} />
       </AsyncButton>
     );
   }
 
   return (
-    <Tooltip
-      triggerScaleOnOpen={false}
-      isOpen={isTooltipOpen}
+    <PlaybackOptions
+      label="下载选项"
+      className="p-2"
+      open={isTooltipOpen}
       onOpenChange={setIsTooltipOpen}
-      disableAnimation
-      radius="md"
-      placement="top"
-      closeDelay={500}
-      showArrow={false}
-      classNames={{
-        content: "p-2",
-      }}
       content={
         <Listbox
           aria-label="下载选项"
@@ -147,10 +143,10 @@ const MusicDownloadButton = () => {
         </Listbox>
       }
     >
-      <IconButton>
+      <IconButton aria-label="下载">
         <RiDownload2Fill size={18} />
       </IconButton>
-    </Tooltip>
+    </PlaybackOptions>
   );
 };
 

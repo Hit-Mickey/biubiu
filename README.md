@@ -3,7 +3,7 @@
   <img src="./screenshots/logo.svg" alt="BiuBiu logo" width="120" />
 </p>
 <p align="center">
-  支持哔哩哔哩（B 站）、本地音乐和 WebDAV 的跨平台桌面音乐播放器 🎧🎶
+  支持哔哩哔哩（B 站）、本地音乐和 WebDAV 的跨平台音乐播放器 🎧🎶
 </p>
 <p align="center">
   <a href="https://github.com/Hit-Mickey/biubiu/releases">
@@ -65,8 +65,15 @@
 | Windows 10 / 11 | x64、ARM64 | 双击对应架构的 `-setup.exe` 安装。便携版请将 `-portable.zip` 完整解压后运行 `biubiu.exe`。 |
 | macOS 12 及以上 | Intel x64、Apple Silicon ARM64 | 打开 DMG，将 BiuBiu 拖至「应用程序」，也可解压对应架构的 ZIP。 |
 | Linux | x86_64、aarch64 | AppImage 需要执行权限，可运行 `chmod +x BiuBiu_*.AppImage`。Debian / Ubuntu 可用 DEB，Fedora 系发行版可用 RPM。 |
+| Android 8.0 及以上 | ARM64、x86_64 | 在含有 Android 安装包的发布中选择 `BiuBiu_版本号_android.apk`，打开后按系统提示安装。 |
 
 应用启动后和运行期间会检查本仓库的最新正式版。「设置 → 关于应用」也可手动检查。点击「下载更新」会下载对应系统和架构的发布附件，并校验 GitHub 提供的 SHA-256。校验通过后，Windows 安装版可点击「退出并安装更新」，macOS 会打开 DMG，Linux 会打开系统安装工具或替换当前 AppImage。Windows 便携版可打开下载目录，退出程序后解压新 ZIP。
+
+## Android 操作
+
+安卓版直接使用桌面端的页面组件、主题和 Rust 播放引擎。播放、入队、编辑歌单、搜索歌词及设置使用同一套操作逻辑。侧栏默认显示图标和文字，点 BiuBiu 名称上方的按钮可收起或展开文字，按钮始终靠左。在歌曲条目上连续轻点两下即可播放，点右侧省略号可打开 UP 主主页。B 站歌曲列表同时展示播放量和时长。底栏显示歌曲信息和播放控制，可直接选择线路、定时暂停、切换播放顺序、调整音量和倍速。点封面进入播放页查看歌词，点队列图标查看播放列表。锁屏、耳机和通知栏也能控制当前队列。
+
+在「本地音乐」中添加系统文件选择器授权的音乐目录。「远程列表」可直接使用 WebDAV，连接密码通过 Android Keystore 加密。Android 10 及以上的默认下载目录为 `Download/BiuBiu`，也可在设置中选择其他目录。
 
 ## 从 Electron 版升级
 
@@ -122,11 +129,27 @@ node scripts/collect-release.mjs
 
 Windows x64 仓库附带精简版 FFmpeg。Linux 和 macOS 首次开发或打包时会从 FFmpeg 官方下载源码、验证摘要并为本机架构编译，需要 Bash、C 编译器和 GNU Make。Windows ARM64 的发布任务使用 CLANGARM64 编译原生 FFmpeg。构建选项和所用源码版本见 [FFmpeg 构建脚本](scripts/build-ffmpeg.sh)，随包分发的许可见 [LGPL 2.1](src-tauri/resources/ffmpeg/COPYING.LGPLv2.1)。
 
-### 发布新版本
+### 构建 Android APK
+
+安装 JDK 21、Android SDK（Platform 37.0、Build Tools 36.0.0）、NDK 27.2.12479018 和 CMake 3.22.1。设置 `JAVA_HOME`、`ANDROID_HOME`、`NDK_HOME`，将 SDK 中的 CMake、Ninja 和 platform-tools 加入 PATH。FFmpeg 使用 Bash、GNU Make 和宿主 C 编译器构建，Windows 可通过 `BASH_PATH` 指定 Git Bash，通过 `MAKE` 指定 GNU Make。
+
+```sh
+rustup target add aarch64-linux-android x86_64-linux-android
+pnpm install --frozen-lockfile
+pnpm dev:android
+# 构建可直接安装的开发签名包
+pnpm build:android --debug
+```
+
+APK 位于 `src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk`。发布时运行 `pnpm build:android`，Gradle 从 `BIUBIU_ANDROID_KEYSTORE`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` 读取长期签名。后续版本使用同一密钥才能覆盖安装。
+
+仓库的 Release 工作流同时构建 Android。要把 APK 附到正式发布，在 GitHub 仓库的 Actions secrets 中配置 `ANDROID_KEYSTORE_BASE64`（签名文件的 Base64）及上述密码和别名变量。缺少签名文件时，工作流会在运行记录的 `Android-test` Artifacts 中提供测试 APK。桌面各系统沿用原有发布附件。
+
+## 发布新版本
 
 1. 将 `package.json`、`src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json` 的版本改为相同的 SemVer 值，运行一次 Cargo 更新锁文件，并将版本改动提交到要发布的分支。
 2. 在目标提交上打标签并推送。例如，软件版本 `2.0.0` 对应标签 `v2.0.0`。
-3. GitHub Actions 的 **Release** 工作流会为 Windows、macOS 和 Linux 各构建 x64、ARM64 两种架构。每个任务上传本次构建的文件。六项构建全部成功，且发布清单中的 14 个附件都通过校验后，工作流会将附件上传至 GitHub Release 并公开。正式版和预发布版分别标记。
+3. GitHub Actions 的 **Release** 工作流会为 Windows、macOS 和 Linux 各构建 x64、ARM64 两种架构。每个任务上传本次构建的文件。各项构建成功且 14 个桌面附件通过校验后（已配置 Android 正式签名时一并校验第 15 个 APK），工作流会将附件上传至 GitHub Release 并公开。正式版和预发布版分别标记。
 4. 网页补发可在 **Actions → Release → Run workflow** 填入已有标签。手工选择分支且标签留空，只会生成该分支的测试构建，可在运行页面下载 Artifacts。已经公开的同名 Release 会保留。
 
 ## 📄 许可证

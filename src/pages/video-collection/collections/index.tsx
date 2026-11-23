@@ -97,6 +97,7 @@ const VideoCollections = () => {
           title: item.title,
           cover: item.cover,
           ownerMid: item.upper?.mid,
+          playCount: item.cnt_info?.play,
           ownerName: item.upper?.name,
         })),
       );
@@ -112,6 +113,7 @@ const VideoCollections = () => {
           title: item.title,
           cover: item.cover,
           ownerMid: item.upper?.mid,
+          playCount: item.cnt_info?.play,
           ownerName: item.upper?.name,
         })),
       );
@@ -157,6 +159,7 @@ const VideoCollections = () => {
           cover: item.cover,
           bvid: item.bvid,
           sid: item.id,
+          playCount: item.cnt_info?.play,
           ownerName: item.upper?.name,
           ownerMid: item.upper?.mid,
         });
@@ -169,6 +172,7 @@ const VideoCollections = () => {
             cover: item.cover,
             bvid: item.bvid,
             sid: item.id,
+            playCount: item.cnt_info?.play,
             ownerName: item.upper?.name,
             ownerMid: item.upper?.mid,
           },

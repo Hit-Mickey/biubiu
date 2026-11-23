@@ -11,7 +11,7 @@ const Control = () => {
   return (
     <div className="flex h-full flex-col items-center justify-center space-y-0.5 overflow-hidden px-6">
       <MusicPlayControl />
-      <MusicPlayProgress isDisabled={isEmptyPlayList} />
+      <MusicPlayProgress className="playbar-progress" isDisabled={isEmptyPlayList} />
     </div>
   );
 };

@@ -201,6 +201,7 @@ const MusicRecommend = () => {
           bvid: item.bvid,
           title: item.title,
           cover: item.cover,
+          playCount: item.playCount,
           ownerName: item.author,
           ownerMid: item.authorMid,
         };
@@ -240,6 +241,7 @@ const MusicRecommend = () => {
           cover: item.cover,
           bvid: item.bvid,
           sid: Number(item.id) || undefined,
+          playCount: item.playCount,
           ownerName: item.author,
         });
         break;
@@ -251,6 +253,7 @@ const MusicRecommend = () => {
             cover: item.cover,
             bvid: item.bvid,
             sid: Number(item.id) || undefined,
+            playCount: item.playCount,
             ownerName: item.author,
           },
         ]);
@@ -291,7 +294,7 @@ const MusicRecommend = () => {
 
   return (
     <ScrollContainer enableBackToTop ref={scrollerRef} className="h-full w-full px-4">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="library-actions mb-2 flex items-center justify-between">
         <Tabs
           variant="solid"
           size="lg"

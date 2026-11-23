@@ -338,32 +338,34 @@ export const SystemSettingsTab = ({
       </div>
 
       {/* FFmpeg 路径配置 */}
-      <div className="flex w-full items-center justify-between">
-        <div className="mr-6 space-y-1">
-          <div className="text-medium font-medium">FFmpeg 路径</div>
-          <div className="text-sm text-zinc-500">手动指定 FFmpeg 可执行文件路径</div>
+      {window.electron.getPlatform() !== "android" && (
+        <div className="flex w-full items-center justify-between">
+          <div className="mr-6 space-y-1">
+            <div className="text-medium font-medium">FFmpeg 路径</div>
+            <div className="text-sm text-zinc-500">手动指定 FFmpeg 可执行文件路径</div>
+          </div>
+          <div className="w-[360px]">
+            <Controller
+              control={control}
+              name="ffmpegPath"
+              render={({ field }) => (
+                <div className="flex items-center space-x-1">
+                  <Input isDisabled placeholder="自动检测" value={field.value} onValueChange={field.onChange} />
+                  <Button
+                    variant="flat"
+                    onPress={async () => {
+                      const path = await window.electron.selectFile();
+                      if (path) setValue("ffmpegPath", path, { shouldDirty: true, shouldTouch: true });
+                    }}
+                  >
+                    选择
+                  </Button>
+                </div>
+              )}
+            />
+          </div>
         </div>
-        <div className="w-[360px]">
-          <Controller
-            control={control}
-            name="ffmpegPath"
-            render={({ field }) => (
-              <div className="flex items-center space-x-1">
-                <Input isDisabled placeholder="自动检测" value={field.value} onValueChange={field.onChange} />
-                <Button
-                  variant="flat"
-                  onPress={async () => {
-                    const path = await window.electron.selectFile();
-                    if (path) setValue("ffmpegPath", path, { shouldDirty: true, shouldTouch: true });
-                  }}
-                >
-                  选择
-                </Button>
-              </div>
-            )}
-          />
-        </div>
-      </div>
+      )}
       <Divider />
       <h2>搜索</h2>
       {/* 显示搜索历史 */}
@@ -382,37 +384,43 @@ export const SystemSettingsTab = ({
       <Divider />
       <h2>系统</h2>
       {/* 窗口关闭选项 */}
-      <div className="flex w-full items-center justify-between">
-        <div className="mr-6 space-y-1">
-          <div className="text-medium font-medium">窗口关闭</div>
-          <div className="text-sm text-zinc-500">选择窗口关闭时的行为</div>
-        </div>
-        <Controller
-          control={control}
-          name="closeWindowOption"
-          render={({ field }) => (
-            <RadioGroup orientation="horizontal" value={field.value} onValueChange={field.onChange}>
-              <Radio value="hide">隐藏到托盘</Radio>
-              <Radio value="exit">直接退出</Radio>
-            </RadioGroup>
-          )}
-        />
-      </div>
-
-      {/* 开机自启动开关 */}
-      <div className="flex w-full items-center justify-between">
-        <div className="mr-6 space-y-1">
-          <div className="text-medium font-medium">开机自启动</div>
-          <div className="text-sm text-zinc-500">系统登录后自动启动应用</div>
-        </div>
-        <div className="flex w-[360px] justify-end">
+      {window.electron.getPlatform() !== "android" && (
+        <div className="flex w-full items-center justify-between">
+          <div className="mr-6 space-y-1">
+            <div className="text-medium font-medium">窗口关闭</div>
+            <div className="text-sm text-zinc-500">选择窗口关闭时的行为</div>
+          </div>
           <Controller
             control={control}
-            name="autoStart"
-            render={({ field }) => <Switch disableAnimation isSelected={field.value} onValueChange={field.onChange} />}
+            name="closeWindowOption"
+            render={({ field }) => (
+              <RadioGroup orientation="horizontal" value={field.value} onValueChange={field.onChange}>
+                <Radio value="hide">隐藏到托盘</Radio>
+                <Radio value="exit">直接退出</Radio>
+              </RadioGroup>
+            )}
           />
         </div>
-      </div>
+      )}
+
+      {/* 开机自启动开关 */}
+      {window.electron.getPlatform() !== "android" && (
+        <div className="flex w-full items-center justify-between">
+          <div className="mr-6 space-y-1">
+            <div className="text-medium font-medium">开机自启动</div>
+            <div className="text-sm text-zinc-500">系统登录后自动启动应用</div>
+          </div>
+          <div className="flex w-[360px] justify-end">
+            <Controller
+              control={control}
+              name="autoStart"
+              render={({ field }) => (
+                <Switch disableAnimation isSelected={field.value} onValueChange={field.onChange} />
+              )}
+            />
+          </div>
+        </div>
+      )}
 
       <Divider />
       <h2>关于应用</h2>

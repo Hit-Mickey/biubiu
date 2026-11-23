@@ -70,7 +70,7 @@ const SearchInput: React.FC<SearchInputProps> = ({ onFocusChange }) => {
   };
 
   return (
-    <div ref={containerRef} className="relative w-[280px]">
+    <div ref={containerRef} className="navbar-search relative w-[280px]">
       <Input
         ref={inputRef}
         value={value}

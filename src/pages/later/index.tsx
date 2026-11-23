@@ -16,6 +16,7 @@ import { useSettings } from "@/store/settings";
 
 import GridList from "./grid-list";
 import LaterList from "./list";
+import { toPlayItem } from "./play-item";
 import LaterSearch from "./search";
 
 const PAGE_SIZE = 20;
@@ -140,26 +141,10 @@ const Later = () => {
         });
         break;
       case "play-next":
-        usePlayList.getState().addToNext({
-          type: "mv",
-          title: item.title,
-          cover: item.pic,
-          bvid: item.bvid,
-          ownerName: item.owner?.name,
-          ownerMid: item.owner?.mid,
-        });
+        usePlayList.getState().addToNext(toPlayItem(item));
         break;
       case "add-to-playlist":
-        usePlayList.getState().addList([
-          {
-            type: "mv",
-            title: item.title,
-            cover: item.pic,
-            bvid: item.bvid,
-            ownerName: item.owner?.name,
-            ownerMid: item.owner?.mid,
-          },
-        ]);
+        usePlayList.getState().addList([toPlayItem(item)]);
         break;
       case "download-audio":
         await window.electron.addMediaDownloadTask({

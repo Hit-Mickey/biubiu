@@ -156,6 +156,7 @@ export class NativeAudioAdapter {
     });
 
     const unProgress = await listen<{ currentTime: number; duration: number }>("audio://progress", event => {
+      if (!this._src || this._backendSrc !== this._src) return;
       const { currentTime, duration } = event.payload;
       if (!this._seeking && Number.isFinite(currentTime)) {
         this._baseTime = currentTime;
@@ -224,13 +225,13 @@ export class NativeAudioAdapter {
     const next = value || "";
     if (next === this._src && next !== "") return;
     this._src = next;
+    this._duration = Number.NaN;
     this._error = null;
     this._loadSeq += 1;
     this._playSeq += 1;
     if (!next) {
       this._paused = true;
       this._baseTime = 0;
-      this._duration = Number.NaN;
       void invoke("audio_stop").catch(() => undefined);
     }
   }

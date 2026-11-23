@@ -1,4 +1,4 @@
-import { apiRequest } from "./request";
+import { apiRequest, type BiliLookupOptions } from "./request";
 
 /**
  * 用户空间详细信息 - 请求参数类型
@@ -289,6 +289,6 @@ export interface Contract {
  * @param params 请求参数，包含mid、w_rid和wts
  * @returns 用户空间详细信息
  */
-export const getSpaceWbiAccInfo = (params: SpaceAccInfoRequestParams) => {
-  return apiRequest.get<SpaceAccInfoResponse>("/x/space/wbi/acc/info", { params, useWbi: true });
+export const getSpaceWbiAccInfo = (params: SpaceAccInfoRequestParams, options: BiliLookupOptions = {}) => {
+  return apiRequest.get<SpaceAccInfoResponse>("/x/space/wbi/acc/info", { ...options, params, useWbi: true });
 };

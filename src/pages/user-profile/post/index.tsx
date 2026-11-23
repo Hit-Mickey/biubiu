@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 
-import { addToast, Spinner } from "@heroui/react";
+import { addToast, Button, Spinner } from "@heroui/react";
 import { RiPlayFill } from "@remixicon/react";
 
 import AsyncButton from "@/components/async-button";
@@ -31,69 +31,74 @@ const VideoPost: React.FC<VideoPostProps> = ({ getScrollElement }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [total, setTotal] = useState(0);
 
-  const pageRef = useRef(1);
+  const pageRef = useRef(0);
+  const request = useRef<AbortController | null>(null);
+  const [failure, setFailure] = useState<"verification" | "load">();
 
-  const fetchData = useCallback(
-    async (pn: number = 1) => {
-      if (!id) return;
-
-      const res = await getSpaceWbiArcSearch({
-        mid: Number(id),
-        ps: 30,
-        pn,
-        keyword: keyword?.trim() || undefined,
-        order,
-      });
-
-      if (res.code === 0 && res.data?.list?.vlist) {
-        const newItems = res.data.list.vlist;
-        const totalCount = res.data.page?.count ?? 0;
-
-        setTotal(totalCount);
-        setItems(prev => {
-          // 第一页重置，其他页追加
-          const merged = pn === 1 ? newItems : [...prev, ...newItems];
-          // 根据后端返回的总数与当前已加载数量判断是否还有更多
-          setHasMore(merged.length < totalCount);
-          return merged;
-        });
-      } else {
-        setHasMore(false);
+  const fetchPage = useCallback(
+    async (pn: number, interactive = false) => {
+      if (!id || request.current) return;
+      const controller = new AbortController();
+      request.current = controller;
+      setFailure(undefined);
+      if (pn === 1) setInitialLoading(true);
+      else setLoadingMore(true);
+      try {
+        const pageSize = 30;
+        const res = await getSpaceWbiArcSearch(
+          {
+            mid: Number(id),
+            ps: pageSize,
+            pn,
+            keyword: keyword.trim() || undefined,
+            order,
+          },
+          { passive: !interactive, signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
+        const rows = res.data?.list?.vlist;
+        if (res.code !== 0 || !Array.isArray(rows)) {
+          setFailure(res.code === -352 || res.data?.v_voucher ? "verification" : "load");
+          setHasMore(false);
+          return;
+        }
+        const count = res.data.page?.count ?? rows.length;
+        setTotal(count);
+        setItems(previous => (pn === 1 ? rows : [...previous, ...rows]));
+        pageRef.current = pn;
+        setHasMore(rows.length > 0 && pn * pageSize < count);
+      } catch {
+        if (!controller.signal.aborted) {
+          setFailure("load");
+          setHasMore(false);
+        }
+      } finally {
+        if (request.current === controller) {
+          request.current = null;
+          setInitialLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [id, keyword, order],
   );
 
-  // 当用户ID变化时，重置搜索条件
   useEffect(() => {
-    if (id) {
-      setKeyword("");
-      setOrder("pubdate");
-    }
-  }, [id]);
-
-  // Initial load or when filter changes
-  useEffect(() => {
-    if (!id) return;
     setItems([]);
-    pageRef.current = 1;
-    setHasMore(true);
     setTotal(0);
-    setInitialLoading(true);
-    fetchData(1).finally(() => {
-      setInitialLoading(false);
-    });
-  }, [fetchData, id]);
+    pageRef.current = 0;
+    setHasMore(false);
+    setLoadingMore(false);
+    void fetchPage(1);
+    return () => {
+      request.current?.abort();
+      request.current = null;
+    };
+  }, [fetchPage]);
 
   const handleLoadMore = useCallback(() => {
-    if (!loadingMore && hasMore) {
-      pageRef.current += 1;
-      setLoadingMore(true);
-      fetchData(pageRef.current).finally(() => {
-        setLoadingMore(false);
-      });
-    }
-  }, [loadingMore, hasMore, fetchData]);
+    if (hasMore && !failure) void fetchPage(pageRef.current + 1);
+  }, [fetchPage, hasMore, failure]);
 
   const handleMenuAction = useCallback((key: string, item: SpaceArcVListItem) => {
     switch (key) {
@@ -103,6 +108,7 @@ const VideoPost: React.FC<VideoPostProps> = ({ getScrollElement }) => {
           title: item.title,
           cover: item.pic,
           bvid: item.bvid,
+          playCount: item.play,
           ownerName: item.author,
           ownerMid: item.mid,
         });
@@ -114,6 +120,7 @@ const VideoPost: React.FC<VideoPostProps> = ({ getScrollElement }) => {
             title: item.title,
             cover: item.pic,
             bvid: item.bvid,
+            playCount: item.play,
             ownerName: item.author,
             ownerMid: item.mid,
           },
@@ -160,47 +167,28 @@ const VideoPost: React.FC<VideoPostProps> = ({ getScrollElement }) => {
     }
 
     try {
-      const pageSize = 50;
+      const pageSize = 30;
       const maxItems = 200;
-      const firstRes = await getSpaceWbiArcSearch({
-        mid: Number(id),
-        ps: pageSize,
-        pn: 1,
-        keyword: keyword?.trim() || undefined,
-        order,
-      });
-
-      if (firstRes.code !== 0 || !firstRes.data?.list?.vlist) {
-        addToast({ title: "暂无可播放内容", color: "warning" });
-        return;
-      }
-
-      const totalCount = firstRes.data.page?.count ?? 0;
-      const collected: SpaceArcVListItem[] = [...firstRes.data.list.vlist];
-
-      if (totalCount > pageSize && collected.length < maxItems) {
-        const totalLimit = Math.min(totalCount || maxItems, maxItems);
-        const totalPages = Math.ceil(totalLimit / pageSize);
-        const tasks = Array.from({ length: totalPages - 1 }, (_, index) => {
-          const pn = index + 2;
-          return getSpaceWbiArcSearch({
+      const collected = items.slice(0, maxItems);
+      let pn = pageRef.current;
+      let incomplete = false;
+      while (collected.length < Math.min(total, maxItems)) {
+        const res = await getSpaceWbiArcSearch(
+          {
             mid: Number(id),
             ps: pageSize,
-            pn,
-            keyword: keyword?.trim() || undefined,
+            pn: ++pn,
+            keyword: keyword.trim() || undefined,
             order,
-          });
-        });
-
-        const results = await Promise.allSettled(tasks);
-        results.forEach(result => {
-          if (result.status === "fulfilled") {
-            const res = result.value;
-            if (res.code === 0 && res.data?.list?.vlist) {
-              collected.push(...res.data.list.vlist);
-            }
-          }
-        });
+          },
+          { passive: true },
+        ).catch(() => null);
+        const rows = res?.data?.list?.vlist;
+        if (res?.code !== 0 || !rows?.length) {
+          incomplete = true;
+          break;
+        }
+        collected.push(...rows);
       }
 
       const limited = collected.slice(0, maxItems);
@@ -210,6 +198,7 @@ const VideoPost: React.FC<VideoPostProps> = ({ getScrollElement }) => {
           bvid: item.bvid,
           title: item.title,
           cover: item.pic,
+          playCount: item.play,
           ownerName: item.author,
           ownerMid: item.mid,
         }))
@@ -223,13 +212,13 @@ const VideoPost: React.FC<VideoPostProps> = ({ getScrollElement }) => {
       await usePlayList.getState().playList(playItems);
       addToast({
         title: `已添加 ${playItems.length} 个投稿到播放列表`,
-        description: "播放内容只获取最多 200 条数据",
-        color: "success",
+        description: incomplete ? "其余投稿暂时无法加载，已保留可播放的歌曲" : "最多播放前 200 条投稿",
+        color: incomplete ? "warning" : "success",
       });
     } catch {
       addToast({ title: "播放列表生成失败", color: "danger" });
     }
-  }, [id, keyword, order]);
+  }, [id, items, keyword, order, total]);
 
   return (
     <div className="h-full w-full">
@@ -263,7 +252,7 @@ const VideoPost: React.FC<VideoPostProps> = ({ getScrollElement }) => {
         <div className="flex h-[280px] items-center justify-center">
           <Spinner label="加载中" />
         </div>
-      ) : displayMode === "card" ? (
+      ) : failure && !items.length ? null : displayMode === "card" ? (
         <PostGridList
           items={items}
           hasMore={hasMore}
@@ -281,6 +270,18 @@ const VideoPost: React.FC<VideoPostProps> = ({ getScrollElement }) => {
           onLoadMore={handleLoadMore}
           onMenuAction={handleMenuAction}
         />
+      )}
+      {failure && (
+        <div role="status" className="text-default-500 flex flex-wrap items-center justify-center gap-2 py-6 text-sm">
+          {failure === "verification" ? "查看投稿需要验证" : "投稿加载失败"}
+          <Button
+            size="sm"
+            variant="flat"
+            onPress={() => void fetchPage(pageRef.current + 1, failure === "verification")}
+          >
+            {failure === "verification" ? "去验证" : "重试"}
+          </Button>
+        </div>
       )}
     </div>
   );

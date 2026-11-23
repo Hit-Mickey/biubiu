@@ -13,6 +13,7 @@ const HistoryListHeader = ({ className, isCompact }: Props) => {
       className={clx(
         "text-default-500 border-default-100 grid w-full items-center gap-4 border-b text-sm",
         isCompact ? "h-8" : "h-10 px-2",
+        "browse-track",
         gridCols,
         className,
       )}

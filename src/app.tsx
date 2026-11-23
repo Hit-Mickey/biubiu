@@ -77,7 +77,9 @@ export function App() {
     };
   }, []);
 
-  useEffect(() => window.electron.onMiniPlayerClosed(stopMiniPlayerMainSync), []);
+  useEffect(() => {
+    if (window.electron.getPlatform() !== "android") return window.electron.onMiniPlayerClosed(stopMiniPlayerMainSync);
+  }, []);
 
   useEffect(
     () =>
@@ -98,7 +100,9 @@ export function App() {
   useEffect(() => window.electron.onPlayerCommand(cmd => handleShortcut(cmd === "toggle" ? "togglePlay" : cmd)), []);
 
   // 订阅来自主进程的全局快捷键命令
-  useEffect(() => window.electron.onShortcutCommand(handleShortcut), []);
+  useEffect(() => {
+    if (window.electron.getPlatform() !== "android") return window.electron.onShortcutCommand(handleShortcut);
+  }, []);
 
   // 监听应用内快捷键
   useEffect(() => listenForAppShortcuts(handleShortcut), []);

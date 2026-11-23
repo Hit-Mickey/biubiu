@@ -171,6 +171,7 @@ const DownloadActions = ({ data }: Props) => {
                 variant="light"
                 size="sm"
                 isIconOnly
+                aria-label={item.label}
                 isLoading={pendingAction === item.key}
                 isDisabled={Boolean(pendingAction) && pendingAction !== item.key}
                 onPress={item.onPress}

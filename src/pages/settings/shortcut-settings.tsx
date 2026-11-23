@@ -6,7 +6,6 @@ import { useShallow } from "zustand/react/shallow";
 import AsyncButton from "@/components/async-button";
 import ShortcutKeyInput from "@/components/shortcut-key-input";
 import { useShortcutSettings } from "@/store/shortcuts";
-import { defaultShortcutSettings } from "@shared/settings/shortcut-settings";
 import { StoreNameMap } from "@shared/store";
 
 const ShortcutSettingsPage = () => {
@@ -95,8 +94,14 @@ const ShortcutSettingsPage = () => {
 
   const handleReset = async () => {
     reset();
-    await window.electron.setStore(StoreNameMap.ShortcutSettings, defaultShortcutSettings);
-    await window.electron.registerAllShortcuts();
+    const { defaultsVersion, shortcuts, globalShortcuts, enableGlobalShortcuts } = useShortcutSettings.getState();
+    await window.electron.setStore(StoreNameMap.ShortcutSettings, {
+      defaultsVersion,
+      shortcuts,
+      globalShortcuts,
+      enableGlobalShortcuts,
+    });
+    if (window.electron.getPlatform() !== "android") await window.electron.registerAllShortcuts();
     await refresh();
   };
 
@@ -109,10 +114,10 @@ const ShortcutSettingsPage = () => {
         </AsyncButton>
       </div>
 
-      <div className="grid grid-cols-[1fr_200px_200px] gap-4 text-sm font-medium text-zinc-500">
+      <div className="shortcut-row grid grid-cols-[1fr_200px_200px] gap-4 text-sm font-medium text-zinc-500">
         <div>功能说明</div>
         <div>应用内快捷键</div>
-        <div>全局快捷键</div>
+        {window.electron.getPlatform() !== "android" && <div>全局快捷键</div>}
       </div>
 
       <div className="space-y-4">
@@ -120,7 +125,7 @@ const ShortcutSettingsPage = () => {
           const globalShortcut = globalShortcuts.find(g => g.id === item.id) as ShortcutItem;
 
           return (
-            <div key={item.id} className="grid grid-cols-[1fr_200px_200px] items-start gap-4">
+            <div key={item.id} className="shortcut-row grid grid-cols-[1fr_200px_200px] items-start gap-4">
               <div className="text-medium">{item.name}</div>
               <ShortcutKeyInput
                 value={item.shortcut}
@@ -128,7 +133,7 @@ const ShortcutSettingsPage = () => {
                 isInvalid={item.isConflict}
                 errorMessage={item.error}
               />
-              {Boolean(globalShortcut) && (
+              {window.electron.getPlatform() !== "android" && Boolean(globalShortcut) && (
                 <ShortcutKeyInput
                   value={globalShortcut.shortcut}
                   onChange={v => handleChangeGlobalShortcut(globalShortcut.id, v)}
@@ -141,11 +146,13 @@ const ShortcutSettingsPage = () => {
           );
         })}
       </div>
-      <div className="text-end">
-        <Checkbox color="primary" isSelected={enableGlobalShortcuts} onValueChange={handleToggleEnableGlobalShortcut}>
-          启用全局快捷键
-        </Checkbox>
-      </div>
+      {window.electron.getPlatform() !== "android" && (
+        <div className="text-end">
+          <Checkbox color="primary" isSelected={enableGlobalShortcuts} onValueChange={handleToggleEnableGlobalShortcut}>
+            启用全局快捷键
+          </Checkbox>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router";
 
 import { Button } from "@heroui/react";
 import { RiPlayFill } from "@remixicon/react";
 import clx from "classnames";
 
+import { detectPlatform } from "@/bridge/env";
 import { formatNumber } from "@/common/utils/number";
 import { formatDuration } from "@/common/utils/time";
+import { trackPressProps } from "@/common/utils/track-press";
 import Image from "@/components/image";
 import { isSame, usePlayList } from "@/store/play-list";
 import { useSettings } from "@/store/settings";
@@ -16,6 +17,9 @@ import type { ContextMenuItem } from "../context-menu";
 import ContextMenu from "../context-menu";
 import OperationMenu from "./operation";
 import { getMusicListItemGrid } from "./styles";
+import { useTrackMenu } from "./use-track-menu";
+
+const android = detectPlatform() === "android";
 
 interface Props {
   title: ReactNode;
@@ -52,7 +56,12 @@ const MusicListItem = ({
   pubTime,
   hidePubTime,
 }: Props) => {
-  const navigate = useNavigate();
+  const menu = useTrackMenu(menus, onMenuAction, {
+    mid: upMid,
+    name: upName,
+    bvid,
+    sid: type === "audio" ? sid : undefined,
+  });
   const playId = usePlayList(state => state.playId);
   const list = usePlayList(state => state.list);
   const playItem = list.find(item => item.id === playId);
@@ -60,10 +69,28 @@ const MusicListItem = ({
   const displayMode = useSettings(state => state.displayMode);
   const isCompact = displayMode === "compact";
 
+  const author = (
+    <span
+      className={clx("text-foreground-500 max-w-full truncate text-sm", {
+        "cursor-pointer hover:underline": !android && upMid,
+      })}
+      onClick={
+        android || !upMid
+          ? undefined
+          : event => {
+              event.stopPropagation();
+              menu.openProfile();
+            }
+      }
+    >
+      {upName || "未知"}
+    </span>
+  );
+
   const gridCols = getMusicListItemGrid(isCompact, hidePubTime);
 
   return (
-    <ContextMenu items={menus} onAction={onMenuAction}>
+    <ContextMenu items={menu.items} onAction={menu.onAction}>
       <Button
         as="div"
         radius="md"
@@ -71,24 +98,24 @@ const MusicListItem = ({
         disableAnimation
         variant={isPlay ? "flat" : "light"}
         color={isPlay ? "primary" : "default"}
-        onDoubleClick={onPress}
+        {...trackPressProps(onPress)}
         className={clx(
           "group flex w-full items-center justify-between rounded-md",
           isCompact ? "h-9 min-h-9 min-w-0 px-0 text-sm" : "h-auto min-h-auto min-w-auto space-y-2 p-2",
         )}
       >
-        <div className={clx("grid w-full items-center gap-4", gridCols)}>
+        <div className={clx("bili-track grid w-full items-center gap-4", gridCols)}>
           {/* 1. 序号 */}
-          <div className="text-foreground-500 min-w-8 text-center text-xs tabular-nums">{index}</div>
+          <div className="track-index text-foreground-500 min-w-8 text-center text-xs tabular-nums">{index}</div>
 
           {/* 2. 音乐信息 */}
           {isCompact ? (
-            <div className="min-w-0 truncate text-left">
+            <div className="track-info min-w-0 truncate text-left">
               <span className={clx("truncate", { "text-primary": isPlay })}>{title}</span>
             </div>
           ) : (
-            <div className="flex min-w-0 items-center overflow-hidden">
-              <div className="relative h-12 w-12 flex-none">
+            <div className="track-info flex min-w-0 items-center overflow-hidden">
+              <div className="track-cover relative h-12 w-12 flex-none">
                 <Image
                   removeWrapper
                   radius="md"
@@ -98,7 +125,7 @@ const MusicListItem = ({
                   className="m-0"
                   params="672w_378h_1c.avif"
                 />
-                {!isPlay && typeof onPress === "function" && (
+                {!android && !isPlay && typeof onPress === "function" && (
                   <div className="absolute inset-0 z-20 flex items-center justify-center rounded-md bg-[rgba(0,0,0,0.35)] opacity-0 group-hover:opacity-100">
                     <RiPlayFill
                       size={20}
@@ -109,60 +136,34 @@ const MusicListItem = ({
               </div>
               <div className="ml-2 flex min-w-0 flex-col items-start justify-center space-y-1">
                 <span className={clx("w-full truncate text-left text-base", { "text-primary": isPlay })}>{title}</span>
-                {Boolean(upName) && (
-                  <span
-                    className={clx("text-foreground-500 w-fit truncate text-sm", {
-                      "cursor-pointer hover:underline": Boolean(upMid),
-                    })}
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (!upMid) return;
-                      navigate(`/user/${upMid}`);
-                    }}
-                  >
-                    {upName || "未知"}
-                  </span>
-                )}
+                {upName && author}
               </div>
             </div>
           )}
 
           {/* 3. UP名称 (Compact only) */}
-          {isCompact && (
-            <div className="min-w-0 truncate">
-              <span
-                className={clx("text-foreground-500 w-fit truncate text-sm", {
-                  "cursor-pointer hover:underline": Boolean(upMid),
-                })}
-                onClick={e => {
-                  e.stopPropagation();
-                  if (!upMid) return;
-                  navigate(`/user/${upMid}`);
-                }}
-              >
-                {upName || "未知"}
-              </span>
-            </div>
-          )}
+          {isCompact && <div className="track-author min-w-0 truncate">{author}</div>}
 
           {/* 4. 播放量 */}
-          <div className="text-foreground-500 flex justify-end text-xs">
-            {playCount !== undefined && playCount > 0 ? formatNumber(playCount) : "-"}
+          <div aria-label="播放量" className="track-views text-foreground-500 text-right text-xs tabular-nums">
+            {formatNumber(playCount) ?? "—"}
           </div>
 
           {/* 5. 投稿时间 */}
           {!hidePubTime && (
-            <div className="text-foreground-500 flex justify-end text-xs">{pubTime && <span>{pubTime}</span>}</div>
+            <div className="track-date text-foreground-500 flex justify-end text-xs">
+              {pubTime && <span>{pubTime}</span>}
+            </div>
           )}
 
           {/* 6. 时长 */}
-          <div className="text-foreground-500 flex justify-end text-xs tabular-nums">
+          <div className="track-duration text-foreground-500 flex justify-end text-xs tabular-nums">
             {Boolean(duration) && <span>{typeof duration === "number" ? formatDuration(duration) : duration}</span>}
           </div>
 
           {/* 7. 操作 */}
-          <div className="flex h-full items-center justify-end">
-            {Boolean(menus.length) && <OperationMenu items={menus} onAction={onMenuAction} />}
+          <div className="track-menu flex h-full items-center justify-end">
+            {Boolean(menu.items.length) && <OperationMenu items={menu.items} onAction={menu.onAction} />}
           </div>
         </div>
       </Button>

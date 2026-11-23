@@ -4,7 +4,10 @@ import { pluginSvgr } from "@rsbuild/plugin-svgr";
 
 export default defineConfig({
   source: {
-    entry: { index: "./src/index.tsx", mini: "./src/mini.tsx", "desktop-lyrics": "./src/desktop-lyrics.ts" },
+    entry:
+      process.env.TAURI_ENV_PLATFORM === "android"
+        ? { index: "./src/index.tsx" }
+        : { index: "./src/index.tsx", mini: "./src/mini.tsx", "desktop-lyrics": "./src/desktop-lyrics.ts" },
   },
   output: {
     distPath: {

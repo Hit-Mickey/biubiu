@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 
-import { Button, Tooltip } from "@heroui/react";
+import { Button } from "@heroui/react";
 
 import { PlayRate } from "@/common/constants/audio";
+import PlaybackOptions from "@/components/playback-options";
 import { usePlayList } from "@/store/play-list";
 
 import IconButton from "../icon-button";
@@ -12,20 +13,12 @@ const MusicRate = () => {
   const setRate = usePlayList(s => s.setRate);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 
-  const tooltipId = "rate-tooltip";
-
   return (
-    <Tooltip
-      disableAnimation
-      triggerScaleOnOpen={false}
-      isOpen={isTooltipOpen}
+    <PlaybackOptions
+      label="播放速率"
+      className="w-[60px] min-w-[60px] px-2 py-3"
+      open={isTooltipOpen}
       onOpenChange={setIsTooltipOpen}
-      placement="top"
-      closeDelay={500}
-      showArrow={false}
-      classNames={{
-        content: "py-3 px-2 w-[60px] min-w-[60px]",
-      }}
       content={
         <div className="flex flex-col items-center gap-1">
           {PlayRate.map(v => (
@@ -46,10 +39,10 @@ const MusicRate = () => {
         </div>
       }
     >
-      <IconButton className="min-w-fit text-[16px]" aria-label="播放速率" aria-describedby={tooltipId}>
+      <IconButton className="min-w-fit text-[16px]" aria-label="播放速率">
         {rate}x
       </IconButton>
-    </Tooltip>
+    </PlaybackOptions>
   );
 };
 

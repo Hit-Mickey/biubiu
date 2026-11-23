@@ -6,6 +6,7 @@ import { RiArrowUpSLine, RiMusic2Line } from "@remixicon/react";
 import clsx from "classnames";
 
 import { openBiliVideoLink } from "@/common/utils/url";
+import { userProfileOptions } from "@/common/utils/user-profile";
 import Image from "@/components/image";
 import MusicFavButton from "@/components/music-fav-button";
 import MusicThumb from "@/components/music-thumb";
@@ -76,7 +77,7 @@ const LeftControl = () => {
           onClick={e => {
             if (!isClickable || !playItem?.ownerMid) return;
             e.stopPropagation();
-            navigate(`/user/${playItem?.ownerMid}`);
+            navigate(`/user/${playItem.ownerMid}`, userProfileOptions(playItem.ownerMid, playItem.ownerName));
           }}
         >
           {playItem?.source === "local"

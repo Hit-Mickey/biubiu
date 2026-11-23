@@ -32,6 +32,7 @@ const MusicRecommendGridList: React.FC<MusicRecommendGridListProps> = ({
     (item: RecommendItem) => {
       return (
         <MusicCard
+          bvid={item.bvid}
           key={item.id}
           title={item.title}
           cover={item.cover}
@@ -52,6 +53,7 @@ const MusicRecommendGridList: React.FC<MusicRecommendGridListProps> = ({
               bvid: item.bvid,
               title: item.title,
               cover: item.cover,
+              playCount: item.playCount,
               ownerName: item.author,
               ownerMid: item.authorMid,
             });

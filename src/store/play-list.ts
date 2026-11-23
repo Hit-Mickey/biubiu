@@ -46,6 +46,7 @@ export interface PlayData {
   ownerName?: string;
   /** up mid */
   ownerMid?: number;
+  playCount?: number;
   /** 是否为多集视频 */
   hasMultiPart?: boolean;
   /** 分集标题 */
@@ -125,11 +126,16 @@ export interface PlayItem {
   duration?: number;
   isLossless?: boolean;
   title: string;
+  aid?: string;
+  cid?: string;
+  pageIndex?: number;
+  totalPage?: number;
   bvid?: string;
   sid?: number;
   cover?: string;
   ownerName?: string;
   ownerMid?: number;
+  playCount?: number;
 }
 
 interface Action {
@@ -160,6 +166,32 @@ interface Action {
 
 const idGenerator = () => `${Date.now()}${uniqueId()}`;
 
+function makeBiliQueueItem(item: PlayItem, title: string): PlayData {
+  const cover = item.cover ? formatUrlProtocol(item.cover) : undefined;
+  return {
+    id: idGenerator(),
+    type: item.type,
+    title,
+    bvid: item.bvid,
+    sid: item.sid,
+    cover,
+    ownerName: item.ownerName,
+    ownerMid: item.ownerMid,
+    playCount: item.playCount,
+    ...(item.type === "mv" &&
+      item.totalPage === 1 &&
+      item.cid && {
+        aid: item.aid,
+        cid: item.cid,
+        duration: item.duration,
+        pageIndex: 1,
+        totalPage: 1,
+        pageTitle: title,
+        pageCover: cover,
+      }),
+  };
+}
+
 const getMVData = async (bvid: string) => {
   const res = await getWebInterfaceView({ bvid });
   const hasMultiPart = (res?.data?.pages?.length ?? 0) > 1;
@@ -175,6 +207,7 @@ const getMVData = async (bvid: string) => {
       cover: formatUrlProtocol(res?.data?.pic),
       ownerName: res?.data?.owner?.name,
       ownerMid: res?.data?.owner?.mid,
+      playCount: res?.data?.stat?.view,
       hasMultiPart,
 
       pageIndex: item.page,
@@ -201,6 +234,7 @@ const getAudioData = async (sid: number) => {
       duration: res?.data?.duration || 0,
       ownerName: res?.data?.author || "",
       ownerMid: res?.data?.uid || 0,
+      playCount: res?.data?.statistic?.play,
     },
   ];
 };
@@ -237,7 +271,7 @@ const updateMediaSession = ({ title, artist, cover }: { title: string; artist?: 
       title,
       artist,
       cover,
-      duration: state.duration,
+      duration: state.getPlayItem()?.duration || state.duration,
     });
   }
 };
@@ -825,21 +859,7 @@ export const usePlayList = create<State & Action>()(
 
           const isBilibili = isBilibiliSource(source);
           // 新添加项
-          let playItem: PlayData[] =
-            !isBilibili && id
-              ? [{ ...item, id, title }]
-              : [
-                  {
-                    id: idGenerator(),
-                    type,
-                    bvid,
-                    sid,
-                    title,
-                    cover: cover ? formatUrlProtocol(cover) : undefined,
-                    ownerName,
-                    ownerMid,
-                  },
-                ];
+          let playItem: PlayData[] = !isBilibili && id ? [{ ...item, id, title }] : [makeBiliQueueItem(item, title)];
           // 补充缺失信息
           if (isBilibili && (!cover || !ownerName || !ownerMid)) {
             if (type === "mv" && bvid) {
@@ -1029,18 +1049,7 @@ export const usePlayList = create<State & Action>()(
                     cover: formatUrlProtocol(cover),
                   },
                 ]
-              : [
-                  {
-                    id: idGenerator(),
-                    type,
-                    bvid,
-                    sid,
-                    title,
-                    cover: cover ? formatUrlProtocol(cover) : undefined,
-                    ownerName,
-                    ownerMid,
-                  },
-                ];
+              : [makeBiliQueueItem(item, title)];
           if (isBilibiliSource(source) && (!cover || !ownerName || !ownerMid)) {
             if (type === "mv" && bvid) {
               nextPlayItem = await getMVData(bvid);
@@ -1352,16 +1361,20 @@ usePlayList.subscribe(async (state, prevState) => {
     // 切换歌曲
     if (state.playId) {
       const playItem = state.list.find(item => item.id === state.playId);
+      usePlayProgress.getState().setCurrentTime(0);
+      usePlayList.setState({ duration: playItem?.duration });
       if (playItem) {
+        updateMediaSession({
+          title: playItem.pageTitle || playItem.title,
+          artist: playItem.ownerName,
+          cover: playItem.pageCover || playItem.cover,
+        });
         if (shouldReportPlayRecord(playItem)) {
           void beginPlayReport(playItem);
         }
       }
       if (playItem?.source === "webdav" && playItem.audioUrl) {
-        usePlayProgress.getState().setCurrentTime(0);
-        usePlayList.setState({ duration: playItem.duration });
         resetAudioAndPlay(playItem.audioUrl);
-        updateMediaSession({ title: playItem.title, artist: playItem.ownerName, cover: playItem.cover });
         void updateWebDavPlaybackInfo(playItem);
         return;
       }
@@ -1379,22 +1392,24 @@ usePlayList.subscribe(async (state, prevState) => {
           const mvPlayData = await getDashUrl(playItem.bvid, playItem.cid);
           if (usePlayList.getState().playId !== state.playId) return;
           if (mvPlayData?.audioUrl) {
-            resetAudioAndPlay(mvPlayData?.audioUrl);
-
-            updateMediaSession({
-              title: playItem.pageTitle || playItem.title,
-              artist: playItem.ownerName,
-              cover: playItem.pageCover,
-            });
-
             usePlayList.setState(state => {
               const listItem = state.list.find(item => item.id === state.playId);
               if (listItem) {
+                if (mvPlayData.duration && mvPlayData.duration > 0) {
+                  listItem.duration = mvPlayData.duration;
+                  state.duration = mvPlayData.duration;
+                }
                 listItem.audioUrl = mvPlayData?.audioUrl;
                 listItem.videoUrl = mvPlayData?.videoUrl;
                 listItem.isLossless = mvPlayData?.isLossless;
                 listItem.isDolby = mvPlayData?.isDolby;
               }
+            });
+            resetAudioAndPlay(mvPlayData.audioUrl);
+            updateMediaSession({
+              title: playItem.pageTitle || playItem.title,
+              artist: playItem.ownerName,
+              cover: playItem.pageCover || playItem.cover,
             });
           } else {
             log.error("无法获取音频播放链接", {
@@ -1411,45 +1426,11 @@ usePlayList.subscribe(async (state, prevState) => {
           if (usePlayList.getState().playId !== state.playId) return;
           const [firstMV, ...restMV] = mvData;
           if (firstMV?.cid) {
-            const mvPlayData = await getDashUrl(playItem.bvid, firstMV.cid);
-            if (usePlayList.getState().playId !== state.playId) return;
-            if (mvPlayData?.audioUrl) {
-              resetAudioAndPlay(mvPlayData?.audioUrl);
-
-              updateMediaSession({
-                title: firstMV.pageTitle || firstMV.title,
-                artist: firstMV.ownerName,
-                cover: firstMV.pageCover,
-              });
-
-              usePlayList.setState(state => {
-                const listItemIndex = state.list.findIndex(item => item.id === state.playId);
-                state.list.splice(
-                  listItemIndex,
-                  1,
-                  {
-                    ...firstMV,
-                    ...{
-                      audioUrl: mvPlayData?.audioUrl,
-                      videoUrl: mvPlayData?.videoUrl,
-                      isLossless: mvPlayData?.isLossless,
-                      isDolby: mvPlayData?.isDolby,
-                    },
-                  },
-                  ...restMV,
-                );
-                state.playId = firstMV.id;
-              });
-            } else {
-              log.error("无法获取音频播放链接", {
-                type: "mv",
-                bvid: playItem.bvid,
-                cid: firstMV.cid,
-                title: firstMV.title,
-                mvPlayData,
-              });
-              toastError("无法获取音频播放链接");
-            }
+            usePlayList.setState(state => {
+              const index = state.list.findIndex(item => item.id === state.playId);
+              state.list.splice(index, 1, firstMV, ...restMV);
+              state.playId = firstMV.id;
+            });
           } else {
             log.error("无法获取音频播放链接", {
               type: "mv",

@@ -6,6 +6,8 @@ import { twMerge } from "tailwind-merge";
 
 import type { ContextMenuItem } from "@/components/context-menu";
 
+import { useTrackMenu, type TrackOwner } from "./use-track-menu";
+
 export interface OperationMenuProps {
   items: ContextMenuItem[];
   onAction?: (key: string) => void;
@@ -51,3 +53,8 @@ const OperationMenu = ({ items, onAction }: OperationMenuProps) => {
 };
 
 export default OperationMenu;
+
+export function MobileTrackMenu({ items, onAction, owner }: OperationMenuProps & { owner?: TrackOwner }) {
+  const menu = useTrackMenu(items, onAction, owner);
+  return menu.items.length ? <OperationMenu items={menu.items} onAction={menu.onAction} /> : null;
+}

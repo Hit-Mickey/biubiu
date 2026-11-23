@@ -13,6 +13,10 @@ function installDesktopBridge(mode: "main" | "mini" | "desktop-lyrics" = "main")
     window.desktopLyrics = createTauriDesktopLyricsAPI();
   }
 
+  if (window.electron.getPlatform() === "android") {
+    document.documentElement.dataset.platform = "android";
+    return;
+  }
   if (mode === "main") {
     installWindowDragHandler({ allowMaximizeDoubleClick: true, dragSelector: ".window-drag" });
   } else if (mode === "mini") {

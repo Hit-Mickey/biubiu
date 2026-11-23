@@ -1,8 +1,10 @@
-import React, { useRef } from "react";
-import { useParams } from "react-router";
+import React, { useRef, useState } from "react";
+import { useLocation, useParams } from "react-router";
 
-import { Spinner, Tab, Tabs } from "@heroui/react";
+import { Button, Tab, Tabs } from "@heroui/react";
 import { useRequest } from "ahooks";
+
+import type { ModuleAuthor } from "@/service/web-dynamic";
 
 import { UserRelation } from "@/common/constants/relation";
 import ScrollContainer, { type ScrollRefObject } from "@/components/scroll-container";
@@ -23,26 +25,25 @@ import SpaceInfo from "./space-info";
  */
 const UserProfile = () => {
   const { id } = useParams();
+  const loggedIn = useUser(s => !!s.user?.isLogin);
+  return id ? <Profile key={`${id}-${loggedIn}`} id={id} loggedIn={loggedIn} /> : null;
+};
+
+function Profile({ id, loggedIn }: { id: string; loggedIn: boolean }) {
+  const selectedOwner = useLocation().state?.profileOwner;
+  const [publicOwner, setPublicOwner] = useState<Pick<ModuleAuthor, "mid" | "name" | "face">>();
   const user = useUser(s => s.user);
   const isSelf = String(user?.mid) === id;
   const scrollRef = useRef<ScrollRefObject>(null);
 
-  const { data: userInfo, loading } = useRequest(
-    async () => {
-      const res = await getSpaceWbiAccInfo({
-        mid: id as string,
-      });
-
-      if (res.code === 0) {
-        return res.data;
-      }
-    },
-    {
-      ready: !!id,
-      refreshDeps: [user?.isLogin, id],
-    },
-  );
-
+  const {
+    data: profile,
+    loading,
+    error,
+    run: reloadProfile,
+  } = useRequest((interactive = false) => getSpaceWbiAccInfo({ mid: id }, { passive: !loggedIn && !interactive }));
+  const userInfo = profile?.code === 0 && Number(profile.data?.mid) === Number(id) ? profile.data : undefined;
+  const verificationRequired = Boolean(profile?.data?.v_voucher || profile?.code === -352);
   const { data: relationWithMe, refreshAsync: refreshRelation } = useRequest(
     async () => {
       const res = await getSpaceWbiAccRelation({
@@ -66,17 +67,20 @@ const UserProfile = () => {
       return res.data;
     },
     {
-      ready: Boolean(id) && relationWithMe !== UserRelation.Blocked,
+      ready: loggedIn && relationWithMe !== UserRelation.Blocked,
       refreshDeps: [id],
     },
   );
 
   const { data: spacePrivacy } = useRequest(
     async () => {
-      const res = await getXSpaceSettings({
-        mid: Number(id),
-        web_location: "333.1387",
-      });
+      const res = await getXSpaceSettings(
+        {
+          mid: Number(id),
+          web_location: "333.1387",
+        },
+        { passive: !loggedIn },
+      );
 
       return res.data?.privacy;
     },
@@ -93,6 +97,8 @@ const UserProfile = () => {
       content: (
         <DynamicList
           mid={Number(id)}
+          guest={!loggedIn}
+          onOwner={setPublicOwner}
           getScrollElement={() => scrollRef.current?.osInstance()?.elements().viewport || null}
         />
       ),
@@ -115,22 +121,19 @@ const UserProfile = () => {
     },
   ].filter(item => !item.hidden);
 
-  if (loading) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <Spinner size="lg" color="primary" />
-      </div>
-    );
-  }
-
   return (
     <ScrollContainer enableBackToTop ref={scrollRef} className="h-full w-full">
       <SpaceInfo
-        spaceInfo={userInfo}
+        spaceInfo={userInfo ?? publicOwner ?? (selectedOwner?.mid === Number(id) ? selectedOwner : undefined)}
         relationStats={relationStats}
         relationWithMe={relationWithMe}
         refreshRelation={refreshRelation}
       />
+      {((verificationRequired && !loggedIn) || (error && !publicOwner)) && (
+        <Button size="sm" variant="light" className="mt-1" isLoading={loading} onPress={() => reloadProfile(true)}>
+          {verificationRequired ? "验证并查看完整资料" : "重新加载资料"}
+        </Button>
+      )}
       {relationWithMe !== UserRelation.Blocked && (
         <div className="p-4">
           <Tabs
@@ -149,6 +152,6 @@ const UserProfile = () => {
       )}
     </ScrollContainer>
   );
-};
+}
 
 export default UserProfile;

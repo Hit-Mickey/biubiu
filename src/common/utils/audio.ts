@@ -42,7 +42,11 @@ function selectAudioByQuality(audioList: DashAudio[], quality: AudioQuality): Da
   }
 }
 
-export async function getDashUrl(bvid: string, cid: string | number, audioQuality: AudioQuality = "auto") {
+export async function getDashUrl(
+  bvid: string,
+  cid: string | number,
+  audioQuality = useSettings.getState().audioQuality,
+) {
   try {
     const getUrlInfoRes = await getPlayerPlayurl({
       bvid,
@@ -70,6 +74,7 @@ export async function getDashUrl(bvid: string, cid: string | number, audioQualit
       audioUrl: selectMirror(mirrors, useSettings.getState().preferredAudioHost),
       videoUrl,
       videoResolution,
+      duration: (getUrlInfoRes?.data?.timelength || 0) / 1000 || getUrlInfoRes?.data?.dash?.duration,
     };
   } catch (error) {
     log.error("[Get video play url error]", error);

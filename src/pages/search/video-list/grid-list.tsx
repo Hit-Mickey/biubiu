@@ -22,6 +22,7 @@ const GridList: React.FC<GridListProps> = ({ items, getScrollElement, onMenuActi
     (item: SearchVideoItem) => {
       return (
         <MusicCard
+          bvid={item.bvid}
           key={item.aid}
           title={<span dangerouslySetInnerHTML={{ __html: item.title }} />}
           cover={item.pic}
@@ -40,6 +41,7 @@ const GridList: React.FC<GridListProps> = ({ items, getScrollElement, onMenuActi
               bvid: item.bvid,
               title: stripHtml(item.title),
               cover: item.pic,
+              playCount: item.play,
               ownerName: item.author,
               ownerMid: item.mid,
             });

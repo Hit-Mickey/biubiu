@@ -59,9 +59,15 @@ export async function readFavoriteSnapshot(
       const input =
         item?.attr === 0 &&
         (item.type === 2
-          ? { type: "mv", bvid: item.bvid || item.bv_id, aid: String(item.id), title: item.title }
+          ? {
+              type: "mv",
+              bvid: item.bvid || item.bv_id,
+              aid: String(item.id),
+              title: item.title,
+              playCount: item.cnt_info?.play,
+            }
           : item.type === 12
-            ? { type: "audio", sid: item.id, title: item.title }
+            ? { type: "audio", sid: item.id, title: item.title, playCount: item.cnt_info?.play }
             : undefined);
       const track = compactPlayData(input);
       if (track) {

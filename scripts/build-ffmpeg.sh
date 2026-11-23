@@ -20,6 +20,24 @@ else
 fi
 if [[ ! -f "ffmpeg-$version/configure" ]]; then tar xf "$archive"; fi
 
+if [[ "${1:-}" == android ]]; then
+  abi=${2:?specify an Android ABI}
+  case "$abi" in
+    arm64-v8a) triple=aarch64-linux-android; arch=aarch64 ;;
+    x86_64) triple=x86_64-linux-android; arch=x86_64 ;;
+    *) echo "Unsupported Android ABI $abi" >&2; exit 1 ;;
+  esac
+  name="android-$abi"
+  ndk=${NDK_HOME:-${ANDROID_NDK_HOME:?set NDK_HOME}}
+  case "$(uname -s)" in MINGW*|MSYS*) ndk=$(cygpath -u "$ndk");; esac
+  toolchains=("$ndk"/toolchains/llvm/prebuilt/*/bin)
+  tools=${toolchains[0]}
+  extra=(--target-os=android --arch="$arch" --enable-cross-compile --enable-pic --enable-pthreads
+    "--cc=$tools/clang --target=${triple}26" "--ar=$tools/llvm-ar" "--ranlib=$tools/llvm-ranlib"
+    "--nm=$tools/llvm-nm" "--strip=$tools/llvm-strip" --extra-ldflags=-Wl,-z,max-page-size=16384)
+  dest="$root/src-tauri/gen/android/ffmpeg/$abi/libbiubiu_ffmpeg.so"
+  mkdir -p "$(dirname "$dest")"
+else
 case "$(uname -s)" in
   MINGW*|MSYS*|CLANG*|UCRT*) name=ffmpeg.exe; extra=(--enable-schannel --target-os=mingw32 --extra-ldflags=-static) ;;
   Darwin) name=ffmpeg-mac; extra=(--enable-securetransport) ;;
@@ -27,6 +45,8 @@ case "$(uname -s)" in
   Linux) name=ffmpeg-linux; extra=(--enable-gnutls --enable-protocol=udp) ;;
   *) exit 1 ;;
 esac
+dest="$root/src-tauri/resources/ffmpeg/$name"
+fi
 [[ -z "${CC:-}" ]] || extra+=("--cc=$CC")
 [[ -z "${FFMPEG_ARCH:-}" ]] || extra+=("--arch=$FFMPEG_ARCH")
 mkdir -p "build-$name"
@@ -43,4 +63,4 @@ cd "build-$name"
 "${MAKE:-make}" -j"${JOBS:-4}"
 binary=ffmpeg
 [[ "$name" != ffmpeg.exe ]] || binary=ffmpeg.exe
-install -m 755 "$binary" "$root/src-tauri/resources/ffmpeg/$name"
+install -m 755 "$binary" "$dest"

@@ -4,9 +4,13 @@ import { addToast, Button, Select, SelectItem, Spinner } from "@heroui/react";
 import { RiAddLine, RiDeleteBinLine, RiEditLine, RiPlayFill, RiPlayListAddLine } from "@remixicon/react";
 import { useRequest } from "ahooks";
 
+import { detectPlatform } from "@/bridge/env";
+import { formatNumber } from "@/common/utils/number";
+import { trackPressProps } from "@/common/utils/track-press";
 import Empty from "@/components/empty";
 import IconButton from "@/components/icon-button";
 import LocatePlayingButton from "@/components/locate-playing-button";
+import { MobileTrackMenu } from "@/components/music-list-item/operation";
 import { type ScrollRefObject } from "@/components/scroll-container";
 import { VirtualList } from "@/components/virtual-list";
 import {
@@ -42,6 +46,7 @@ const queueKey = (item: PlayItem) => {
 };
 
 export default function DesktopPlaylistsPage() {
+  const android = detectPlatform() === "android";
   const [id, setId] = useState<string>();
   const scrollRef = useRef<ScrollRefObject | null>(null);
   const { data, error, refresh } = useRequest(() => readPlaylistPage(id), { refreshDeps: [id] });
@@ -263,6 +268,7 @@ export default function DesktopPlaylistsPage() {
             }
             renderItem={(track, row) => (
               <div
+                {...trackPressProps(() => send([track], "play-one"), "none")}
                 aria-current={row.index === activeTrackIndex || undefined}
                 className="hover:bg-content2 aria-[current=true]:bg-primary/15 aria-[current=true]:text-primary flex h-11 items-center gap-3 rounded-md px-2 text-sm"
               >
@@ -271,32 +277,64 @@ export default function DesktopPlaylistsPage() {
                   {track.type === "mv" && track.pageTitle ? `${track.title} · ${track.pageTitle}` : track.title}
                 </span>
                 <span className="text-default-500 text-xs">
-                  {track.source === "local" ? "本地" : track.source === "webdav" ? "WebDAV" : "B 站"}
+                  {track.source === "local"
+                    ? "本地"
+                    : track.source === "webdav"
+                      ? "WebDAV"
+                      : android
+                        ? `${formatNumber(track.playCount) ?? "—"} 播放`
+                        : "B 站"}
                 </span>
-                <IconButton
-                  aria-label={`播放 ${track.title}`}
-                  tooltip="播放"
-                  isDisabled={resolving}
-                  onPress={() => send([track], "play-one")}
-                >
-                  <RiPlayFill size={16} />
-                </IconButton>
-                <IconButton
-                  aria-label={`入队 ${track.title}`}
-                  tooltip="加入播放队列"
-                  isDisabled={resolving}
-                  onPress={() => send([track], "queue")}
-                >
-                  <RiPlayListAddLine size={16} />
-                </IconButton>
-                {list.kind === "normal" && (
-                  <IconButton
-                    aria-label={`移除 ${track.title}`}
-                    tooltip="仅从本歌单移除"
-                    onPress={() => removePlaylistTrack(list.id, trackKey(track)).catch(notifyError)}
-                  >
-                    <RiDeleteBinLine size={16} />
-                  </IconButton>
+                {android ? (
+                  <MobileTrackMenu
+                    owner={track.source ? undefined : track}
+                    items={[
+                      { key: "queue", label: "加入播放队列", icon: <RiPlayListAddLine size={16} /> },
+                      ...(list.kind === "normal"
+                        ? [
+                            {
+                              key: "remove",
+                              label: "从歌单移除",
+                              color: "danger" as const,
+                              icon: <RiDeleteBinLine size={16} />,
+                            },
+                          ]
+                        : []),
+                    ]}
+                    onAction={key => {
+                      if (key === "queue") void send([track], "queue");
+                      if (key === "remove") void removePlaylistTrack(list.id, trackKey(track)).catch(notifyError);
+                    }}
+                  />
+                ) : (
+                  <>
+                    {" "}
+                    <IconButton
+                      aria-label={`播放 ${track.title}`}
+                      tooltip="播放"
+                      isDisabled={resolving}
+                      onPress={() => send([track], "play-one")}
+                    >
+                      <RiPlayFill size={16} />
+                    </IconButton>
+                    <IconButton
+                      aria-label={`入队 ${track.title}`}
+                      tooltip="加入播放队列"
+                      isDisabled={resolving}
+                      onPress={() => send([track], "queue")}
+                    >
+                      <RiPlayListAddLine size={16} />
+                    </IconButton>
+                    {list.kind === "normal" && (
+                      <IconButton
+                        aria-label={`移除 ${track.title}`}
+                        tooltip="仅从本歌单移除"
+                        onPress={() => removePlaylistTrack(list.id, trackKey(track)).catch(notifyError)}
+                      >
+                        <RiDeleteBinLine size={16} />
+                      </IconButton>
+                    )}
+                  </>
                 )}
               </div>
             )}

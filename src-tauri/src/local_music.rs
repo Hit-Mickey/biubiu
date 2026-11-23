@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
@@ -203,6 +205,25 @@ pub fn file_url_to_path_candidates(audio_url: &str) -> Vec<PathBuf> {
     out
 }
 
+pub(crate) fn read_sidecar(file: File) -> Option<String> {
+    let mut bytes = Vec::new();
+    file.take(MAX_LYRIC_LENGTH as u64 + 1)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() > MAX_LYRIC_LENGTH {
+        return None;
+    }
+    let text = decode_text_bytes(&bytes);
+    (!text.is_empty()).then_some(text)
+}
+
+pub(crate) fn read_embedded_lyrics(file: File) -> Option<String> {
+    let tagged = Probe::new(file).guess_file_type().ok()?.read().ok()?;
+    let tag = tagged.primary_tag().or_else(|| tagged.first_tag())?;
+    let text = tag.get_string(&ItemKey::Lyrics)?.trim();
+    (!text.is_empty()).then(|| text.chars().take(MAX_LYRIC_LENGTH).collect())
+}
+
 pub fn read_local_lyrics(audio_url: &str, allowed_roots: &[String]) -> Option<String> {
     let canon_roots: Vec<PathBuf> = allowed_roots
         .iter()
@@ -230,39 +251,15 @@ pub fn read_local_lyrics(audio_url: &str, allowed_roots: &[String]) -> Option<St
         for ext in ["spl", "lrc"] {
             let sidecar = audio_canon.with_extension(ext);
             if let Ok(sc_canon) = std::fs::canonicalize(&sidecar) {
-                if sc_canon.parent() == Some(parent) {
-                    if let Ok(meta) = std::fs::metadata(&sc_canon) {
-                        if meta.is_file() && meta.len() > 0 && meta.len() <= MAX_LYRIC_LENGTH as u64
-                        {
-                            if let Ok(bytes) = std::fs::read(&sc_canon) {
-                                let text = decode_text_bytes(&bytes);
-                                if !text.is_empty() {
-                                    return Some(text);
-                                }
-                            }
-                        }
+                if sc_canon.parent() == Some(parent) && sc_canon.is_file() {
+                    if let Some(text) = File::open(sc_canon).ok().and_then(read_sidecar) {
+                        return Some(text);
                     }
                 }
             }
         }
 
-        // Fallback to embedded audio lyrics
-        if let Some(probe) = Probe::open(&audio_canon)
-            .ok()
-            .and_then(|p| p.guess_file_type().ok())
-        {
-            if let Ok(tagged) = probe.read() {
-                if let Some(tag) = tagged.primary_tag().or_else(|| tagged.first_tag()) {
-                    if let Some(lyric) = tag.get_string(&ItemKey::Lyrics) {
-                        let trimmed = lyric.trim();
-                        if !trimmed.is_empty() {
-                            return Some(trimmed.chars().take(MAX_LYRIC_LENGTH).collect());
-                        }
-                    }
-                }
-            }
-        }
-        return None;
+        return File::open(audio_canon).ok().and_then(read_embedded_lyrics);
     }
     None
 }

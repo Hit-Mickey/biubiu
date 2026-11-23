@@ -1,7 +1,12 @@
 import { describe, expect, test, beforeEach, vi } from "vitest";
 
+import type { ToViewVideoItem } from "@/service/history-toview-list";
+
 import { PlayMode } from "@/common/constants/audio";
+import { getDashUrl } from "@/common/utils/audio";
 import { setPlaybackVolume, stepPlaybackVolume, togglePlaybackMute } from "@/common/utils/playback-volume";
+import { toPlayItem } from "@/pages/later/play-item";
+import { getWebInterfaceView } from "@/service/web-interface-view";
 import { pauseForSleep, usePlayList } from "@/store/play-list";
 
 vi.mock("@/common/utils/audio", () => ({
@@ -52,6 +57,9 @@ vi.mock("@/service/web-interface-view", () => ({
     },
   })),
 }));
+
+vi.mock("@/service/click-interface-click-web-h5", () => ({ postClickInterfaceClickWebH5: vi.fn() }));
+vi.mock("@/service/click-interface-web-heartbeat", () => ({ postClickInterfaceWebHeartbeat: vi.fn() }));
 
 vi.mock("@heroui/react", async () => {
   const actual: any = await vi.importActual("@heroui/react");
@@ -133,6 +141,30 @@ describe("play-list store", () => {
     expect(navigator.mediaSession.playbackState).toBe("playing");
   });
 
+  test.each([
+    [1, 77, false],
+    [2, 77, true],
+    [1, 0, true],
+  ])("watch later with %i parts and cid %i requests details only when needed", async (videos, cid, needsDetails) => {
+    const player = usePlayList.getState();
+    await player.init();
+    const track = toPlayItem({
+      aid: 30,
+      bvid: "BV17x411w7KC",
+      videos,
+      cid,
+      title: "测试视频",
+      duration: 70,
+      pic: "https://cover.test/a.jpg",
+      owner: { name: "测试作者", mid: 9 },
+    } as ToViewVideoItem);
+    await player.play(track);
+    await vi.waitFor(() => expect(getDashUrl).toHaveBeenCalledWith(track.bvid, needsDetails ? "11" : "77"));
+    expect(getWebInterfaceView).toHaveBeenCalledTimes(needsDetails ? 1 : 0);
+    expect(player.getPlayItem()?.cid).toBe(needsDetails ? "11" : "77");
+    expect(usePlayList.getState().list).toHaveLength(needsDetails ? 2 : 1);
+  });
+
   test("plays and queues WebDAV tracks by their own IDs", async () => {
     const player = usePlayList.getState();
     await player.init();
@@ -153,6 +185,31 @@ describe("play-list store", () => {
     expect(player.getAudio().src).toBe(second.audioUrl);
     player.removeWebDavItems([second.id]);
     expect(usePlayList.getState().playId).toBe(first.id);
+  });
+
+  test("switching from a local song to a Bilibili video uses the selected part's duration", async () => {
+    const player = usePlayList.getState();
+    await player.init();
+    // Fragmented DASH audio may have no duration in its container.
+    const load = vi.spyOn(player.getAudio(), "load").mockImplementation(() => {});
+    try {
+      await player.playList([
+        {
+          type: "audio",
+          source: "local",
+          id: "local-180",
+          title: "Local",
+          audioUrl: "file:///test.wav",
+          duration: 180,
+        },
+      ]);
+      expect(usePlayList.getState().duration).toBe(180);
+      await player.play({ type: "mv", title: "Video", bvid: "BV123" });
+      await vi.waitFor(() => expect(usePlayList.getState().duration).toBe(60));
+      expect(usePlayList.getState().getPlayItem()?.cid).toBe("11");
+    } finally {
+      load.mockRestore();
+    }
   });
 
   test("switching to a queued WebDAV track plays once without showing an error toast", async () => {
