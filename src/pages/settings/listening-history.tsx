@@ -46,10 +46,11 @@ export default function ListeningHistory() {
     listeningDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 27 + i).getTime()),
   );
   return (
-    <section className="space-y-3">
+    <section className="min-w-0 space-y-3">
       <h2>本机听歌记录</h2>
       <Switch
         size="sm"
+        classNames={{ base: "max-w-full" }}
         isSelected={enabled}
         onValueChange={recordLocalHistory => useSettings.getState().update({ recordLocalHistory })}
       >
@@ -61,7 +62,10 @@ export default function ListeningHistory() {
       <p>
         共 {entries.length} 次 · {Math.floor(seconds / 3600)} 小时 {Math.floor((seconds % 3600) / 60)} 分钟
       </p>
-      <div aria-label="最近四周的每日播放次数" className="grid max-w-lg grid-cols-7 gap-1">
+      <div
+        aria-label="最近四周的每日播放次数"
+        className="grid max-w-lg grid-cols-7 gap-1 @max-[24rem]/settings-page:grid-cols-[repeat(auto-fit,minmax(min(100%,3rem),1fr))]"
+      >
         {dates.map(date => {
           const count = days.get(date) ?? 0;
           const label = `${date}：${count} 次`;
@@ -76,14 +80,14 @@ export default function ListeningHistory() {
                 setDay(date);
                 setLimit(30);
               }}
-              className={`bg-default-100 text-foreground relative rounded px-1 py-1 text-xs ${date === day ? "ring-foreground ring-1" : ""}`}
+              className={`bg-default-100 text-foreground relative rounded px-1 py-1 text-xs @max-[24rem]/settings-page:px-0.5 ${date === day ? "ring-foreground ring-1" : ""}`}
             >
               <span
                 aria-hidden="true"
                 className="absolute inset-0 rounded bg-[#087e42] dark:bg-[#289e59]"
                 style={{ opacity: count ? Math.min(0.5, 0.1 + Math.log2(1 + count) * 0.08) : 0 }}
               />
-              <span className="relative">
+              <span className="relative @max-[24rem]/settings-page:whitespace-nowrap">
                 {date.slice(5)}
                 <br />
                 {count} 次
@@ -92,10 +96,11 @@ export default function ListeningHistory() {
           );
         })}
       </div>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex flex-wrap items-center gap-2 text-sm">
         查看日期
         <input
           type="date"
+          className="max-w-full min-w-0"
           value={day}
           onChange={e => {
             setDay(e.target.value);
@@ -105,9 +110,9 @@ export default function ListeningHistory() {
       </label>
       {daily.length ? (
         <>
-          <ul>
+          <ul className="min-w-0">
             {daily.slice(0, limit).map((entry, i) => (
-              <li key={i} className="truncate text-sm">
+              <li key={i} className="truncate text-sm @max-[36rem]/settings-page:whitespace-normal">
                 {new Date(entry.at).toLocaleTimeString()} · {entry.title}{" "}
                 <span className="text-foreground-500">{entry.source}</span>
               </li>
@@ -125,7 +130,7 @@ export default function ListeningHistory() {
       {top.length > 0 && (
         <details>
           <summary>常听曲目（前十）</summary>
-          <ol className="list-inside list-decimal">
+          <ol className="list-inside list-decimal break-words">
             {top.map((item, i) => (
               <li key={i}>
                 {item.title} · {item.count} 次
@@ -135,32 +140,38 @@ export default function ListeningHistory() {
         </details>
       )}
       {entries.length > 0 && (
-        <Button
-          size="sm"
-          variant="flat"
-          color={confirm ? "danger" : "default"}
-          onPress={async () => {
-            if (!confirm) {
-              setConfirm(true);
-              return;
-            }
-            try {
-              await replaceListeningHistory([]);
-            } catch {
-              setError("清空失败");
-            }
-            setConfirm(false);
-          }}
-        >
-          {confirm ? "确认清空本机记录" : "清空本机记录"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="flat"
+            color={confirm ? "danger" : "default"}
+            onPress={async () => {
+              if (!confirm) {
+                setConfirm(true);
+                return;
+              }
+              try {
+                await replaceListeningHistory([]);
+              } catch {
+                setError("清空失败");
+              }
+              setConfirm(false);
+            }}
+          >
+            {confirm ? "确认清空本机记录" : "清空本机记录"}
+          </Button>
+          {confirm && (
+            <Button size="sm" variant="light" onPress={() => setConfirm(false)}>
+              取消
+            </Button>
+          )}
+        </div>
       )}
-      {confirm && (
-        <Button size="sm" variant="light" onPress={() => setConfirm(false)}>
-          取消
-        </Button>
+      {error && (
+        <p role="alert" className="break-words">
+          {error}
+        </p>
       )}
-      {error && <p role="alert">{error}</p>}
     </section>
   );
 }

@@ -16,12 +16,12 @@ const MenuSettings: React.FC<MenuSettingsProps> = ({ control }) => {
   const collectedFavorites = useFavoritesStore(state => state.collectedFavorites);
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <h2>设置侧边菜单项显示和隐藏</h2>
-      <div className="w-full space-y-8">
-        <div className="flex w-full items-start space-x-[100px]">
-          <div className="text-medium font-medium">系统默认菜单</div>
-          <div className="max-w-[480px]">
+      <div className="w-full min-w-0 space-y-8 @max-[36rem]/settings-page:[&_label]:max-w-full">
+        <div className="settings-row flex w-full items-start gap-x-[100px] @max-[36rem]/settings-page:gap-x-0">
+          <div className="settings-row-label text-medium font-medium">系统默认菜单</div>
+          <div className="settings-row-control max-w-[480px] min-w-0 @max-[36rem]/settings-page:w-full @max-[36rem]/settings-page:max-w-full">
             <Controller
               control={control}
               name="hiddenMenuKeys"
@@ -57,9 +57,9 @@ const MenuSettings: React.FC<MenuSettingsProps> = ({ control }) => {
 
         {user?.isLogin && (
           <>
-            <div className="flex w-full items-start space-x-[100px]">
-              <div className="text-medium font-medium">个人创建菜单</div>
-              <div className="max-w-[480px]">
+            <div className="settings-row flex w-full items-start gap-x-[100px] @max-[36rem]/settings-page:gap-x-0">
+              <div className="settings-row-label text-medium font-medium">个人创建菜单</div>
+              <div className="settings-row-control max-w-[480px] min-w-0 @max-[36rem]/settings-page:w-full @max-[36rem]/settings-page:max-w-full">
                 <Controller
                   control={control}
                   name="hiddenMenuKeys"
@@ -94,9 +94,9 @@ const MenuSettings: React.FC<MenuSettingsProps> = ({ control }) => {
                 />
               </div>
             </div>
-            <div className="flex w-full items-start space-x-[100px]">
-              <div className="text-medium font-medium">个人收藏菜单</div>
-              <div className="max-w-[480px]">
+            <div className="settings-row flex w-full items-start gap-x-[100px] @max-[36rem]/settings-page:gap-x-0">
+              <div className="settings-row-label text-medium font-medium">个人收藏菜单</div>
+              <div className="settings-row-control max-w-[480px] min-w-0 @max-[36rem]/settings-page:w-full @max-[36rem]/settings-page:max-w-full">
                 <Controller
                   control={control}
                   name="hiddenMenuKeys"

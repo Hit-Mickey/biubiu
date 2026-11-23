@@ -1,6 +1,6 @@
 <h1 align="center">BiuBiu 音乐播放器</h1>
 <p align="center">
-  <img src="./screenshots/logo.svg" alt="BiuBiu logo" width="120" />
+  <img src="./src-tauri/icons/128x128@2x.png" alt="BiuBiu logo" width="120" />
 </p>
 <p align="center">
   支持哔哩哔哩（B 站）、本地音乐和 WebDAV 的跨平台音乐播放器 🎧🎶

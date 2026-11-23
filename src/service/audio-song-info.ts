@@ -1,4 +1,4 @@
-import { biliRequest } from "./request";
+import { biliRequest, type BiliLookupOptions } from "./request";
 
 /**
  * 查询歌曲基本信息 - 请求参数
@@ -111,8 +111,9 @@ export interface AudioSongInfoResponse {
  * 查询歌曲基本信息
  * @param params 请求参数
  */
-export const getAudioSongInfo = (params: AudioSongInfoRequestParams) => {
+export const getAudioSongInfo = (params: AudioSongInfoRequestParams, options?: BiliLookupOptions) => {
   return biliRequest.get<AudioSongInfoResponse>("/audio/music-service-c/web/song/info", {
+    ...options,
     params,
   });
 };

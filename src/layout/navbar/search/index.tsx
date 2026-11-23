@@ -1,12 +1,13 @@
 import React, { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
-import { Chip, Input, Listbox, ListboxItem } from "@heroui/react";
+import { addToast, Chip, Input, Listbox, ListboxItem } from "@heroui/react";
 import { RiSearchLine } from "@remixicon/react";
 import { useRequest, useClickAway } from "ahooks";
 import classNames from "classnames";
 import { OverlayScrollbarsComponent } from "overlayscrollbars-react";
 
+import { biliSearchTerm, parseBiliSearch } from "@/common/utils/bili-search";
 import { getSearchSuggestMain } from "@/service/main-suggest";
 import { useSearchHistory } from "@/store/search-history";
 import { useSettings } from "@/store/settings";
@@ -32,6 +33,8 @@ const SearchInput: React.FC<SearchInputProps> = ({ onFocusChange }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(keyword);
+  const target = parseBiliSearch(value);
+  const direct = target && target.kind !== "unsupported";
 
   useClickAway(() => {
     setOpen(false);
@@ -39,7 +42,7 @@ const SearchInput: React.FC<SearchInputProps> = ({ onFocusChange }) => {
 
   const { data: suggestionsData } = useRequest(
     async () => {
-      if (!value?.trim()) {
+      if (!value?.trim() || target) {
         return [];
       }
 
@@ -49,11 +52,16 @@ const SearchInput: React.FC<SearchInputProps> = ({ onFocusChange }) => {
     { debounceWait: 300, refreshDeps: [value] },
   );
 
-  const submitSearch = (keyword: string) => {
-    if (!keyword?.trim()) {
+  const submitSearch = (input: string) => {
+    const target = parseBiliSearch(input);
+    if (target?.kind === "unsupported") {
+      addToast({ title: "请输入 B 站视频或音频链接", color: "warning" });
       return;
     }
-    addSearchHistory(keyword);
+    const term = target ? biliSearchTerm(target) : input.trim();
+    if (!term) return;
+    setValue(term);
+    addSearchHistory(term);
     if (location.pathname !== "/search") {
       navigate("/search");
     }
@@ -76,7 +84,7 @@ const SearchInput: React.FC<SearchInputProps> = ({ onFocusChange }) => {
         value={value}
         onValueChange={setValue}
         onKeyDown={e => {
-          if (e.key === "Enter") {
+          if (e.key === "Enter" && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) {
             submitSearch(e.currentTarget.value);
             inputRef.current?.blur();
             setOpen(false);
@@ -88,7 +96,9 @@ const SearchInput: React.FC<SearchInputProps> = ({ onFocusChange }) => {
           onFocusChange?.(true);
         }}
         onClick={() => setOpen(true)}
-        placeholder="搜索"
+        placeholder="关键词、BV号、B站链接"
+        aria-label="搜索关键词、BV号或B站链接"
+        enterKeyHint="search"
         isClearable
         startContent={<RiSearchLine size={16} />}
         className="window-no-drag w-full"
@@ -111,11 +121,15 @@ const SearchInput: React.FC<SearchInputProps> = ({ onFocusChange }) => {
             aria-label="搜索建议"
             selectionMode="none"
             items={
-              suggestionsData?.map(item => ({
-                key: item.value,
-                value: item.value,
-                name: item.name,
-              })) || []
+              direct
+                ? [{ key: "direct", value, name: "查看对应歌曲" }]
+                : target
+                  ? []
+                  : suggestionsData?.map(item => ({
+                      key: item.value,
+                      value: item.value,
+                      name: item.name,
+                    })) || []
             }
             emptyContent={<div className="flex items-center justify-center py-6">暂无搜索建议</div>}
             topContent={
@@ -171,6 +185,7 @@ const SearchInput: React.FC<SearchInputProps> = ({ onFocusChange }) => {
             {item => (
               <ListboxItem
                 key={item.key}
+                textValue={direct ? item.name : item.value}
                 onPress={() => {
                   setOpen(false);
                   setValue(item.value);

@@ -35,7 +35,7 @@ html[data-platform="android"] .sidebar-logo {
   height: 2.75rem;
 }
 
-html[data-platform="android"] .sidebar-logo svg {
+html[data-platform="android"] .sidebar-logo img {
   width: 1.9rem;
   height: 1.9rem;
 }
@@ -187,7 +187,73 @@ html[data-platform="android"] .full-player-settings-form {
 }
 
 html[data-platform="android"] .settings-page {
+  container: settings-page / inline-size;
+  min-width: 0;
   padding-inline: 1rem;
+}
+
+html[data-platform="android"] .settings-page .settings-tab-row {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: auto hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+html[data-platform="android"] .settings-page .settings-tab-row::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-platform="android"] .settings-page .settings-tab-list {
+  width: max-content;
+  max-width: none;
+  overflow: visible;
+}
+
+html[data-platform="android"] .settings-page .settings-tab-list > [role="tab"] {
+  width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+html[data-platform="android"] .settings-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@container settings-page (width < 36rem) {
+  .settings-panel {
+    overflow-wrap: anywhere;
+  }
+
+  html[data-platform="android"] .settings-page .settings-panel .settings-tab-list {
+    max-width: 100%;
+  }
+
+  html[data-platform="android"] .settings-page .settings-panel .settings-tab-list > [role="tab"] {
+    flex-shrink: 1;
+    padding-inline: 0.375rem;
+  }
+
+  .settings-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .settings-row-label {
+    min-width: 0;
+    margin-inline-end: 0;
+  }
+
+  .settings-row-control {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 html[data-platform="android"] [role="dialog"] {
@@ -270,20 +336,6 @@ html[data-platform="android"] [role="dialog"] {
 
   html[data-platform="android"] .library-actions input {
     min-width: 0;
-  }
-
-  html[data-platform="android"] .settings-page [role="tablist"] {
-    max-width: 100%;
-    overflow-x: auto;
-  }
-
-  html[data-platform="android"] .settings-page .justify-between {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  html[data-platform="android"] .settings-page .w-\[360px\] {
-    width: min(100%, 360px);
   }
 }
 

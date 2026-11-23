@@ -10,7 +10,7 @@ use futures_util::StreamExt;
 use hmac::{Hmac, Mac};
 use md5::{Digest, Md5};
 use parking_lot::RwLock;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ORIGIN, REFERER, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION, ORIGIN, REFERER, USER_AGENT};
 use reqwest::{Client, Method, Proxy};
 use reqwest_cookie_store::{CookieStoreMutex, RawCookie};
 use serde::{Deserialize, Serialize};
@@ -56,7 +56,7 @@ pub struct BiliHttpClient {
     cookie_store: Arc<CookieStoreMutex>,
     client: RwLock<Client>,
     plain_client: RwLock<Client>,
-    webdav_client: RwLock<Client>,
+    no_redirect_client: RwLock<Client>,
     proxy: RwLock<ProxySettings>,
 }
 
@@ -80,7 +80,7 @@ impl BiliHttpClient {
             cookie_store,
             client: RwLock::new(client),
             plain_client: RwLock::new(plain_client),
-            webdav_client: RwLock::new(build_client(None, &initial_proxy, false)?),
+            no_redirect_client: RwLock::new(build_client(None, &initial_proxy, false)?),
             proxy: RwLock::new(initial_proxy),
         })
     }
@@ -93,14 +93,14 @@ impl BiliHttpClient {
         self.plain_client.read().clone()
     }
 
-    pub fn webdav_client(&self) -> Client {
-        self.webdav_client.read().clone()
+    pub fn no_redirect_client(&self) -> Client {
+        self.no_redirect_client.read().clone()
     }
 
     pub fn set_proxy(&self, settings: ProxySettings) -> Result<(), String> {
         let next_client = build_client(Some(self.cookie_store.clone()), &settings, true)?;
         let next_plain = build_client(None, &settings, true)?;
-        *self.webdav_client.write() = build_client(None, &settings, false)?;
+        *self.no_redirect_client.write() = build_client(None, &settings, false)?;
         *self.client.write() = next_client;
         *self.plain_client.write() = next_plain;
         *self.proxy.write() = settings;
@@ -336,6 +336,31 @@ impl BiliHttpClient {
         })
     }
 
+    pub async fn resolve_short_link(&self, code: &str) -> Result<String, String> {
+        if code.is_empty() || code.len() > 64 || !code.bytes().all(|b| b.is_ascii_alphanumeric()) {
+            return Err("无效的 B 站短链接".into());
+        }
+        let response = self
+            .no_redirect_client()
+            .get(format!("https://b23.tv/{code}"))
+            .timeout(Duration::from_secs(10))
+            .send()
+            .await
+            .map_err(|_| "无法连接 B 站短链接服务")?;
+        if !response.status().is_redirection() {
+            return Err(format!(
+                "B 站短链接未能解析（HTTP {}）",
+                response.status().as_u16()
+            ));
+        }
+        let location = response
+            .headers()
+            .get(LOCATION)
+            .and_then(|h| h.to_str().ok())
+            .ok_or("B 站短链接缺少目标地址")?;
+        bili_share_destination(response.url(), location)
+    }
+
     pub async fn sample_audio_mirror(&self, url: &str) -> Result<u64, String> {
         let size: usize = 128 * 1024;
         let start = Instant::now();
@@ -520,6 +545,21 @@ impl BiliHttpClient {
     }
 }
 
+fn bili_share_destination(base: &Url, location: &str) -> Result<String, String> {
+    let url = base.join(location).map_err(|_| "B 站短链接目标地址无效")?;
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.port().is_some()
+        || !url
+            .domain()
+            .is_some_and(|domain| domain == "bilibili.com" || domain.ends_with(".bilibili.com"))
+    {
+        return Err("该短链接没有指向 B 站视频或音频".into());
+    }
+    Ok(url.into())
+}
+
 fn build_client(
     cookie_store: Option<Arc<CookieStoreMutex>>,
     proxy_settings: &ProxySettings,
@@ -573,4 +613,27 @@ fn configured_proxy(proxy_settings: &ProxySettings) -> Option<Proxy> {
     }
 
     None
+}
+
+#[cfg(test)]
+mod short_link_tests {
+    use super::*;
+
+    #[test]
+    fn validates_the_redirect_without_fetching_its_destination() {
+        let base = Url::parse("https://b23.tv/Test").unwrap();
+        let path = "//www.bilibili.com/video/BV17x411w7KC?p=2";
+        assert_eq!(
+            bili_share_destination(&base, path).unwrap(),
+            format!("https:{path}")
+        );
+        for location in [
+            "/other",
+            "https://bilibili.com.example/video/1",
+            "https://www.bilibili.com@other.example/video/1",
+            "file:///tmp/video",
+        ] {
+            assert!(bili_share_destination(&base, location).is_err());
+        }
+    }
 }

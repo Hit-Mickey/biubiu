@@ -129,7 +129,9 @@ export interface PlayItem {
   aid?: string;
   cid?: string;
   pageIndex?: number;
+  pageTitle?: string;
   totalPage?: number;
+  hasMultiPart?: boolean;
   bvid?: string;
   sid?: number;
   cover?: string;
@@ -179,14 +181,15 @@ function makeBiliQueueItem(item: PlayItem, title: string): PlayData {
     ownerMid: item.ownerMid,
     playCount: item.playCount,
     ...(item.type === "mv" &&
-      item.totalPage === 1 &&
+      (item.totalPage === 1 || item.pageIndex) &&
       item.cid && {
         aid: item.aid,
         cid: item.cid,
         duration: item.duration,
-        pageIndex: 1,
-        totalPage: 1,
-        pageTitle: title,
+        pageIndex: item.pageIndex ?? 1,
+        totalPage: item.totalPage,
+        hasMultiPart: (item.totalPage ?? 1) > 1,
+        pageTitle: item.pageTitle || title,
         pageCover: cover,
       }),
   };
@@ -423,6 +426,14 @@ export const isSame = (item1?: PlayIdentity, item2?: PlayIdentity) => {
 
 const shouldReportPlayRecord = (item?: { type: PlayDataType; source?: PlaySource }) =>
   item?.type === "mv" && isBilibiliSource(item.source);
+
+export function matchesRequestedTrack(
+  existing: PlayData | undefined,
+  requested: PlayIdentity & Pick<PlayItem, "cid" | "totalPage">,
+) {
+  const specificPart = requested.type === "mv" && requested.cid && (requested.totalPage ?? 1) > 1;
+  return isSame(existing, requested) && (!specificPart || existing?.cid === requested.cid);
+}
 
 export const usePlayList = create<State & Action>()(
   persist(
@@ -839,10 +850,9 @@ export const usePlayList = create<State & Action>()(
           const { list, playId } = get();
           const currentItem = list?.find(item => item.id === playId);
           const title = source === "webdav" ? item.title : sanitizeTitle(item.title);
-          const candidate = { type, bvid, sid, source, id };
 
           // 当前正在播放，如果暂停了则播放
-          if (isSame(currentItem, candidate)) {
+          if (matchesRequestedTrack(currentItem, item)) {
             if (audio.paused) {
               await ensureAudioSrcValid();
               await playAudioSafely();
@@ -851,7 +861,7 @@ export const usePlayList = create<State & Action>()(
           }
 
           // 列表已存在
-          const existItem = list?.find(item => isSame(item, candidate));
+          const existItem = list?.find(existing => matchesRequestedTrack(existing, item));
           if (existItem) {
             set({ playId: existItem.id });
             return;
@@ -862,7 +872,7 @@ export const usePlayList = create<State & Action>()(
           let playItem: PlayData[] = !isBilibili && id ? [{ ...item, id, title }] : [makeBiliQueueItem(item, title)];
           // 补充缺失信息
           if (isBilibili && (!cover || !ownerName || !ownerMid)) {
-            if (type === "mv" && bvid) {
+            if (type === "mv" && bvid && !playItem[0]?.cid) {
               playItem = await getMVData(bvid);
             }
 
@@ -1012,22 +1022,21 @@ export const usePlayList = create<State & Action>()(
           const { playId, nextId: currentNextId, list } = get();
           const currentItem = list.find(item => item.id === playId);
           const title = source === "webdav" ? item.title : sanitizeTitle(item.title);
-          const candidate = { type, bvid, sid, source, id };
           // 如果当前正在播放，则不添加
-          if (isSame(candidate, currentItem)) {
+          if (matchesRequestedTrack(currentItem, item)) {
             return;
           }
 
           // 如果下一首就是要添加的，则不添加
           if (currentNextId) {
             const currentNextItem = list.find(item => item.id === currentNextId);
-            if (isSame(candidate, currentNextItem)) {
+            if (matchesRequestedTrack(currentNextItem, item)) {
               return;
             }
           }
 
           // 列表已存在
-          const existItemIndex = list?.findIndex(item => isSame(item, candidate)) ?? -1;
+          const existItemIndex = list.findIndex(existing => matchesRequestedTrack(existing, item));
           if (existItemIndex !== -1) {
             set(state => {
               state.nextId = list[existItemIndex].id;
@@ -1051,7 +1060,7 @@ export const usePlayList = create<State & Action>()(
                 ]
               : [makeBiliQueueItem(item, title)];
           if (isBilibiliSource(source) && (!cover || !ownerName || !ownerMid)) {
-            if (type === "mv" && bvid) {
+            if (type === "mv" && bvid && !nextPlayItem[0]?.cid) {
               nextPlayItem = await getMVData(bvid);
             }
 

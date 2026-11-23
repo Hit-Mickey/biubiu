@@ -62,7 +62,7 @@ const ImportExport = () => {
   };
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
       <input ref={fileInputRef} type="file" accept="application/json" hidden onChange={handleImportFileChange} />
       <Button size="sm" radius="md" startContent={<RiExportFill size={16} />} onPress={handleExport}>
         导出配置

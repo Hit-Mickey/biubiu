@@ -35,7 +35,7 @@ const MusicPlayProgress = memo(({ isDisabled, className, trackClassName }: Props
         onChange={v => seek(v as number)}
         isDisabled={isDisabled}
         size="sm"
-        color={showThumb ? "primary" : "foreground"}
+        color="primary"
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className="flex-1"

@@ -9,7 +9,7 @@ import { formatNumber } from "@/common/utils/number";
 import { formatDuration } from "@/common/utils/time";
 import { trackPressProps } from "@/common/utils/track-press";
 import Image from "@/components/image";
-import { isSame, usePlayList } from "@/store/play-list";
+import { matchesRequestedTrack, usePlayList } from "@/store/play-list";
 import { useSettings } from "@/store/settings";
 
 import type { ContextMenuItem } from "../context-menu";
@@ -25,6 +25,8 @@ interface Props {
   title: ReactNode;
   type: "audio" | "mv";
   bvid?: string;
+  cid?: string;
+  totalPage?: number;
   sid?: number;
   cover?: string;
   upName?: string;
@@ -43,6 +45,8 @@ const MusicListItem = ({
   title,
   type,
   bvid,
+  cid,
+  totalPage,
   sid,
   cover,
   upName,
@@ -65,7 +69,7 @@ const MusicListItem = ({
   const playId = usePlayList(state => state.playId);
   const list = usePlayList(state => state.list);
   const playItem = list.find(item => item.id === playId);
-  const isPlay = isSame(playItem, { type, bvid, sid });
+  const isPlay = matchesRequestedTrack(playItem, { type, bvid, sid, cid, totalPage });
   const displayMode = useSettings(state => state.displayMode);
   const isCompact = displayMode === "compact";
 

@@ -10,10 +10,6 @@ import { useFavoritesStore, type FavoriteItem } from "@/store/favorite";
 import { useSettings } from "@/store/settings";
 import { useUser } from "@/store/user";
 
-vi.mock("@/assets/icons/logo.svg", () => ({
-  ReactComponent: (props: Record<string, unknown>) => <svg data-testid="logo" {...props} />,
-}));
-
 const makeFavorites = (count: number, offset: number, prefix: string, type?: number): FavoriteItem[] =>
   Array.from({ length: count }, (_, index) => ({
     id: offset + index + 1,

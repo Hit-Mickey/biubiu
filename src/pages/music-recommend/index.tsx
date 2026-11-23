@@ -1,12 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { addToast, Button, Link, Spinner, Tab, Tabs } from "@heroui/react";
-import { RiPlayFill } from "@remixicon/react";
+import { RiPlayFill, RiRefreshLine } from "@remixicon/react";
 import { isAxiosError } from "axios";
 
 import log from "@/common/utils/logger";
 import AsyncButton from "@/components/async-button";
 import Empty from "@/components/empty";
+import IconButton from "@/components/icon-button";
 import ScrollContainer, { type ScrollRefObject } from "@/components/scroll-container";
 import { getMusicComprehensiveWebRank, type Data as MusicItem } from "@/service/music-comprehensive-web-rank";
 import { getRegionFeedRcmd, type Archive } from "@/service/web-interface-region-feed-rcmd";
@@ -14,6 +15,7 @@ import { useModalStore } from "@/store/modal";
 import { usePlayList } from "@/store/play-list";
 import { useSettings } from "@/store/settings";
 
+import type { NewMusicRefreshResult, NewMusicTopHandle } from "./new-music-top";
 import type { RecommendItem } from "./types";
 
 import MusicRecommendGridList from "./grid-list";
@@ -96,21 +98,28 @@ function getLoadErrorMessage(error: unknown) {
 
 const MusicRecommend = () => {
   const scrollerRef = useRef<ScrollRefObject>(null);
+  const newMusicTopRef = useRef<NewMusicTopHandle>(null);
 
   const [list, setList] = useState<RecommendItem[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [newMusicLoading, setNewMusicLoading] = useState(false);
   const [initialError, setInitialError] = useState<string>();
   const [loadingMore, setLoadingMore] = useState(false);
   const pageRef = useRef(1);
   const requestId = useRef(0);
+  const initialLoadingRef = useRef(true);
+  const refreshingRef = useRef(false);
+  const newMusicLoadingRef = useRef(false);
   const [activeTab, setActiveTab] = useState<RecommendTabKey>("music");
   const [listSource, setListSource] = useState<RecommendTabKey>("music");
   const scrollRestoreRef = useRef<{ tab: RecommendTabKey; top: number } | null>(null);
   const [popLayoutVersion, setPopLayoutVersion] = useState(0);
 
   const displayMode = useSettings(state => state.displayMode);
-  const listKey = `${activeTab}-${displayMode}-${activeTab === "pop" ? popLayoutVersion : 0}`;
+  const listKey = `${activeTab}-${listSource}-${displayMode}-${activeTab === "pop" ? popLayoutVersion : 0}`;
+  const isRefreshDisabled = initialLoading || refreshing || (activeTab === "pop" && newMusicLoading);
 
   const getScrollElement = useCallback(() => {
     return (scrollerRef.current?.osInstance()?.elements().viewport as HTMLElement | null) ?? null;
@@ -120,8 +129,13 @@ const MusicRecommend = () => {
     setPopLayoutVersion(prev => prev + 1);
   }, []);
 
+  const handleNewMusicLoadingChange = useCallback((loading: boolean) => {
+    newMusicLoadingRef.current = loading;
+    setNewMusicLoading(loading);
+  }, []);
+
   const loadMore = async () => {
-    if (initialLoading || loadingMore || !hasMore) return;
+    if (initialLoadingRef.current || refreshingRef.current || loadingMore || !hasMore) return;
     const current = ++requestId.current;
     try {
       setLoadingMore(true);
@@ -140,45 +154,108 @@ const MusicRecommend = () => {
     }
   };
 
-  const init = useCallback(async () => {
-    const current = ++requestId.current;
-    pageRef.current = 1;
-    setInitialLoading(true);
-    setList([]);
-    setInitialError(undefined);
-    setHasMore(false);
-    setLoadingMore(false);
-    try {
-      let source = activeTab;
-      let result = await fetchPage(source, 1).catch(error => {
-        if (activeTab !== "music") throw error;
-        log.warn("[recommend] 加载音乐分区失败", error instanceof Error ? error.message : String(error));
-        return undefined;
-      });
-      if (current !== requestId.current) return;
-      if (!result || (activeTab === "music" && result.items.length === 0)) {
-        source = "pop";
-        result = await fetchPage(source, 1);
+  const loadFirstPage = useCallback(
+    async (
+      preserveList: boolean,
+    ): Promise<{ ok: true; stale?: boolean } | { ok: false; error: string; preserved: boolean }> => {
+      const current = ++requestId.current;
+      if (!preserveList) {
+        initialLoadingRef.current = true;
+        pageRef.current = 1;
+        setInitialLoading(true);
+        setList([]);
+        setInitialError(undefined);
+        setHasMore(false);
       }
-      if (current !== requestId.current) return;
-      setListSource(source);
-      setList(result.items);
-      setHasMore(result.hasMore);
-    } catch (error) {
-      if (current !== requestId.current) return;
-      setInitialError(getLoadErrorMessage(error));
-      log.warn("[recommend] 加载推荐失败", error instanceof Error ? error.message : String(error));
+      setLoadingMore(false);
+
+      try {
+        let source: RecommendTabKey = activeTab;
+        let result = await fetchPage(source, 1).catch(error => {
+          if (activeTab !== "music") throw error;
+          log.warn("[recommend] 加载音乐分区失败", error instanceof Error ? error.message : String(error));
+          return undefined;
+        });
+        if (current !== requestId.current) return { ok: true, stale: true };
+        if (!result || (activeTab === "music" && result.items.length === 0)) {
+          source = "pop";
+          result = await fetchPage(source, 1);
+        }
+        if (current !== requestId.current) return { ok: true, stale: true };
+        pageRef.current = 1;
+        setListSource(source);
+        setList(result.items);
+        setHasMore(result.hasMore);
+        setInitialError(undefined);
+        return { ok: true };
+      } catch (error) {
+        if (current !== requestId.current) return { ok: true, stale: true };
+        const message = getLoadErrorMessage(error);
+        if (!preserveList) {
+          setInitialError(message);
+        }
+        log.warn("[recommend] 加载推荐失败", error instanceof Error ? error.message : String(error));
+        return { ok: false, error: message, preserved: preserveList };
+      } finally {
+        if (current === requestId.current && !preserveList) {
+          initialLoadingRef.current = false;
+          setInitialLoading(false);
+        }
+      }
+    },
+    [activeTab],
+  );
+
+  const handleRefresh = useCallback(async () => {
+    if (initialLoadingRef.current || refreshingRef.current) return;
+    if (activeTab === "pop" && newMusicLoadingRef.current) return;
+
+    refreshingRef.current = true;
+    setRefreshing(true);
+    scrollRestoreRef.current = null;
+
+    const preserveList = list.length > 0;
+    const mainPromise = loadFirstPage(preserveList);
+    const currentRequestId = requestId.current;
+    const topPromise =
+      activeTab === "pop" && newMusicTopRef.current
+        ? newMusicTopRef.current.refresh()
+        : Promise.resolve<NewMusicRefreshResult>({ ok: true });
+
+    try {
+      const [mainResult, topResult] = await Promise.all([mainPromise, topPromise]);
+      if (currentRequestId !== requestId.current) return;
+      if (!mainResult.ok) {
+        if (mainResult.preserved) {
+          addToast({ title: "刷新失败", description: mainResult.error, color: "danger" });
+        }
+        return;
+      }
+      if (!topResult.ok) {
+        addToast({ title: "新歌速递刷新失败", description: topResult.error, color: "danger" });
+      }
     } finally {
-      if (current === requestId.current) setInitialLoading(false);
+      if (currentRequestId === requestId.current) {
+        refreshingRef.current = false;
+        setRefreshing(false);
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, list.length, loadFirstPage]);
 
   useEffect(() => {
-    void init();
+    refreshingRef.current = false;
+    setRefreshing(false);
+    if (activeTab !== "pop") {
+      newMusicLoadingRef.current = false;
+      setNewMusicLoading(false);
+    }
+    void loadFirstPage(false);
     return () => {
       requestId.current += 1;
+      initialLoadingRef.current = false;
+      refreshingRef.current = false;
     };
-  }, [init]);
+  }, [activeTab, loadFirstPage]);
 
   useEffect(() => {
     if (initialLoading) return;
@@ -294,7 +371,7 @@ const MusicRecommend = () => {
 
   return (
     <ScrollContainer enableBackToTop ref={scrollerRef} className="h-full w-full px-4">
-      <div className="library-actions mb-2 flex items-center justify-between">
+      <div className="library-actions mb-2 flex items-center justify-between gap-2">
         <Tabs
           variant="solid"
           size="lg"
@@ -316,20 +393,38 @@ const MusicRecommend = () => {
           <Tab key="guichu" title="鬼畜" />
           <Tab key="pop" title="流行" />
         </Tabs>
-        <AsyncButton
-          color="primary"
-          size="md"
-          startContent={<RiPlayFill size={18} />}
-          isDisabled={initialLoading || list.length === 0}
-          onPress={handlePlayAll}
-          className="dark:text-black"
-        >
-          全部播放
-        </AsyncButton>
+        <div className="flex items-center gap-2">
+          <IconButton
+            aria-label="刷新推荐"
+            tooltip="刷新"
+            variant="flat"
+            size="md"
+            color="default"
+            isLoading={refreshing}
+            isDisabled={isRefreshDisabled}
+            onPress={() => void handleRefresh()}
+          >
+            <RiRefreshLine size={18} />
+          </IconButton>
+          <AsyncButton
+            color="primary"
+            size="md"
+            startContent={<RiPlayFill size={18} />}
+            isDisabled={initialLoading || list.length === 0}
+            onPress={handlePlayAll}
+            className="dark:text-black"
+          >
+            全部播放
+          </AsyncButton>
+        </div>
       </div>
       {activeTab === "pop" && (
         <Suspense fallback={null}>
-          <NewMusicTop onLayoutChange={handlePopLayoutChange} />
+          <NewMusicTop
+            ref={newMusicTopRef}
+            onLayoutChange={handlePopLayoutChange}
+            onLoadingChange={handleNewMusicLoadingChange}
+          />
         </Suspense>
       )}
       <div className="relative">
@@ -349,7 +444,13 @@ const MusicRecommend = () => {
               {initialError && <p className="text-default-500 mt-2 text-sm">{initialError}</p>}
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <Button size="sm" color="primary" variant="flat" onPress={() => void init()}>
+              <Button
+                size="sm"
+                color="primary"
+                variant="flat"
+                isDisabled={isRefreshDisabled}
+                onPress={() => void handleRefresh()}
+              >
                 重新加载
               </Button>
               <Link size="sm" href="/local-music">
@@ -364,7 +465,7 @@ const MusicRecommend = () => {
           <MusicRecommendGridList
             key={listKey}
             items={list}
-            hasMore={hasMore}
+            hasMore={hasMore && !refreshing}
             loading={loadingMore}
             onLoadMore={loadMore}
             getScrollElement={getScrollElement}
@@ -374,7 +475,7 @@ const MusicRecommend = () => {
           <MusicRecommendList
             key={listKey}
             items={list}
-            hasMore={hasMore}
+            hasMore={hasMore && !refreshing}
             loading={loadingMore}
             onLoadMore={loadMore}
             getScrollElement={getScrollElement}

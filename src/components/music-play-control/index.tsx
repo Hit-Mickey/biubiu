@@ -25,7 +25,7 @@ const MusicPlayControl = () => {
         isDisabled={isEmptyPlayList}
         radius="full"
         onPress={togglePlay}
-        className="size-12 min-w-12"
+        className="text-primary size-12 min-w-12"
       >
         {isPlaying ? <RiPauseCircleFill size={48} /> : <RiPlayCircleFill size={48} />}
       </IconButton>

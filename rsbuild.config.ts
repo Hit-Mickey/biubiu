@@ -21,6 +21,7 @@ export default defineConfig({
   },
   html: {
     template: "./src/index.html",
+    favicon: "./src-tauri/icons/32x32.png",
   },
   plugins: [
     pluginReact(),

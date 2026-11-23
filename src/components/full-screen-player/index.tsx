@@ -11,12 +11,13 @@ import { useShallow } from "zustand/shallow";
 import type { TrackLyrics } from "@/components/lyrics/use-track-lyrics";
 
 import { resolveMediaUrl } from "@/bridge/media-url";
-import { Themes } from "@/common/constants/theme";
-import { hexToHsl, resolveTheme, isHex } from "@/common/utils/color";
+import { resolvePrimaryColor, Themes } from "@/common/constants/theme";
+import { hexToHsl, isHex } from "@/common/utils/color";
 import AudioWaveform from "@/components/audio-waveform";
 import DesktopLyricsButton from "@/components/desktop-lyrics-button";
 import Lyrics from "@/components/lyrics";
 import PlaybackLinesButton from "@/components/playback-lines-button";
+import { useTheme } from "@/components/theme/use-theme";
 import { useFullScreenPlayerSettings } from "@/store/full-screen-player-settings";
 import { useModalStore } from "@/store/modal";
 import { usePlayList } from "@/store/play-list";
@@ -54,8 +55,8 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
   const isOpen = useModalStore(s => s.isFullScreenPlayerOpen);
   const close = useModalStore(s => s.closeFullScreenPlayer);
   const playItem = usePlayList(state => state.getPlayItem());
-  const primaryColor = useSettings(s => s.primaryColor);
-  const themeMode = useSettings(s => s.themeMode);
+  const primaryPreference = useSettings(s => s.primaryColor);
+  const { theme: appTheme } = useTheme();
   const { showLyrics, showSpectrum, showCover, showBlurredBackground, backgroundColor, spectrumColor, lyricsColor } =
     useFullScreenPlayerSettings(
       useShallow(s => ({
@@ -150,6 +151,7 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
   const reduceMotion = !!useReducedMotion();
   const showMedia = firstOpenFinished || reduceMotion;
   const coverSrc = resolveMediaUrl(playItem?.pageCover || playItem?.cover);
+  const primaryColor = resolvePrimaryColor(showBlurredBackground ? "dark" : appTheme, primaryPreference);
   const { covers, fallback, transitionMs, glow } = useGlassmorphism(
     coverSrc,
     primaryColor,
@@ -166,27 +168,26 @@ const FullScreenPlayer = ({ lyrics }: { lyrics: TrackLyrics }) => {
 
   const computedForegroundHex = useMemo(() => {
     if (showBlurredBackground) return undefined;
-    const baseBg =
-      backgroundColor && isHex(backgroundColor) ? backgroundColor : Themes[resolveTheme(themeMode)].colors!.background;
+    const baseBg = backgroundColor && isHex(backgroundColor) ? backgroundColor : Themes[appTheme].colors.background;
     try {
       return readableColor(baseBg as string);
     } catch {
       return undefined;
     }
-  }, [backgroundColor, themeMode, showBlurredBackground]);
+  }, [backgroundColor, appTheme, showBlurredBackground]);
 
   const themeVars = useMemo(() => {
     const vars: React.CSSProperties = {
       ["--glow-rgb" as any]: `${glow.r} ${glow.g} ${glow.b}`,
       ["--heroui-primary" as any]: hexToHsl(primaryColor),
+      ["--heroui-primary-foreground" as any]: hexToHsl(readableColor(primaryColor)),
+      ["--heroui-focus" as any]: hexToHsl(primaryColor),
     };
     if (computedForegroundHex) {
       vars["--heroui-foreground" as any] = hexToHsl(computedForegroundHex);
     }
     return vars;
   }, [glow, primaryColor, computedForegroundHex]);
-
-  const appTheme = useMemo(() => resolveTheme(themeMode), [themeMode]);
 
   if (!playItem) return null;
 

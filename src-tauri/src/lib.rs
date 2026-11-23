@@ -98,6 +98,7 @@ pub fn run() {
             commands::font_get_list,
             commands::app_log,
             commands::bili_http_request,
+            commands::resolve_bili_short_link,
             commands::load_bilibili_cookies,
             commands::sample_audio_mirror,
             commands::cookie_get,

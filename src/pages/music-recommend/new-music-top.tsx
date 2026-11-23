@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import { Card, Spinner, addToast } from "@heroui/react";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiMusic2Line, RiPlayFill } from "@remixicon/react";
+import { isAxiosError } from "axios";
 
 import { detectPlatform } from "@/bridge/env";
 import log from "@/common/utils/logger";
@@ -27,17 +28,42 @@ type UnifiedItem = {
 };
 
 type NewMusicTopProps = {
+  ref?: React.Ref<NewMusicTopHandle>;
   onLayoutChange?: () => void;
+  onLoadingChange?: (loading: boolean) => void;
 };
 
-const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
+export type NewMusicRefreshResult = { ok: true; stale?: boolean } | { ok: false; error: string; stale?: false };
+
+export interface NewMusicTopHandle {
+  refresh: () => Promise<NewMusicRefreshResult>;
+}
+
+function getNewMusicErrorMessage(error: unknown) {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+    if (status === 412) return "B 站暂未接受这次推荐请求（HTTP 412）。";
+    return status ? `B 站推荐请求失败（HTTP ${status}）。` : "暂时无法连接 B 站推荐服务。";
+  }
+  return error instanceof Error ? error.message : "无法获取新歌速递。";
+}
+
+const NewMusicTop = ({ ref, onLayoutChange, onLoadingChange }: NewMusicTopProps) => {
   const android = detectPlatform() === "android";
   const [items, setItems] = useState<UnifiedItem[]>([]);
   const [newLoading, setNewLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string>();
   const [newPage, setNewPage] = useState(1);
   const gridRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const requestIdRef = useRef(0);
+  const itemsCountRef = useRef(0);
+  const onLoadingChangeRef = useRef(onLoadingChange);
   const [colCount, setColCount] = useState(2);
+
+  useEffect(() => {
+    onLoadingChangeRef.current = onLoadingChange;
+  }, [onLoadingChange]);
 
   const handlePlay = React.useCallback((item: UnifiedItem) => {
     usePlayList
@@ -56,15 +82,44 @@ const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
       });
   }, []);
 
-  const fetchNewMusic = async () => {
-    try {
+  const fetchNewMusic = useCallback(async (preserveItems: boolean): Promise<NewMusicRefreshResult> => {
+    const current = ++requestIdRef.current;
+    onLoadingChangeRef.current?.(true);
+    if (!preserveItems) {
       setNewLoading(true);
-      const [bannerRes, listRes] = await Promise.all([getNewMusicBanner(), getNewMusic()]);
-      const bannerList = bannerRes?.data?.list ?? [];
-      const musicList = listRes?.data?.list ?? [];
+      setLoadError(undefined);
+    }
+    try {
+      const [bannerOutcome, listOutcome] = await Promise.allSettled([getNewMusicBanner(), getNewMusic()]);
+      if (current !== requestIdRef.current) return { ok: true, stale: true };
 
-      const normalizedBanner: UnifiedItem[] = bannerList.map(b => ({
-        key: b.bvid || b.music_id || b.jump_url || (b.cover ? `cover:${b.cover}` : `banner:${Math.random()}`),
+      const bannerOk =
+        bannerOutcome.status === "fulfilled" &&
+        bannerOutcome.value != null &&
+        (bannerOutcome.value.code === undefined || bannerOutcome.value.code === 0);
+      const listOk =
+        listOutcome.status === "fulfilled" &&
+        listOutcome.value != null &&
+        (listOutcome.value.code === undefined || listOutcome.value.code === 0);
+
+      const firstError =
+        (listOutcome.status === "rejected" && listOutcome.reason) ||
+        (bannerOutcome.status === "rejected" && bannerOutcome.reason) ||
+        new Error(
+          (listOutcome.status === "fulfilled" && listOutcome.value?.message) ||
+            (bannerOutcome.status === "fulfilled" && bannerOutcome.value?.message) ||
+            "获取新歌速递失败",
+        );
+
+      if (!bannerOk && !listOk) {
+        throw firstError;
+      }
+
+      const bannerList = bannerOk ? (bannerOutcome.value.data?.list ?? []) : [];
+      const musicList = listOk ? (listOutcome.value.data?.list ?? []) : [];
+
+      const normalizedBanner: UnifiedItem[] = bannerList.map((b, index) => ({
+        key: b.bvid || b.music_id || b.jump_url || (b.cover ? `cover:${b.cover}` : `banner:${index}`),
         title: b.archive_title || "",
         cover: b.cover,
         bvid: b.bvid,
@@ -73,13 +128,13 @@ const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
         date: b.publish_time ? String(b.publish_time).slice(0, 10) : undefined,
       }));
 
-      const normalizedMusic: UnifiedItem[] = musicList.map(m => ({
+      const normalizedMusic: UnifiedItem[] = musicList.map((m, index) => ({
         key:
           m.bvid ||
           (typeof m.id === "number" ? String(m.id) : "") ||
           m.music_id ||
           m.jump_url ||
-          (m.cover ? `cover:${m.cover}` : `music:${Math.random()}`),
+          (m.cover ? `cover:${m.cover}` : `music:${index}`),
         title: m.music_title || "",
         cover: m.cover,
         bvid: m.bvid,
@@ -93,25 +148,52 @@ const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
       const seen = new Set<string>();
       const merged: UnifiedItem[] = [];
       [...normalizedBanner, ...normalizedMusic].forEach(it => {
-        const k = it.key || Math.random().toString();
-        if (!seen.has(k)) {
-          seen.add(k);
+        if (!seen.has(it.key)) {
+          seen.add(it.key);
           merged.push(it);
         }
       });
 
+      if ((!bannerOk || !listOk) && merged.length === 0) {
+        throw firstError;
+      }
+
+      itemsCountRef.current = merged.length;
       setItems(merged);
+      setLoadError(undefined);
       setNewPage(1);
+      return { ok: true };
     } catch (error) {
+      if (current !== requestIdRef.current) return { ok: true, stale: true };
+      const message = getNewMusicErrorMessage(error);
       log.error("[new-music-top] fetchNewMusic error", error);
+      if (!preserveItems) {
+        setLoadError(message);
+      }
+      return { ok: false, error: message };
     } finally {
-      setNewLoading(false);
+      if (current === requestIdRef.current) {
+        setNewLoading(false);
+        onLoadingChangeRef.current?.(false);
+      }
     }
-  };
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      refresh: () => fetchNewMusic(itemsCountRef.current > 0),
+    }),
+    [fetchNewMusic],
+  );
 
   useEffect(() => {
-    fetchNewMusic();
-  }, []);
+    void fetchNewMusic(false);
+    return () => {
+      requestIdRef.current += 1;
+      onLoadingChangeRef.current?.(false);
+    };
+  }, [fetchNewMusic]);
 
   useEffect(() => {
     if (!onLayoutChange) return;
@@ -214,8 +296,9 @@ const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
           className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
         >
           {pageItems.length === 0 ? (
-            <Card className="rounded-medium col-span-full flex h-[200px] items-center justify-center">
-              <span className="text-foreground-500">暂无数据</span>
+            <Card className="rounded-medium col-span-full flex h-[200px] flex-col items-center justify-center gap-1 px-4 text-center">
+              <span className="text-foreground-500">{loadError ? "新歌速递加载失败" : "暂无数据"}</span>
+              {loadError && <span className="text-default-500 text-xs">{loadError}</span>}
             </Card>
           ) : (
             pageItems.map(item => {

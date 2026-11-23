@@ -229,6 +229,14 @@ pub async fn bili_http_request(
 }
 
 #[tauri::command]
+pub async fn resolve_bili_short_link(
+    state: State<'_, Arc<AppState>>,
+    code: String,
+) -> Result<String, String> {
+    state.http.resolve_short_link(&code).await
+}
+
+#[tauri::command]
 pub async fn load_bilibili_cookies(state: State<'_, Arc<AppState>>) -> Result<(), String> {
     state.http.load_homepage_cookies().await
 }

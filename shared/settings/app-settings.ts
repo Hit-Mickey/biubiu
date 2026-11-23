@@ -4,7 +4,7 @@ export const defaultAppSettings: AppSettings = {
   fontFamily: "system-ui",
   borderRadius: 8,
   downloadPath: "",
-  primaryColor: "#1ed760",
+  primaryColor: "#1088FF",
   backgroundColor: "",
   audioQuality: "auto",
   hiddenMenuKeys: [],

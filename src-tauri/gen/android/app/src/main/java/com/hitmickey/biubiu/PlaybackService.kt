@@ -2,6 +2,7 @@ package com.hitmickey.biubiu
 
 import android.app.*
 import android.content.*
+import android.graphics.drawable.Icon
 import android.media.*
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -30,6 +31,10 @@ class PlaybackService : Service() {
     private lateinit var audio: AudioManager
     private lateinit var focus: AudioFocusRequest
     private lateinit var wake: PowerManager.WakeLock
+    private val notificationArtwork by lazy { Icon.createWithResource(this, R.mipmap.ic_launcher_round) }
+    private val mediaArtworkUri by lazy {
+        "${ContentResolver.SCHEME_ANDROID_RESOURCE}://$packageName/${R.drawable.media_artwork}"
+    }
     private var focused = false
     private val becomingNoisy = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) { PhoneControls.command(2, 0) }
@@ -66,7 +71,7 @@ class PlaybackService : Service() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     private fun action(command: Int, icon: Int, name: String): Notification.Action {
         val intent = Intent(this, PlaybackService::class.java).putExtra("command", command)
-        return Notification.Action.Builder(android.graphics.drawable.Icon.createWithResource(this, icon), name,
+        return Notification.Action.Builder(Icon.createWithResource(this, icon), name,
             PendingIntent.getService(this, command, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build()
     }
     private fun sync() {
@@ -75,6 +80,8 @@ class PlaybackService : Service() {
         val artist = snapshot.optString("artist", "")
         session.setMetadata(MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,title)
             .putString(MediaMetadata.METADATA_KEY_ARTIST,artist)
+            .putString(MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI, mediaArtworkUri)
+            .putString(MediaMetadata.METADATA_KEY_ART_URI, mediaArtworkUri)
             .putLong(MediaMetadata.METADATA_KEY_DURATION,(snapshot.optDouble("duration",0.0)*1000).toLong()).build())
         session.setPlaybackState(PlaybackState.Builder()
             .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or
@@ -82,7 +89,8 @@ class PlaybackService : Service() {
             .setState(if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
                 (snapshot.optDouble("position",0.0)*1000).toLong(),if (playing) snapshot.optDouble("rate",1.0).toFloat() else 0f).build())
         val notification = Notification.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_playback).setContentTitle(title).setContentText(artist)
+            .setSmallIcon(R.drawable.ic_playback).setLargeIcon(notificationArtwork)
+            .setColor(0xff1088ff.toInt()).setContentTitle(title).setContentText(artist)
             .setContentIntent(launchIntent()).setOnlyAlertOnce(true).setShowWhen(false)
             .addAction(action(4, android.R.drawable.ic_media_previous, "上一首"))
             .addAction(action(if(playing) 2 else 1, if(playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,

@@ -1,11 +1,13 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 import { Tabs, Tab } from "@heroui/react";
 
+import { parseBiliSearch } from "@/common/utils/bili-search";
 import Empty from "@/components/empty";
 import ScrollContainer, { type ScrollRefObject } from "@/components/scroll-container";
 import { useSearchHistory } from "@/store/search-history";
 
+import DirectTrack from "./direct-track";
 import { SearchType, SearchTypeOptions } from "./search-type";
 import UserList from "./user-list";
 import VideoList from "./video-list";
@@ -14,9 +16,19 @@ const Search = () => {
   const scrollerRef = useRef<ScrollRefObject>(null);
   const [searchType, setSearchType] = useState(SearchType.Video);
   const keyword = useSearchHistory(s => s.keyword);
+  const target = useMemo(() => parseBiliSearch(keyword), [keyword]);
 
   if (!keyword) {
     return <Empty />;
+  }
+
+  if (target) {
+    return (
+      <ScrollContainer className="h-full w-full">
+        <h1 className="px-4 pb-4">歌曲搜索结果</h1>
+        <DirectTrack key={keyword} target={target} />
+      </ScrollContainer>
+    );
   }
 
   return (

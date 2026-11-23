@@ -165,6 +165,23 @@ describe("play-list store", () => {
     expect(usePlayList.getState().list).toHaveLength(needsDetails ? 2 : 1);
   });
 
+  test("plays the requested video part even when another part of the video is already queued", async () => {
+    const player = usePlayList.getState();
+    await player.init();
+    const first = { type: "mv", title: "投稿", bvid: "BV17x411w7KC", cid: "11", totalPage: 2, pageIndex: 1 } as const;
+    const second = { ...first, cid: "12", pageIndex: 2, pageTitle: "下半场", hasMultiPart: true };
+    await player.play(first);
+    const { handleSearchTrackAction } = await import("@/pages/search/video-list/menu");
+    await handleSearchTrackAction("add-to-playlist", second);
+    await player.addToNext(second);
+    await handleSearchTrackAction("add-to-playlist", second);
+    expect(usePlayList.getState().list.map(item => item.cid)).toEqual(["11", "12"]);
+    await player.play(second);
+    expect(player.getPlayItem()).toMatchObject({ cid: "12", pageIndex: 2, pageTitle: "下半场" });
+    await vi.waitFor(() => expect(getDashUrl).toHaveBeenCalledWith(first.bvid, "12"));
+    expect(getWebInterfaceView).not.toHaveBeenCalled();
+  });
+
   test("plays and queues WebDAV tracks by their own IDs", async () => {
     const player = usePlayList.getState();
     await player.init();

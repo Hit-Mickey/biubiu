@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { Tab, Tabs } from "@heroui/react";
 import { useShallow } from "zustand/react/shallow";
 
+import { detectPlatform } from "@/bridge/env";
 import ScrollContainer from "@/components/scroll-container";
 import { useAppUpdateStore } from "@/store/app-update";
 import { useSettings } from "@/store/settings";
@@ -105,7 +106,7 @@ const useSystemSettingsForm = () => {
   }, [watch, updateSettings]);
 
   useEffect(() => {
-    window.electron.getAppVersion().then(v => setAppVersion(v));
+    window.electron?.getAppVersion?.().then(v => setAppVersion(v));
   }, []);
 
   return {
@@ -120,35 +121,61 @@ const useSystemSettingsForm = () => {
 
 const SettingsPage = () => {
   const system = useSystemSettingsForm();
+  const isAndroid = detectPlatform() === "android";
+
+  const settingTabs = [
+    <Tab key="system" title="常规设置">
+      <SystemSettingsTab {...system} />
+    </Tab>,
+    <Tab key="menu" title="菜单设置">
+      <MenuSettings control={system.control} />
+    </Tab>,
+    ...(!isAndroid
+      ? [
+          <Tab key="shortcut" title="快捷键设置">
+            <ShortcutSettingsPage />
+          </Tab>,
+        ]
+      : []),
+    <Tab key="library" title="曲库与备份">
+      <Tabs
+        variant="underlined"
+        aria-label="曲库工具"
+        defaultSelectedKey="records"
+        classNames={{
+          base: "settings-tab-row",
+          tabList: "settings-tab-list",
+          panel: "settings-panel",
+        }}
+      >
+        <Tab key="records" title="听歌统计">
+          <ListeningHistory />
+        </Tab>
+        <Tab key="backups" title="数据备份">
+          <BackupPanel />
+        </Tab>
+      </Tabs>
+    </Tab>,
+    <Tab key="proxy" title="代理设置">
+      <ProxySettings control={system.control} />
+    </Tab>,
+  ];
 
   return (
     <ScrollContainer enableBackToTop className="h-full w-full">
       <div className="settings-page m-auto mb-6 max-w-[900px] px-8 py-4">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <h1>设置</h1>
-          <Tabs aria-label="设置选项" classNames={{ panel: "px-1 py-0", cursor: "rounded-medium" }}>
-            <Tab key="system" title="常规设置">
-              <SystemSettingsTab {...system} />
-            </Tab>
-            <Tab key="menu" title="菜单设置">
-              <MenuSettings control={system.control} />
-            </Tab>
-            <Tab key="shortcut" title="快捷键设置">
-              <ShortcutSettingsPage />
-            </Tab>
-            <Tab key="library" title="曲库与备份">
-              <Tabs variant="underlined" aria-label="曲库工具" defaultSelectedKey="records">
-                <Tab key="records" title="听歌统计">
-                  <ListeningHistory />
-                </Tab>
-                <Tab key="backups" title="数据备份">
-                  <BackupPanel />
-                </Tab>
-              </Tabs>
-            </Tab>
-            <Tab key="proxy" title="代理设置">
-              <ProxySettings control={system.control} />
-            </Tab>
+          <Tabs
+            aria-label="设置选项"
+            classNames={{
+              base: "settings-tab-row",
+              tabList: "settings-tab-list",
+              panel: "settings-panel px-1 py-0",
+              cursor: "rounded-medium",
+            }}
+          >
+            {settingTabs}
           </Tabs>
         </div>
       </div>

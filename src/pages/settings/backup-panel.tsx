@@ -48,13 +48,13 @@ export default function BackupPanel() {
     setName(rows[0] ?? "");
   };
   return (
-    <section className="space-y-3">
+    <section className="min-w-0 space-y-3">
       <h2>曲库备份</h2>
       <p className="text-foreground-500 text-sm">
         保存桌面歌单、队列、本机听歌记录和通用外观／播放设置，不含音频、账号、密码或机器路径。恢复本地或 WebDAV
         曲目需保留原目录或连接。旧版设置 JSON 仍可在常规设置中导入。
       </p>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Button
           size="sm"
           isDisabled={busy}
@@ -103,27 +103,29 @@ export default function BackupPanel() {
         />
       </div>
       {targets.length ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            aria-label="WebDAV 备份目标"
-            className="bg-default-100 max-w-64 rounded p-2 text-sm"
-            disabled={busy}
-            value={id}
-            onChange={e => {
-              setId(e.target.value);
-              setNames([]);
-              setName("");
-              setPending(undefined);
-              setMessage("");
-            }}
-          >
-            <option value="">选择写入的 WebDAV 音乐目录</option>
-            {targets.map(t => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="settings-row-control max-w-full min-w-0 @max-[36rem]/settings-page:w-full">
+            <select
+              aria-label="WebDAV 备份目标"
+              className="bg-default-100 max-w-[min(100%,16rem)] min-w-0 rounded p-2 text-sm @max-[36rem]/settings-page:w-full @max-[36rem]/settings-page:max-w-full"
+              disabled={busy}
+              value={id}
+              onChange={e => {
+                setId(e.target.value);
+                setNames([]);
+                setName("");
+                setPending(undefined);
+                setMessage("");
+              }}
+            >
+              <option value="">选择写入的 WebDAV 音乐目录</option>
+              {targets.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <Button
             size="sm"
             isDisabled={!id || busy}
@@ -165,21 +167,23 @@ export default function BackupPanel() {
         <p className="text-foreground-500 text-sm">先添加 WebDAV 远程列表，即可使用该目录备份。</p>
       )}
       {names.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            aria-label="云端备份"
-            value={name}
-            disabled={busy}
-            className="bg-default-100 max-w-80 rounded p-2 text-sm"
-            onChange={e => {
-              setName(e.target.value);
-              setPending(undefined);
-            }}
-          >
-            {names.map(n => (
-              <option key={n}>{n}</option>
-            ))}
-          </select>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="settings-row-control max-w-full min-w-0 @max-[36rem]/settings-page:w-full">
+            <select
+              aria-label="云端备份"
+              value={name}
+              disabled={busy}
+              className="bg-default-100 max-w-[min(100%,20rem)] min-w-0 rounded p-2 text-sm @max-[36rem]/settings-page:w-full @max-[36rem]/settings-page:max-w-full"
+              onChange={e => {
+                setName(e.target.value);
+                setPending(undefined);
+              }}
+            >
+              {names.map(n => (
+                <option key={n}>{n}</option>
+              ))}
+            </select>
+          </div>
           <Button
             size="sm"
             isDisabled={!name || busy}
@@ -196,12 +200,12 @@ export default function BackupPanel() {
         </div>
       )}
       {pending && (
-        <div className="bg-default-100 space-y-2 rounded p-3">
-          <p>
+        <div className="bg-default-100 min-w-0 space-y-2 rounded p-3">
+          <p className="break-words">
             将替换 {pending.playlists.playlists.length} 个歌单、{pending.queue.length} 首队列曲目、
             {pending.history.length} 条听歌记录，并暂停当前播放。建议先导出现有曲库。
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
               color="danger"
@@ -223,7 +227,7 @@ export default function BackupPanel() {
           </div>
         </div>
       )}
-      <p role="status" className="text-sm">
+      <p role="status" className="text-sm break-words">
         {busy ? "处理中…" : message}
       </p>
     </section>

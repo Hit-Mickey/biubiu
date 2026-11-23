@@ -1,6 +1,9 @@
 fn main() {
-    let attributes = tauri_build::Attributes::new()
-        .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest());
+    const WINDOWS_APP_ICON: &str = "icons/icon.ico";
+    let attributes = tauri_build::Attributes::new().windows_attributes(
+        tauri_build::WindowsAttributes::new_without_app_manifest()
+            .window_icon_path(WINDOWS_APP_ICON),
+    );
     tauri_build::try_build(attributes).expect("Tauri build configuration");
 
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
@@ -9,6 +12,8 @@ fn main() {
         println!("cargo:rustc-link-arg-cdylib=-Wl,-z,defs,-z,max-page-size=16384");
     }
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        // Tauri's Windows resource compiler reads this file outside Rust's dependency graph.
+        println!("cargo:rerun-if-changed={WINDOWS_APP_ICON}");
         if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("gnu") {
             // The desktop EXE links the rlib. MinGW otherwise exports every Rust symbol from the companion DLL.
             println!("cargo:rustc-link-arg-cdylib=-Wl,--exclude-all-symbols");

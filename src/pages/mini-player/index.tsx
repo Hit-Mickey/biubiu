@@ -229,6 +229,7 @@ const MiniPlayer = () => {
               }}
               isDisabled={!title}
               size="sm"
+              color="primary"
               className="flex-1"
               classNames={{
                 trackWrapper: "group",
@@ -275,7 +276,7 @@ const MiniPlayer = () => {
                 onPress={() => {
                   togglePlay();
                 }}
-                className="hover:text-primary window-no-drag"
+                className="text-primary window-no-drag"
               >
                 {isPlaying ? <RiPauseCircleFill size={28} /> : <RiPlayCircleFill size={28} />}
               </Button>

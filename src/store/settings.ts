@@ -32,19 +32,21 @@ export const useSettings = create<AppSettings & SettingsActions>()(
       name: "settings",
       storage: {
         getItem: async () => {
-          const store = await window.electron.getStore(StoreNameMap.AppSettings);
-
-          // 兼容之前的错误默认值
-          if (store?.appSettings?.fontFamily === "system-default") {
-            store.appSettings.fontFamily = "system-ui";
+          const settings = (await window.electron.getStore(StoreNameMap.AppSettings))?.appSettings;
+          if (settings) {
+            if (settings.fontFamily === "system-default") {
+              settings.fontFamily = "system-ui";
+            }
+            const storedPrimary = typeof settings.primaryColor === "string" ? settings.primaryColor.toLowerCase() : "";
+            if (storedPrimary === "#1ed760" || storedPrimary === "#002fa7") {
+              settings.primaryColor = defaultAppSettings.primaryColor;
+            }
+            if (!Object.hasOwn(lyricSearchSources, settings.lyricSearchSource)) {
+              settings.lyricSearchSource = defaultAppSettings.lyricSearchSource;
+            }
           }
-          if (store?.appSettings && !Object.hasOwn(lyricSearchSources, store.appSettings.lyricSearchSource)) {
-            store.appSettings.lyricSearchSource = defaultAppSettings.lyricSearchSource;
-          }
 
-          return {
-            state: store?.appSettings,
-          };
+          return { state: settings };
         },
 
         setItem: async (_, value) => {

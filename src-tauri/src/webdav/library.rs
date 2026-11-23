@@ -288,7 +288,7 @@ impl WebDavManager {
         username: &str,
         password: &str,
     ) -> Result<WebDavClient, String> {
-        WebDavClient::new(self.http.webdav_client(), url, username, password)
+        WebDavClient::new(self.http.no_redirect_client(), url, username, password)
     }
 
     pub fn list_ids(&self) -> Vec<String> {
