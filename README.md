@@ -7,7 +7,7 @@
 </p>
 <p align="center">
   <a href="https://github.com/Hit-Mickey/biubiu/releases">
-    <img src="https://img.shields.io/badge/version-v2.0.0-blueviolet" alt="v2.0.0" />
+    <img src="https://img.shields.io/badge/version-v2.1.0-blueviolet" alt="v2.1.0" />
   </a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange.svg" alt="License" /></a>
 </p>
@@ -143,13 +143,13 @@ pnpm build:android --debug
 
 APK 位于 `src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk`。发布时运行 `pnpm build:android`，Gradle 从 `BIUBIU_ANDROID_KEYSTORE`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD` 读取长期签名。后续版本使用同一密钥才能覆盖安装。
 
-仓库的 Release 工作流同时构建 Android。要把 APK 附到正式发布，在 GitHub 仓库的 Actions secrets 中配置 `ANDROID_KEYSTORE_BASE64`（签名文件的 Base64）及上述密码和别名变量。缺少签名文件时，工作流会在运行记录的 `Android-test` Artifacts 中提供测试 APK。桌面各系统沿用原有发布附件。
+在 GitHub 仓库的 Actions secrets 中配置 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`。其中 `ANDROID_KEYSTORE_BASE64` 是签名文件的 Base64 内容。标签发布需要完整签名配置。手动从分支运行测试构建时，签名配置不完整会生成开发签名的 APK，可从运行记录的 `Android-test` Artifacts 下载。
 
 ## 发布新版本
 
-1. 将 `package.json`、`src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json` 的版本改为相同的 SemVer 值，运行一次 Cargo 更新锁文件，并将版本改动提交到要发布的分支。
-2. 在目标提交上打标签并推送。例如，软件版本 `2.0.0` 对应标签 `v2.0.0`。
-3. GitHub Actions 的 **Release** 工作流会为 Windows、macOS 和 Linux 各构建 x64、ARM64 两种架构。每个任务上传本次构建的文件。各项构建成功且 14 个桌面附件通过校验后（已配置 Android 正式签名时一并校验第 15 个 APK），工作流会将附件上传至 GitHub Release 并公开。正式版和预发布版分别标记。
+1. 将 `package.json`、`src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json` 的版本改为相同的 SemVer 值，运行一次 Cargo 更新 `src-tauri/Cargo.lock`，并提交版本改动。
+2. 在目标提交上打标签并推送。例如，软件版本 `2.1.0` 对应标签 `v2.1.0`。
+3. GitHub Actions 的 **Release** 工作流会为 Windows、macOS 和 Linux 各构建 x64、ARM64 两种架构，并构建同时支持 ARM64 和 x86_64 的 Android APK。14 个桌面附件和 1 个正式签名 APK 全部通过校验后，工作流才会公开 GitHub Release。正式版和预发布版分别标记。
 4. 网页补发可在 **Actions → Release → Run workflow** 填入已有标签。手工选择分支且标签留空，只会生成该分支的测试构建，可在运行页面下载 Artifacts。已经公开的同名 Release 会保留。
 
 ## 📄 许可证

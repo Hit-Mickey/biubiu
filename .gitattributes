@@ -2,3 +2,4 @@
 *.ts whitespace=trailing-space,space-before-tab,cr-at-eol
 *.tsx whitespace=trailing-space,space-before-tab,cr-at-eol
 *.sh text eol=lf
+src-tauri/gen/android/gradlew text eol=lf
