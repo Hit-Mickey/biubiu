@@ -12,43 +12,24 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange.svg" alt="License" /></a>
 </p>
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="./screenshots/home.png" alt="home" width="100%" />
-    </td>
-    <td width="50%" align="center">
-      <img src="./screenshots/main.png" alt="main" width="100%" />
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="./screenshots/download.png" alt="download" width="100%" />
-    </td>
-    <td width="50%" align="center">
-      <img src="./screenshots/fullscreen.jpg" alt="fullscreen" width="100%" />
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="./screenshots/playlist.png" alt="playlist" width="100%" />
-    </td>
-    <td width="50%" align="center">
-      <p> mini 播放器</p>
-      <img src="./screenshots/mini.jpg" alt="mini" width="100%" />
-    </td>
-  </tr>
-</table>
-
 ---
 
-## ✨ 特色功能
+## 相较[wood3n/biu](https://github.com/wood3n/biu)的新增与改进
+
+- **桌面端使用 Tauri v2 和 Rust进行重构，大幅降低内存占用**。
+- **新增 Android 版**，对Android界面进行优化。
+- **搜索支持 BV 号和 B 站视频链接**。Android 和桌面端都可直接输入 BV 号、完整视频链接或 `b23.tv` 短链接查找对应曲目，也可按关键词搜索。
+- **推荐页支持手动刷新**。
+- **新增定位当前播放**。「我的歌单」「远程列表」和「本地音乐」可一键滚动到正在播放的歌曲。
+- **新增「我的歌单」和外部歌单导入**。可创建普通及动态歌单、关联 B 站收藏夹，并将网易云音乐和 QQ 音乐公开歌单的曲目匹配到 B 站。
+- **新增桌面歌词与歌词设置**。桌面歌词支持悬停工具栏、锁定、调色和调整字号。全屏歌词增加本地歌词读取和逐字高亮，歌词搜索可选 QQ 音乐、网易云或 LRCLIB，并可设置默认源。
+- **改进歌词显示与控制**。全屏和桌面歌词支持双语分行，桌面歌词长行可滚动。迷你播放器可直接开关桌面歌词。Windows 和 Linux 默认使用 `Ctrl+G` 在应用内开关歌词，使用 `Ctrl+Alt+G` 全局开关，macOS 对应 `⌘+G` 和 `⌘+⌥+G`。
+- **新增听歌统计及曲库备份**。可将播放记录保存在本机，并将配置和曲库备份到本地文件或 WebDAV。
+- **新增 WebDAV 远程目录中的歌曲播放**，支持递归扫描、搜索排序、列表同步、封面、歌词和歌曲缓存。
+
+## ✨原版功能
 
 - 🎼 支持登录 Bilibili 并获取收藏夹、稍后再看、历史记录等信息
-- 📁 扫描本地音乐目录，把歌曲加入播放队列
-- ☁️ 播放 WebDAV 远程目录中的歌曲，支持递归扫描、搜索排序、列表同步、封面、歌词和歌曲缓存
-- 🎯 在「我的歌单」「远程列表」和「本地音乐」中点击「定位当前播放」，可滚动到当前歌曲
-- 🎤 桌面歌词支持悬停设置。Windows 和 Linux 默认用 `Ctrl+G` 在应用内开关歌词，用 `Ctrl+Alt+G` 全局开关歌词。macOS 对应 `⌘+G` 和 `⌘+⌥+G`
 - 🎧 高品质音频播放，优先拉取更高码率音频流（如无损 Flac，192K/Hi-Res）
 - 🔥 支持视频文件以及提取视频中的音频下载；支持收藏夹视频批量下载
 - 🧩 轻量界面，内置浅色和深色主题，同时可自定义部分主题样式，细腻的滚动与动效体验
@@ -60,12 +41,12 @@
 
 在 GitHub Releases 中选择与你的系统和处理器对应的文件。Windows 的「设置 → 系统 → 系统信息」会显示处理器架构，Mac 的「关于本机」会显示芯片型号。Linux 可运行 `uname -m` 查看。 [下载 BiuBiu](https://github.com/Hit-Mickey/biubiu/releases)
 
-| 系统 | 架构 | 安装或运行 |
-| --- | --- | --- |
-| Windows 10 / 11 | x64、ARM64 | 双击对应架构的 `-setup.exe` 安装。便携版请将 `-portable.zip` 完整解压后运行 `biubiu.exe`。 |
-| macOS 12 及以上 | Intel x64、Apple Silicon ARM64 | 打开 DMG，将 BiuBiu 拖至「应用程序」，也可解压对应架构的 ZIP。 |
-| Linux | x86_64、aarch64 | AppImage 需要执行权限，可运行 `chmod +x BiuBiu_*.AppImage`。Debian / Ubuntu 可用 DEB，Fedora 系发行版可用 RPM。 |
-| Android 8.0 及以上 | ARM64、x86_64 | 在含有 Android 安装包的发布中选择 `BiuBiu_版本号_android.apk`，打开后按系统提示安装。 |
+| 系统               | 架构                           | 安装或运行                                                                                                      |
+| -------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Windows 10 / 11    | x64、ARM64                     | 双击对应架构的 `-setup.exe` 安装。便携版请将 `-portable.zip` 完整解压后运行 `biubiu.exe`。                      |
+| macOS 12 及以上    | Intel x64、Apple Silicon ARM64 | 打开 DMG，将 BiuBiu 拖至「应用程序」，也可解压对应架构的 ZIP。                                                  |
+| Linux              | x86_64、aarch64                | AppImage 需要执行权限，可运行 `chmod +x BiuBiu_*.AppImage`。Debian / Ubuntu 可用 DEB，Fedora 系发行版可用 RPM。 |
+| Android 8.0 及以上 | ARM64、x86_64                  | 在含有 Android 安装包的发布中选择 `BiuBiu_版本号_android.apk`，打开后按系统提示安装。                           |
 
 应用启动后和运行期间会检查本仓库的最新正式版。「设置 → 关于应用」也可手动检查。点击「下载更新」会下载对应系统和架构的发布附件，并校验 GitHub 提供的 SHA-256。校验通过后，Windows 安装版可点击「退出并安装更新」，macOS 会打开 DMG，Linux 会打开系统安装工具或替换当前 AppImage。Windows 便携版可打开下载目录，退出程序后解压新 ZIP。
 
