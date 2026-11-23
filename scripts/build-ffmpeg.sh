@@ -23,7 +23,8 @@ if [[ ! -f "ffmpeg-$version/configure" ]]; then tar xf "$archive"; fi
 case "$(uname -s)" in
   MINGW*|MSYS*|CLANG*|UCRT*) name=ffmpeg.exe; extra=(--enable-schannel --target-os=mingw32 --extra-ldflags=-static) ;;
   Darwin) name=ffmpeg-mac; extra=(--enable-securetransport) ;;
-  Linux) name=ffmpeg-linux; extra=(--enable-gnutls) ;;
+  # FFmpeg 8.1.3's GnuTLS backend references helpers from udp.o even for a TLS-only build.
+  Linux) name=ffmpeg-linux; extra=(--enable-gnutls --enable-protocol=udp) ;;
   *) exit 1 ;;
 esac
 [[ -z "${CC:-}" ]] || extra+=("--cc=$CC")
