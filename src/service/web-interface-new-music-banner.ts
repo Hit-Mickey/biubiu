@@ -1,4 +1,8 @@
+import type { AxiosRequestConfig } from "axios";
+
 import { apiRequest } from "./request";
+
+type NewMusicBannerRequestConfig = Pick<AxiosRequestConfig, "signal">;
 
 export interface NewMusicBannerResponse {
   code?: number;
@@ -24,8 +28,9 @@ export interface List {
   bvid?: string;
 }
 
-export const getNewMusicBanner = async () => {
+export const getNewMusicBanner = async (config?: NewMusicBannerRequestConfig) => {
   return apiRequest.get<NewMusicBannerResponse>("/x/centralization/interface/new/music/banner", {
+    ...config,
     params: {
       web_location: "333.1351",
     },

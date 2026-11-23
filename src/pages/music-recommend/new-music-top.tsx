@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Card, Spinner, addToast } from "@heroui/react";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiMusic2Line, RiPlayFill } from "@remixicon/react";
@@ -28,15 +28,25 @@ type UnifiedItem = {
 };
 
 type NewMusicTopProps = {
-  ref?: React.Ref<NewMusicTopHandle>;
   onLayoutChange?: () => void;
-  onLoadingChange?: (loading: boolean) => void;
 };
 
-export type NewMusicRefreshResult = { ok: true; stale?: boolean } | { ok: false; error: string; stale?: false };
-
-export interface NewMusicTopHandle {
-  refresh: () => Promise<NewMusicRefreshResult>;
+function mergeNewMusicItems(bannerItems: UnifiedItem[], musicItems: UnifiedItem[]) {
+  const seen = new Set<string>();
+  const merged: UnifiedItem[] = [];
+  for (const item of bannerItems) {
+    if (!seen.has(item.key)) {
+      seen.add(item.key);
+      merged.push(item);
+    }
+  }
+  for (const item of musicItems) {
+    if (!seen.has(item.key)) {
+      seen.add(item.key);
+      merged.push(item);
+    }
+  }
+  return merged;
 }
 
 function getNewMusicErrorMessage(error: unknown) {
@@ -48,7 +58,7 @@ function getNewMusicErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "无法获取新歌速递。";
 }
 
-const NewMusicTop = ({ ref, onLayoutChange, onLoadingChange }: NewMusicTopProps) => {
+const NewMusicTop = ({ onLayoutChange }: NewMusicTopProps) => {
   const android = detectPlatform() === "android";
   const [items, setItems] = useState<UnifiedItem[]>([]);
   const [newLoading, setNewLoading] = useState(true);
@@ -56,16 +66,9 @@ const NewMusicTop = ({ ref, onLayoutChange, onLoadingChange }: NewMusicTopProps)
   const [newPage, setNewPage] = useState(1);
   const gridRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const requestIdRef = useRef(0);
-  const itemsCountRef = useRef(0);
-  const onLoadingChangeRef = useRef(onLoadingChange);
   const [colCount, setColCount] = useState(2);
 
-  useEffect(() => {
-    onLoadingChangeRef.current = onLoadingChange;
-  }, [onLoadingChange]);
-
-  const handlePlay = React.useCallback((item: UnifiedItem) => {
+  const handlePlay = useCallback((item: UnifiedItem) => {
     usePlayList
       .getState()
       .play({
@@ -82,118 +85,67 @@ const NewMusicTop = ({ ref, onLayoutChange, onLoadingChange }: NewMusicTopProps)
       });
   }, []);
 
-  const fetchNewMusic = useCallback(async (preserveItems: boolean): Promise<NewMusicRefreshResult> => {
-    const current = ++requestIdRef.current;
-    onLoadingChangeRef.current?.(true);
-    if (!preserveItems) {
-      setNewLoading(true);
-      setLoadError(undefined);
-    }
-    try {
-      const [bannerOutcome, listOutcome] = await Promise.allSettled([getNewMusicBanner(), getNewMusic()]);
-      if (current !== requestIdRef.current) return { ok: true, stale: true };
-
-      const bannerOk =
-        bannerOutcome.status === "fulfilled" &&
-        bannerOutcome.value != null &&
-        (bannerOutcome.value.code === undefined || bannerOutcome.value.code === 0);
-      const listOk =
-        listOutcome.status === "fulfilled" &&
-        listOutcome.value != null &&
-        (listOutcome.value.code === undefined || listOutcome.value.code === 0);
-
-      const firstError =
-        (listOutcome.status === "rejected" && listOutcome.reason) ||
-        (bannerOutcome.status === "rejected" && bannerOutcome.reason) ||
-        new Error(
-          (listOutcome.status === "fulfilled" && listOutcome.value?.message) ||
-            (bannerOutcome.status === "fulfilled" && bannerOutcome.value?.message) ||
-            "获取新歌速递失败",
-        );
-
-      if (!bannerOk && !listOk) {
-        throw firstError;
-      }
-
-      const bannerList = bannerOk ? (bannerOutcome.value.data?.list ?? []) : [];
-      const musicList = listOk ? (listOutcome.value.data?.list ?? []) : [];
-
-      const normalizedBanner: UnifiedItem[] = bannerList.map((b, index) => ({
-        key: b.bvid || b.music_id || b.jump_url || (b.cover ? `cover:${b.cover}` : `banner:${index}`),
-        title: b.archive_title || "",
-        cover: b.cover,
-        bvid: b.bvid,
-        jump_url: b.jump_url,
-        author: b.author,
-        date: b.publish_time ? String(b.publish_time).slice(0, 10) : undefined,
-      }));
-
-      const normalizedMusic: UnifiedItem[] = musicList.map((m, index) => ({
-        key:
-          m.bvid ||
-          (typeof m.id === "number" ? String(m.id) : "") ||
-          m.music_id ||
-          m.jump_url ||
-          (m.cover ? `cover:${m.cover}` : `music:${index}`),
-        title: m.music_title || "",
-        cover: m.cover,
-        bvid: m.bvid,
-        jump_url: m.jump_url,
-        total_vv: m.total_vv,
-        wish_count: m.wish_count,
-        author: m.author,
-        date: m.publish_time || undefined,
-      }));
-
-      const seen = new Set<string>();
-      const merged: UnifiedItem[] = [];
-      [...normalizedBanner, ...normalizedMusic].forEach(it => {
-        if (!seen.has(it.key)) {
-          seen.add(it.key);
-          merged.push(it);
-        }
-      });
-
-      if ((!bannerOk || !listOk) && merged.length === 0) {
-        throw firstError;
-      }
-
-      itemsCountRef.current = merged.length;
-      setItems(merged);
-      setLoadError(undefined);
-      setNewPage(1);
-      return { ok: true };
-    } catch (error) {
-      if (current !== requestIdRef.current) return { ok: true, stale: true };
-      const message = getNewMusicErrorMessage(error);
-      log.error("[new-music-top] fetchNewMusic error", error);
-      if (!preserveItems) {
-        setLoadError(message);
-      }
-      return { ok: false, error: message };
-    } finally {
-      if (current === requestIdRef.current) {
-        setNewLoading(false);
-        onLoadingChangeRef.current?.(false);
-      }
-    }
-  }, []);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      refresh: () => fetchNewMusic(itemsCountRef.current > 0),
-    }),
-    [fetchNewMusic],
-  );
-
   useEffect(() => {
-    void fetchNewMusic(false);
-    return () => {
-      requestIdRef.current += 1;
-      onLoadingChangeRef.current?.(false);
-    };
-  }, [fetchNewMusic]);
+    const controller = new AbortController();
+    const config = { signal: controller.signal };
+
+    async function loadNewMusic() {
+      try {
+        const [bannerResult, musicResult] = await Promise.allSettled([getNewMusicBanner(config), getNewMusic(config)]);
+        if (controller.signal.aborted) return;
+
+        const bannerOk =
+          bannerResult.status === "fulfilled" &&
+          bannerResult.value != null &&
+          (bannerResult.value.code === undefined || bannerResult.value.code === 0);
+        const musicOk =
+          musicResult.status === "fulfilled" &&
+          musicResult.value != null &&
+          (musicResult.value.code === undefined || musicResult.value.code === 0);
+
+        const bannerItems: UnifiedItem[] = (bannerOk ? (bannerResult.value.data?.list ?? []) : []).map((b, index) => ({
+          key: b.bvid || b.music_id || b.jump_url || (b.cover ? "cover:" + b.cover : "banner:" + index),
+          title: b.archive_title || "",
+          cover: b.cover,
+          bvid: b.bvid,
+          jump_url: b.jump_url,
+          author: b.author,
+          date: b.publish_time ? String(b.publish_time).slice(0, 10) : undefined,
+        }));
+        const musicItems: UnifiedItem[] = (musicOk ? (musicResult.value.data?.list ?? []) : []).map((m, index) => ({
+          key:
+            m.bvid ||
+            (typeof m.id === "number" ? String(m.id) : "") ||
+            m.music_id ||
+            m.jump_url ||
+            (m.cover ? "cover:" + m.cover : "music:" + index),
+          title: m.music_title || "",
+          cover: m.cover,
+          bvid: m.bvid,
+          jump_url: m.jump_url,
+          total_vv: m.total_vv,
+          wish_count: m.wish_count,
+          author: m.author,
+          date: m.publish_time || undefined,
+        }));
+        const merged = mergeNewMusicItems(bannerItems, musicItems);
+        if ((!musicOk || !bannerOk) && merged.length === 0) {
+          const failed = musicOk ? bannerResult : musicResult;
+          throw failed.status === "rejected" ? failed.reason : new Error(failed.value?.message || "获取新歌速递失败");
+        }
+        setItems(merged);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        log.error("[new-music-top] fetchNewMusic error", error);
+        setLoadError(getNewMusicErrorMessage(error));
+      } finally {
+        if (!controller.signal.aborted) setNewLoading(false);
+      }
+    }
+
+    void loadNewMusic();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (!onLayoutChange) return;

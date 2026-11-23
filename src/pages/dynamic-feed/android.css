@@ -1,0 +1,67 @@
+.dynamic-feed-page[data-platform="android"] {
+  container: dynamic-feed-page / inline-size;
+  min-width: 0;
+}
+
+.dynamic-feed-page[data-platform="android"] .dynamic-feed-authors-scroll {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: auto hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.dynamic-feed-page[data-platform="android"] .dynamic-feed-authors-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.dynamic-feed-page[data-platform="android"] .dynamic-feed-scroll {
+  min-width: 0;
+  overflow: hidden auto;
+  overflow-anchor: none;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dynamic-feed-item[data-platform="android"] .dynamic-feed-item-body {
+  overflow: visible;
+}
+
+.dynamic-feed-item[data-platform="android"] .dynamic-feed-item-text {
+  overflow-wrap: anywhere;
+}
+
+.dynamic-feed-item[data-platform="android"] .dynamic-feed-archive-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.dynamic-feed-item[data-platform="android"] .dynamic-feed-archive-cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+
+.dynamic-feed-item[data-platform="android"] .dynamic-feed-archive-info {
+  width: 100%;
+  min-width: 0;
+}
+
+@container dynamic-feed-page (min-width: 28rem) {
+  .dynamic-feed-item[data-platform="android"] .dynamic-feed-archive-card {
+    flex-direction: row;
+  }
+
+  .dynamic-feed-item[data-platform="android"] .dynamic-feed-archive-cover {
+    width: 11rem;
+    height: 7rem;
+    aspect-ratio: auto;
+  }
+}

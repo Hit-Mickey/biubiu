@@ -1,4 +1,8 @@
+import type { AxiosRequestConfig } from "axios";
+
 import { apiRequest } from "./request";
+
+export type MusicComprehensiveWebRankConfig = Pick<AxiosRequestConfig, "headers" | "signal">;
 
 // 请求参数（与 service.md 保持一致）
 export interface Params {
@@ -57,6 +61,6 @@ export interface Response {
  * 更多音乐推荐
  * GET /x/centralization/interface/music/comprehensive/web/rank
  */
-export const getMusicComprehensiveWebRank = (params: Params) => {
-  return apiRequest.get<Response>("/x/centralization/interface/music/comprehensive/web/rank", { params });
+export const getMusicComprehensiveWebRank = (params: Params, config?: MusicComprehensiveWebRankConfig) => {
+  return apiRequest.get<Response>("/x/centralization/interface/music/comprehensive/web/rank", { ...config, params });
 };

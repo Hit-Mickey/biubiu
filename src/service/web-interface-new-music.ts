@@ -1,4 +1,8 @@
+import type { AxiosRequestConfig } from "axios";
+
 import { apiRequest } from "./request";
+
+type NewMusicRequestConfig = Pick<AxiosRequestConfig, "signal">;
 
 export interface NewMusicResponse {
   code?: number;
@@ -31,8 +35,9 @@ export interface List {
   total_vv?: number;
 }
 
-export const getNewMusic = async () => {
+export const getNewMusic = async (config?: NewMusicRequestConfig) => {
   return apiRequest.get<NewMusicResponse>("/x/centralization/interface/new/music", {
+    ...config,
     params: {
       plat: 2,
       web_location: "333.1351",

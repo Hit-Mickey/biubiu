@@ -21,6 +21,8 @@ import MoreMenu from "./more-menu";
 
 import "moment/locale/zh-cn";
 
+import "./android.css";
+
 interface DynamicItemProps {
   item: WebDynamicItem;
   className?: string;
@@ -37,7 +39,7 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
   const [isLike, setIsLike] = useState(() => stat?.like?.status === true);
   const [likeCount, setLikeCount] = useState(() => stat?.like?.count || 0);
 
-  const android = detectPlatform() === "android";
+  const android = (window.electron?.getPlatform?.() ?? detectPlatform()) === "android";
   const openProfile = () => navigate(`/user/${author.mid}`, userProfileOptions(author.mid, author.name, author.face));
   const handlePlay = () => {
     if (archive?.bvid)
@@ -100,15 +102,35 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
   };
 
   const card = (
-    <Card className="border-default-100 mb-2 w-full rounded-none border-b bg-transparent pb-4 shadow-none">
-      <CardHeader className={twMerge("flex items-start justify-between px-0 pt-4 pb-2", className)}>
+    <Card
+      data-platform={android ? "android" : undefined}
+      className={twMerge(
+        "dynamic-feed-item border-default-100 mb-2 w-full rounded-none border-b bg-transparent shadow-none",
+        android ? "pb-3" : "pb-4",
+      )}
+    >
+      <CardHeader
+        className={twMerge(
+          android
+            ? "flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-0 pt-3 pb-1.5"
+            : "flex items-start justify-between px-0 pt-4 pb-2",
+          className,
+        )}
+      >
         <User
           isFocusable={!android}
           avatarProps={{
             src: author.face,
+            ...(android ? { size: "sm" as const, className: "shrink-0" } : {}),
           }}
           description={
-            <div className="text-tiny text-default-500 flex items-center gap-1">
+            <div
+              className={
+                android
+                  ? "text-tiny text-default-500 flex min-w-0 flex-wrap items-center gap-x-1 leading-tight"
+                  : "text-tiny text-default-500 flex items-center gap-1"
+              }
+            >
               <span>{timeDisplay}</span>
               {author.pub_action && (
                 <>
@@ -119,17 +141,30 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
             </div>
           }
           name={author.name}
-          className={android ? undefined : "cursor-pointer"}
-          classNames={{
-            name: android ? undefined : "hover:underline",
-          }}
+          className={android ? "min-w-28 flex-1 justify-start" : "cursor-pointer"}
+          classNames={
+            android
+              ? {
+                  base: "min-w-28 max-w-full flex-1 justify-start gap-2",
+                  wrapper: "min-w-0 flex-1 overflow-hidden",
+                  name: "block w-full truncate text-sm leading-tight",
+                  description: "block w-full min-w-0",
+                }
+              : {
+                  name: "hover:underline",
+                }
+          }
           onClick={android ? undefined : openProfile}
         />
-        <div className="flex items-center">
+        <div className={android ? "ml-auto flex shrink-0 items-center gap-0.5" : "flex items-center"}>
           <Button
             variant="light"
             size="sm"
-            className="text-default-500 data-[hover=true]:bg-default-100 flex-1 gap-1"
+            className={
+              android
+                ? "text-default-500 data-[hover=true]:bg-default-100 h-8 min-w-0 shrink-0 gap-1 px-2"
+                : "text-default-500 data-[hover=true]:bg-default-100 flex-1 gap-1"
+            }
             onPress={handleThumb}
           >
             {isLike ? <RiThumbUpFill size={18} /> : <RiThumbUpLine size={18} />}
@@ -159,14 +194,29 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
         </div>
       </CardHeader>
 
-      <CardBody className="group text-small text-default-700 px-0 py-1 whitespace-pre-wrap">
-        {Boolean(textContent) && <p className="mb-2 leading-relaxed">{textContent}</p>}
+      <CardBody
+        className={twMerge(
+          "group text-small text-default-700 px-0 py-1 whitespace-pre-wrap",
+          android && "dynamic-feed-item-body min-w-0",
+        )}
+      >
+        {Boolean(textContent) && (
+          <p className={android ? "dynamic-feed-item-text mb-2 leading-relaxed" : "mb-2 leading-relaxed"}>
+            {textContent}
+          </p>
+        )}
         <div
           className="group border-default-200 dark:border-default-100 bg-default-50 hover:bg-default-100 relative mt-2 cursor-pointer overflow-hidden rounded-xl border"
           onClick={android ? undefined : handlePlay}
         >
-          <div className="flex flex-row">
-            <div className="relative h-32 w-48 shrink-0">
+          <div className={android ? "dynamic-feed-archive-card flex flex-col" : "flex flex-row"}>
+            <div
+              className={
+                android
+                  ? "dynamic-feed-archive-cover bg-default-100 relative aspect-video w-full shrink-0"
+                  : "relative h-32 w-48 shrink-0"
+              }
+            >
               <Image
                 params="472w_264h_1c_!web-dynamic.webp"
                 removeWrapper
@@ -188,12 +238,27 @@ const DynamicItem: React.FC<DynamicItemProps> = ({ item, className }) => {
                 {archive?.duration_text || ""}
               </div>
             </div>
-            <div className="flex min-w-0 grow flex-col justify-between p-3">
+            <div
+              className={
+                android
+                  ? "dynamic-feed-archive-info flex min-w-0 grow flex-col justify-between gap-1.5 p-2.5"
+                  : "flex min-w-0 grow flex-col justify-between p-3"
+              }
+            >
               <div className="space-y-1">
-                <h3 className="line-clamp-2 text-sm font-medium" title={archive?.title || ""}>
+                <h3
+                  className={
+                    android
+                      ? "line-clamp-3 text-sm leading-snug font-medium break-words"
+                      : "line-clamp-2 text-sm font-medium"
+                  }
+                  title={archive?.title || ""}
+                >
                   {archive?.title || ""}
                 </h3>
-                <div className="text-default-500 line-clamp-1 text-xs">{archive?.desc || ""}</div>
+                {Boolean(archive?.desc) && (
+                  <div className="text-default-500 line-clamp-1 text-xs break-words">{archive?.desc || ""}</div>
+                )}
               </div>
               <span className="text-default-400 mt-1 text-xs">{archive?.stat?.play ?? "—"} 观看</span>
             </div>

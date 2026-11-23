@@ -388,71 +388,59 @@ describe("推荐音乐页面刷新与设置提示", () => {
     await flushPromises();
     expect(mocks.regionFeed).toHaveBeenLastCalledWith(expect.objectContaining({ from_region: 1007, display_id: 1 }));
     expect(host.textContent).toContain("鬼畜刷新后");
+    expect(mocks.toast).not.toHaveBeenCalled();
   });
 
-  it("refreshes both rank list and NewMusicTop on pop tab and preserves items on partial failure", async () => {
+  it("loads the popular ranking and new music without offering refresh", async () => {
     await import("@/pages/music-recommend/new-music-top");
-    mocks.webRank
-      .mockResolvedValueOnce(rankResponse(["流行榜单1"]))
-      .mockResolvedValueOnce(rankResponse(["流行榜单2"]))
-      .mockResolvedValueOnce(rankResponse(["流行榜单3"]));
-    mocks.newMusic
-      .mockResolvedValueOnce(newMusicResponse(["新歌A"]))
-      .mockResolvedValueOnce(newMusicResponse(["新歌B"]))
-      .mockRejectedValueOnce(new Error("new music offline"));
-    mocks.newMusicBanner
-      .mockResolvedValueOnce({ code: 0, data: { list: [] } })
-      .mockResolvedValueOnce({ code: 0, data: { list: [] } })
-      .mockRejectedValueOnce(new Error("banner offline"));
+    mocks.webRank.mockResolvedValueOnce(rankResponse(["流行榜单1", "流行榜单2"]));
+    mocks.newMusic.mockResolvedValueOnce(newMusicResponse(["新歌A"]));
 
     await mountRecommend();
     await clickTab("流行");
-    await flushPromises();
-    expect(host.textContent).toContain("流行榜单1");
+
+    const trackTitles = Array.from(host.querySelectorAll('[data-testid="list-track"]')).map(el => el.textContent);
+    expect(trackTitles).toEqual(["流行榜单1", "流行榜单2"]);
     expect(host.textContent).toContain("新歌A");
+    expect(getRefreshButton()).toBeNull();
+    expect(mocks.webRank).toHaveBeenCalledTimes(1);
+    expect(mocks.newMusic).toHaveBeenCalledTimes(1);
 
-    // Both sections refresh on button press
-    await act(async () => getRefreshButton()!.click());
-    await flushPromises();
-    expect(host.textContent).toContain("流行榜单2");
-    expect(host.textContent).toContain("新歌B");
-
-    // NewMusicTop failure preserves existing NewMusicTop items while rank list still updates
-    await act(async () => getRefreshButton()!.click());
-    await flushPromises();
-    expect(host.textContent).toContain("流行榜单3");
-    expect(host.textContent).toContain("新歌B");
-    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "新歌速递刷新失败", color: "danger" }));
+    await clickTab("鬼畜");
+    expect(getRefreshButton()).not.toBeNull();
   });
 
-  it("blocks repeated clicks while pop tab NewMusicTop is loading and recovers from initial NewMusicTop failure", async () => {
-    await import("@/pages/music-recommend/new-music-top");
-    const pendingNewMusic = deferred<ReturnType<typeof newMusicResponse>>();
-    mocks.webRank.mockResolvedValueOnce(rankResponse(["流行榜单A"])).mockResolvedValueOnce(rankResponse(["流行榜单B"]));
-    mocks.newMusicBanner
-      .mockRejectedValueOnce(new Error("banner init fail"))
-      .mockResolvedValueOnce({ code: 0, data: { list: [] } });
-    mocks.newMusic.mockReturnValueOnce(pendingNewMusic.promise).mockResolvedValueOnce(newMusicResponse(["恢复新歌"]));
+  it("offers no reload action when the popular ranking is empty", async () => {
+    mocks.webRank.mockResolvedValueOnce(rankResponse([]));
 
     await mountRecommend();
     await clickTab("流行");
-    await flushPromises();
-    expect(host.textContent).toContain("流行榜单A");
-    expect(getRefreshButton()!.disabled).toBe(true);
 
-    await act(async () => getRefreshButton()!.click());
-    expect(mocks.webRank).toHaveBeenCalledTimes(1);
+    expect(host.textContent).toContain("暂无推荐内容");
+    expect(host.textContent).not.toContain("重新加载");
+    expect(host.textContent).not.toContain("重试");
+    expect(getRefreshButton()).toBeNull();
+  });
 
-    pendingNewMusic.reject(new Error("new music init fail"));
-    await flushPromises();
-    expect(host.textContent).toContain("新歌速递加载失败");
-    expect(getRefreshButton()!.disabled).toBe(false);
+  it("lets an initial rank failure retry independently of new music", async () => {
+    await import("@/pages/music-recommend/new-music-top");
+    mocks.webRank.mockRejectedValueOnce(new Error("rank offline")).mockResolvedValueOnce(rankResponse(["恢复榜单"]));
 
-    await act(async () => getRefreshButton()!.click());
+    await mountRecommend();
+    await clickTab("流行");
+
+    expect(host.textContent).toContain("rank offline");
+    expect(host.textContent).toContain("初版新歌");
+    expect(getRefreshButton()).toBeNull();
+    const retry = Array.from(host.querySelectorAll("button")).find(button => button.textContent?.trim() === "重试");
+    expect(retry).toBeDefined();
+    await act(async () => retry!.click());
     await flushPromises();
-    expect(host.textContent).toContain("流行榜单B");
-    expect(host.textContent).toContain("恢复新歌");
-    expect(host.textContent).not.toContain("新歌速递加载失败");
+
+    expect(host.textContent).toContain("恢复榜单");
+    expect(host.textContent).toContain("初版新歌");
+    expect(mocks.newMusic).toHaveBeenCalledTimes(1);
+    expect(getRefreshButton()).toBeNull();
   });
 
   it("supports refresh across list, compact, and card display layouts", async () => {
